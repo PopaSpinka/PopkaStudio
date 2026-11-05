@@ -1,0 +1,16 @@
+# What install.sh puts here: Python, arduino-cli, the fonts
+.venv/
+.tools/
+tools/fonts/
+# Builds (the page's engine, PopkaStudio/web/build, is in git: no Emscripten needed)
+/build/
+__pycache__/
+# Your projects and your Wi-Fi password — they stay on your computer, never in git
+PopkaStudio/projects/
+PopkaStudio/secrets/
+wifi_net.h
+# The Mac app's build (PopkaStudio/app/build.sh)
+PopkaStudio/app/node_modules/
+PopkaStudio/app/dist/
+PopkaStudio/app/home.json
+.DS_Store

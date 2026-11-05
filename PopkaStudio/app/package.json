@@ -1,0 +1,16 @@
+{
+  "name": "popkastudio",
+  "productName": "PopkaStudio",
+  "version": "1.0.0",
+  "description": "PopkaStudio as a Mac app: the editor in its own window, studio.py started and stopped with it",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "build": "./build.sh"
+  },
+  "devDependencies": {
+    "@electron/packager": "^20.3.0",
+    "electron": "^45.2.3"
+  }
+}

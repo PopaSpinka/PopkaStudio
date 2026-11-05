@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Start PopkaStudio: its helper (PopkaStudio/studio.py) and the editor in your browser — http://localhost:8466.
+# Ctrl+C here stops it. Installed by ./install.sh (the Python in .venv, arduino-cli in .tools/bin).
+set -euo pipefail
+SRC="${BASH_SOURCE[0]}"
+while [ -L "$SRC" ]; do  # (started through the link in ~/.local/bin)
+  T="$(readlink "$SRC")"
+  case "$T" in /*) SRC="$T" ;; *) SRC="$(dirname "$SRC")/$T" ;; esac
+done
+DIR="$(cd "$(dirname "$SRC")" && pwd)"
+PY="$DIR/.venv/bin/python"
+[ -x "$PY" ] || { echo "PopkaStudio is not installed yet: run $DIR/install.sh" >&2; exit 1; }
+export PATH="$DIR/.tools/bin:$PATH"
+URL="http://localhost:8466"
+open_page() { if command -v open >/dev/null; then open "$URL"; else xdg-open "$URL" >/dev/null 2>&1 || echo "Open $URL"; fi; }
+if curl -s -o /dev/null "$URL/api/about"; then  # (already running)
+  open_page
+  exit 0
+fi
+(sleep 1.5 && open_page) &
+exec "$PY" "$DIR/PopkaStudio/studio.py"
