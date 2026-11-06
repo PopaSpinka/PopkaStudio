@@ -55,7 +55,7 @@ SKETCH = os.path.join(BUILD, "PopkaWatch")  # what "Flash" compiles: firmware/Po
 PREVIEW = os.path.join(BUILD, "preview")      # halo_assets.py's previews of the fonts the page asked for
 PROJECTS = os.path.join(HERE, "projects")
 PORT = 8466
-VERSION = "1.2"  # PopkaStudio's version (the About window; the release notes)
+VERSION = "1.3"  # PopkaStudio's version (the About window; the release notes)
 
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 import halo_assets as ha  # noqa: E402 — the board's font and image code
@@ -1221,6 +1221,9 @@ def engine_sources():
 
 def build_engine(force=False):
     out = os.path.join(ENGINE_OUT, "PopkaWatch.wasm")
+    if not force and os.path.exists(out) and installed_copy():
+        return  # (an installed copy: the engine came with the release — rebuilt here it would differ from git's, and the
+                # update would see PopkaStudio's own files changed; found on a test update, 6 Nov 2026)
     if not force and os.path.exists(out):
         newest = max(os.path.getmtime(f) for f in engine_sources())
         if os.path.getmtime(out) >= newest:
@@ -1232,6 +1235,180 @@ def build_engine(force=False):
                  "to build it: get PopkaStudio again (git pull / install.sh), or install Emscripten.")
     print("building the page's engine (engine/build.sh) …", flush=True)
     subprocess.run([os.path.join(HERE, "engine/build.sh")], check=True)
+
+
+# ---------- Updates (6 Nov 2026): a newer PopkaStudio on GitHub — what changed since this one, and the update ----------
+# The page asks /api/update: the releases of github.com/PopaSpinka/PopkaStudio newer than VERSION, with their notes as
+# written for GitHub (the developer keeps them in PopkaStudio/public/releases/). GitHub is asked at most once a day
+# (projects/.update.json keeps its answer) or right now — "Check for updates" (?now=1). Nothing about the user goes
+# there: one GET with a plain User-Agent, as git pull does. Only an installed copy — a clone of that repository
+# (install.sh) — checks by itself and can update itself; any other folder (the developer's own repository) checks only
+# when asked and can't update. The update: git fetch + fast-forward (refused when PopkaStudio's own files were changed
+# by hand), then install.sh — what the new version needs (Python libraries, the ESP32 core, the fonts, the command);
+# then a restart of this program in place (os.execv): the same port, the page reloads itself.
+UPDATE_REPO = "PopaSpinka/PopkaStudio"
+RELEASES_URL = os.environ.get("POPKASTUDIO_RELEASES_URL",
+                              f"https://api.github.com/repos/{UPDATE_REPO}/releases?per_page=30")  # (a test: a file:// list)
+PRETEND = os.environ.get("POPKASTUDIO_PRETEND_VERSION", "")  # (a test: the window as an older copy sees it — never updates)
+UPDATE_EVERY = 24 * 3600
+upd_lock = threading.Lock()
+upd = {"state": "idle", "pct": 0, "step": "", "log": [], "error": "", "command": "", "to": ""}
+
+
+def vkey(v):
+    """ "v1.2.3" -> (1, 2, 3); not a version -> ()."""
+    parts = str(v).strip().lstrip("vV").split(".")
+    return tuple(int(p) for p in parts) if parts and all(p.isdigit() for p in parts) else ()
+
+
+def current_version():
+    return PRETEND or VERSION
+
+
+def installed_copy():
+    """A clone of PopkaStudio's own repository (as install.sh makes it): it checks for updates by itself and updates."""
+    if PRETEND or not os.path.isdir(os.path.join(ROOT, ".git")) or not os.path.isfile(os.path.join(ROOT, "install.sh")):
+        return False
+    r = subprocess.run(["git", "-C", ROOT, "remote", "get-url", "origin"], capture_output=True, text=True)
+    return r.returncode == 0 and UPDATE_REPO.lower() in r.stdout.strip().lower()
+
+
+def releases(now=False):
+    """The releases on GitHub, newest first: [{v, name, date, notes}] — from projects/.update.json when asked within a
+    day (and not now). Raises when GitHub can't be reached."""
+    path = os.path.join(PROJECTS, ".update.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            cache = json.load(f)
+    except (OSError, ValueError):
+        cache = {}
+    if not now and isinstance(cache.get("releases"), list) and time.time() - cache.get("at", 0) < UPDATE_EVERY \
+            and cache.get("url") == RELEASES_URL:
+        return cache["releases"]
+    req = urllib.request.Request(RELEASES_URL, headers={"User-Agent": "PopkaStudio/" + VERSION,
+                                                        "Accept": "application/vnd.github+json"})
+    with urllib.request.urlopen(req, timeout=10) as r:
+        data = json.loads(r.read().decode())
+    rel = [{"v": d["tag_name"].strip().lstrip("vV"), "name": d.get("name") or "", "date": d.get("published_at") or "",  # (ISO, UTC: the page shows its own day)
+            "notes": d.get("body") or ""}
+           for d in data if isinstance(d, dict) and not d.get("draft") and not d.get("prerelease") and vkey(d.get("tag_name", ""))]
+    rel.sort(key=lambda r: vkey(r["v"]), reverse=True)
+    try:
+        os.makedirs(PROJECTS, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({"at": int(time.time()), "url": RELEASES_URL, "releases": rel}, f, indent=1)
+    except OSError:
+        pass
+    return rel
+
+
+def update_info(now=False):
+    """For /api/update: this version, whether this copy updates itself, and the releases newer than it."""
+    mine, auto = current_version(), installed_copy() or bool(PRETEND)
+    info = {"version": mine, "installed": installed_copy(), "newer": [], "latest": ""}
+    if not (auto or now):  # (the developer's folder: only when asked)
+        return info
+    try:
+        rel = releases(now)
+    except Exception as e:  # noqa: BLE001 — no internet, GitHub busy: no update shown
+        return {**info, "error": "Can't reach GitHub", "detail": str(e)[:200]}
+    info["latest"] = rel[0]["v"] if rel else ""
+    info["newer"] = [r for r in rel if vkey(r["v"]) > vkey(mine)]
+    return info
+
+
+def update_command(changed=False):
+    """What to paste into Terminal when Update can't (~ for the home folder; changed by hand — put aside first: git stash
+    keeps them, git stash pop brings them back)."""
+    home = os.path.expanduser("~")
+    where = "~" + ROOT[len(home):] if ROOT.startswith(home + os.sep) else ROOT
+    where = where if re.fullmatch(r"[~\w./-]+", where) else shlex.quote(ROOT)
+    return f"cd {where} && " + ("git stash && " if changed else "") + "./install.sh"
+
+
+def update_job():
+    """The update itself, in a thread: upd tells the page how it goes (pct, step), then "done" with the new version."""
+    def say(step, pct=None):
+        with upd_lock:
+            upd["step"] = step
+            if pct is not None:
+                upd["pct"] = max(upd["pct"], int(pct))
+            upd["log"].append(step)
+
+    def fail(error, detail="", changed=False):
+        with upd_lock:
+            upd.update(state="error", error=error, command=update_command(changed))
+            if detail:
+                upd["log"].append(detail[-2000:])
+
+    env = dict(os.environ)
+    extra = [os.path.join(ROOT, ".tools", "bin"), os.path.expanduser("~/.local/bin"), "/opt/homebrew/bin", "/usr/local/bin"]
+    env["PATH"] = os.pathsep.join(extra + [env.get("PATH", "/usr/bin:/bin")])  # (the Mac app starts with a short PATH)
+    git = ["git", "-C", ROOT]
+    try:
+        # 1. PopkaStudio's own files as they came: else git can't put the new ones over them (the page's engine — built,
+        #    not written by hand: back to git's, in case an older studio.py rebuilt it here)
+        subprocess.run(git + ["checkout", "--", os.path.relpath(ENGINE_OUT, ROOT)], capture_output=True, env=env)
+        changed = subprocess.run(git + ["status", "--porcelain", "--untracked-files=no"], capture_output=True, text=True, env=env)
+        if changed.returncode or changed.stdout.strip():
+            return fail("PopkaStudio's files were changed by hand — update in Terminal", changed.stdout + changed.stderr, True)
+        before = subprocess.run(git + ["rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+        # 2. the new code: fetch (its percent → 0–60 %), then a fast-forward
+        say("Downloading", 2)
+        p = subprocess.Popen(git + ["fetch", "--progress", "origin", "main"], stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+                             env=env, text=True, bufsize=1)
+        buf, tail = "", []
+        while True:
+            ch = p.stderr.read(1)
+            if not ch:
+                break
+            if ch in "\r\n":
+                m = re.search(r"(Receiving objects|Resolving deltas):\s+(\d+)%", buf)
+                if m:
+                    say("Downloading", 2 + (0.5 if m.group(1).startswith("Receiving") else 0.1) * int(m.group(2))
+                        + (50 if m.group(1).startswith("Resolving") else 0))
+                if buf.strip():
+                    tail = (tail + [buf.strip()])[-20:]
+                buf = ""
+            else:
+                buf += ch
+        if p.wait():
+            return fail("Can't download the update", "\n".join(tail))
+        r = subprocess.run(git + ["merge", "--ff-only", "FETCH_HEAD"], capture_output=True, text=True, env=env)
+        if r.returncode:
+            return fail("The update can't go over this copy — update in Terminal", r.stdout + r.stderr, True)
+        say("Installing", 62)
+        # 3. what the new version needs: its install.sh (its "▸" steps → 62–98 %)
+        p = subprocess.Popen(["bash", os.path.join(ROOT, "install.sh")], cwd=ROOT, stdout=subprocess.PIPE,
+                             stderr=subprocess.STDOUT, env=env, text=True, bufsize=1)
+        out, n = [], 0
+        for line in p.stdout:
+            line = re.sub(r"\x1b\[[0-9;]*m", "", line).rstrip()
+            out = (out + [line])[-40:]
+            if line.startswith("▸"):
+                n += 1
+                say(line.lstrip("▸ ").strip(), 62 + min(36, n * 6))
+        if p.wait():
+            return fail("The update's install step failed", "\n".join(out))
+        after = subprocess.run(git + ["rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+        try:
+            with open(os.path.join(HERE, "studio.py"), encoding="utf-8") as f:
+                new = re.search(r'^VERSION = "([^"]+)"', f.read(), re.M).group(1)
+        except (OSError, AttributeError):
+            new = ""
+        with upd_lock:
+            upd.update(state="done", pct=100, step="Done", to=new, same=(after == before))
+    except Exception as e:  # noqa: BLE001 — git missing, a folder gone: tell, never crash the studio
+        fail("The update stopped", str(e))
+
+
+def restart_soon():
+    """This program again, in its own place (the same PID: the Mac app keeps it; the same port): after the answer."""
+    def go():
+        time.sleep(0.4)
+        sys.stdout.flush()
+        os.execv(sys.executable, [sys.executable] + sys.argv)
+    threading.Thread(target=go, daemon=True).start()
 
 
 # ---------- Boards ----------
@@ -1934,7 +2111,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
             except Exception as e:  # noqa: BLE001 — no internet
                 return self.send(502, {"error": "No internet", "detail": str(e)[:200]})
         if url.path == "/api/about":
-            return self.send(200, {"version": VERSION})
+            return self.send(200, {"version": current_version()})
+        if url.path == "/api/update":  # what's newer on GitHub (?now=1 — ask it now); ?status=1 — how the update goes
+            if q.get("status"):
+                with upd_lock:
+                    return self.send(200, {k: v for k, v in upd.items() if k != "log"} | {"log": upd["log"][-12:]})
+            return self.send(200, update_info(bool(q.get("now"))))
         if url.path == "/api/boards":
             return self.send(200, {"boards": BOARDS, "ports": boards.status()})
         if url.path == "/api/live":
@@ -1961,6 +2143,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
         url = urllib.parse.urlparse(self.path)
         try:
             data = self.body()
+            if url.path == "/api/update":  # {"go": true} — update this copy (update_job); only an installed one
+                if not installed_copy():
+                    return self.send(403, {"error": "This copy doesn't update itself", "command": update_command()})
+                with upd_lock:
+                    if upd["state"] == "running":
+                        return self.send(409, {"error": "Already updating"})
+                    upd.update(state="running", pct=0, step="", log=[], error="", command="", to="")
+                threading.Thread(target=update_job, daemon=True).start()
+                return self.send(200, {"ok": True})
+            if url.path == "/api/restart":  # after an update: this program again (restart_soon)
+                if not installed_copy():
+                    return self.send(403, {"error": "This copy doesn't restart itself"})
+                self.send(200, {"ok": True})
+                return restart_soon()
             if url.path == "/api/font":  # {"type", sizes…; "part": "icon" — its second font}
                 spec = (font2_spec if data.get("part") == "icon" else font_spec)(clean_layer(data))
                 if not spec:

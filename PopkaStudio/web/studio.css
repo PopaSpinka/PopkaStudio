@@ -831,3 +831,80 @@ body.sorting .layer:hover:not(.lifted):not(.sel) { background: none; }
 .layer .icon-btn.needs-wifi { opacity: 0.35; }
 .layer:hover .icon-btn.needs-wifi { opacity: 0.35; }
 .layer:hover .icon-btn.needs-wifi:hover { opacity: 0.7; }
+
+/* ---------- Updates (update.js; variant 3 of web/mockups/updates.html): a blue number on the heart — how many versions
+   are newer; "What's new" — the versions on the left (as a folder's categories), the picked one's notes on the right ---------- */
+.ab-foot { justify-content: flex-start; gap: 18px; }
+.ab-foot #about-ok { margin-left: auto; }
+.ab-foot #about-check:disabled { color: var(--dim); opacity: 1; }
+.heart-btn { overflow: visible; }
+.upd-badge {
+  position: absolute; top: -1px; right: -2px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 8px;
+  background: var(--accent); color: #fff; font-size: 9.5px; font-weight: 700; line-height: 15px; text-align: center;
+  box-shadow: 0 0 0 2px var(--panel); pointer-events: none;
+}
+.upd-ov {
+  position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; padding: 16px;
+  background: rgba(10, 10, 12, 0.38); backdrop-filter: blur(12px) saturate(1.1); -webkit-backdrop-filter: blur(12px) saturate(1.1);
+  opacity: 0; transition: opacity 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.upd-ov.on { opacity: 1; }
+.upd-win {
+  position: relative; width: min(760px, 100%); height: min(520px, calc(100vh - 32px)); display: flex; flex-direction: column;
+  padding: 20px 20px 14px; outline: none;
+  background: rgba(30, 31, 34, 0.96); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 40px 120px rgba(0, 0, 0, 0.55);
+  transform: scale(0.97); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.upd-ov.on .upd-win { transform: none; }
+.upd-h { padding: 0 40px 12px 4px; }
+.upd-h b { display: block; font-size: 18px; font-weight: 650; }
+.upd-h span { color: var(--dim); }
+.upd-two { flex: 1; min-height: 0; display: grid; grid-template-columns: 180px minmax(0, 1fr); border-top: 1px solid var(--line); }
+.upd-vers { display: flex; flex-direction: column; gap: 2px; padding: 8px 8px 8px 0; border-right: 1px solid var(--line); overflow-y: auto; }
+.upd-v, .upd-v:hover:not(:disabled) {
+  display: flex; align-items: center; gap: 7px; flex: none; height: 38px; padding: 0 10px; border: 0; border-radius: 8px;
+  background: none; color: var(--text); text-align: left;
+}
+.upd-v:hover:not(:disabled) { background: var(--panel-2); }
+.upd-v.on, .upd-v.on:hover:not(:disabled) { background: var(--accent-soft); }
+.upd-v b { font-weight: 650; }
+.upd-v > span:last-child { margin-left: auto; color: var(--faint); font-size: 11px; }
+.upd-v.yours { color: var(--faint); }
+.upd-v.yours b { font-weight: 550; }
+.upd-tag { padding: 1px 5px; border-radius: 5px; background: var(--accent-soft); color: #8fb6ff; font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em; }
+.upd-notes { min-height: 0; overflow-y: auto; padding: 10px 6px 10px 18px; line-height: 1.45;
+  scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+.upd-vh { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+.upd-vh b { font-size: 15px; font-weight: 650; }
+.upd-vh > span:last-child { color: var(--faint); font-size: 11.5px; }
+.upd-sum { color: var(--text); margin-bottom: 4px; }
+.upd-notes p { margin: 6px 0; color: var(--dim); }
+.upd-grp { margin: 12px 0 5px; color: var(--faint); font-size: 10.5px; font-weight: 650; letter-spacing: 0.1em; text-transform: uppercase; }
+.upd-items, .upd-items ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 5px; }
+.upd-items ul { margin-top: 4px; }
+.upd-items li { position: relative; padding-left: 14px; color: var(--dim); }
+.upd-items li::before { content: ""; position: absolute; left: 3px; top: 7px; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
+.upd-items ul li::before { background: var(--line-2); }
+.upd-items b { color: var(--text); font-weight: 600; }
+.upd-more { display: block; margin-top: 4px; }
+.upd-notes code { padding: 0 4px; border-radius: 4px; background: var(--panel-2); font-size: 0.92em; }
+.upd-notes a { color: #8fb6ff; }
+.upd-foot { display: flex; align-items: center; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+.upd-foot .upd-about { padding-left: 4px; }
+.upd-step { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; color: var(--faint); font-size: 12px;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.upd-err { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 10px 4px 2px; border-top: 1px solid var(--line);
+  color: #ff9a9a; font-size: 12px; }
+.upd-err[hidden] { display: none; }
+.upd-cmd { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; height: 26px; padding: 0 8px; border-radius: 6px;
+  background: var(--bg); border: 1px solid var(--line-2); color: var(--text); }
+.upd-cmd code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.upd-cmd svg { flex: none; width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+.upd-cmd.copied { border-color: rgba(92, 208, 138, 0.6); }
+.upd-foot .upd-later, .upd-foot .upd-go { min-width: 96px; height: 32px; justify-content: center; border-radius: 8px; }
+.upd-go { position: relative; overflow: hidden; }
+.upd-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: rgba(255, 255, 255, 0.24); transition: width 0.3s; }
+.upd-t { position: relative; }
+.upd-go.running:disabled { opacity: 1; }
+.upd-go.ok, .upd-go.ok:hover:not(:disabled) { background: #2c6b45; color: #d9ffe6; }
+.upd-foot [hidden] { display: none !important; }  /* (button.primary's display would show it) */

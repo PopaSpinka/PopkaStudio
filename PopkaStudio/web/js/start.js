@@ -7,6 +7,7 @@
 import { state, on, openProject, closeProject, change, projectName, home, screens, newLayer, FACE_SCREEN } from './state.js';
 import { engines } from './engine.js';
 import { preview } from './previews.js';
+import { justUpdated } from './update.js';
 
 const $ = (id) => document.getElementById(id);
 let boards = [], projects = [], board = 'amoled175', opened = false, onOpen = null, ready = null;
@@ -254,7 +255,8 @@ export function initStart(open, built) {
     if (e.key === 'Escape') step() === 3 ? go(2) : hideStart();
     if (e.key === 'Enter' && step() === 1 && !e.target.closest?.('button, .ptile')) go(2);
   });
-  showStart();
+  if (justUpdated()) ready.then(() => (state.pid ? pick(state.pid) : showStart()));  // (back from an update: the same project)
+  else showStart();
 }
 
 // ---------- The project's picture: its watch face, a while after a save (once its fonts are all there) ----------

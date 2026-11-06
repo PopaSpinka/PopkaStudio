@@ -10,6 +10,7 @@ import { initBoard } from './board.js';
 import { initLive } from './live.js';
 import { initStart, startOpen, thumbSoon } from './start.js';
 import { initAbout } from './about.js';
+import { initUpdate } from './update.js';
 
 const $ = (id) => document.getElementById(id);
 let stage;
@@ -19,6 +20,7 @@ async function start() {
   let built;
   const ready = new Promise((r) => { built = r; });
   initAbout();
+  initUpdate();  // (a newer PopkaStudio: the number on the heart)
   initStart((fresh) => {
     if (state.mode === 'try' || (fresh && state.mode !== 'edit')) setMode('edit');  // (a new project: in Edit)
     stage.mapView = null;

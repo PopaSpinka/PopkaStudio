@@ -64,7 +64,11 @@ Then:
 popkastudio
 ```
 
-It opens **http://localhost:8466**. Run `install.sh` again any time to update.
+It opens **http://localhost:8466**.
+
+**Updates:** when a new version is out, a blue number appears on the heart at the top right — how many updates
+since yours. Click it to see what's new in each one, then **Update**: PopkaStudio updates itself and restarts, and you
+**Load** your project again. **About → Check for updates** checks right away. (Running `install.sh` again updates too.)
 
 Windows is not supported.
 
@@ -99,8 +103,9 @@ the factory demo.
 ## Privacy
 
 No accounts, no telemetry. The editor talks only to [Open-Meteo](https://open-meteo.com) (the weather for the cities
-you pick) and [Zippopotam.us](https://zippopotam.us) (when you look up a US ZIP code). The watch connects to your
-Wi-Fi only for the time and the weather, and only if you turn Wi-Fi on.
+you pick), [Zippopotam.us](https://zippopotam.us) (when you look up a US ZIP code) and GitHub — once a day, for the
+list of PopkaStudio's releases (the same request any browser makes; nothing about you is sent). The watch connects to
+your Wi-Fi only for the time and the weather, and only if you turn Wi-Fi on.
 
 ## Plans
 
