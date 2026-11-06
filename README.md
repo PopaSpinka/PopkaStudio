@@ -19,12 +19,16 @@ what the watch shows, pixel for pixel — the same fonts, the same animations, t
   battery, forecast, a starry sky with meteors, pixel art (meet **Popka**, the parrot). Move, resize, recolor
   everything; any number of copies.
 - **Apps** — a gallery of cards (as on modern smartwatches), Weather with real data and several cities, Steps (the
-  motion chip's own pedometer), Display brightness, Battery, a Music player, a voice Recorder, and three self-playing
-  snake games.
+  motion chip's own pedometer), Display brightness, Battery, a Music player, a voice Recorder, three self-playing
+  snake games, and About and Power — live cards about the board itself (processor, memory, battery, temperature,
+  sound, motion; voltages).
 - **A map of screens** — every screen at once, links drawn as curves; tap a card or a layer to open a screen, with
   transitions.
 - **Try** — use the watch right in the editor, the mouse as your finger.
 - **Live** — with the board on USB, moves and colors change on the watch as you drag them, no Load needed.
+- **It knows your board** — the dot next to the board's name: green — this project is on it, blue — PopkaStudio
+  firmware from another project or an older version, yellow — someone else's firmware. **Check the board** reads it
+  without writing anything; **Save its firmware** keeps a copy of someone else's firmware before your first Load.
 - **Functions** — Always On display, what the side buttons do (screen off, lock), waking up by touch, raising your
   wrist or a button, Wi-Fi (exact time and fresh weather), Bluetooth.
 - **Only what you add gets in.** A layer you don't use isn't in the firmware at all — no code, no fonts, sensors off.
@@ -66,21 +70,28 @@ Windows is not supported.
 
 ## First steps
 
-1. **Choose a board**, then **New** — a project.
-2. Add parts from the dock at the bottom: **Watch faces** (a whole face), **Face** (its parts), **App**.
+1. **Choose a board**, then **New** — a project. It starts as an empty black watch face: you add only what you need.
+2. Add parts from the folders at the top of the left card: **Faces** (a whole face), **Layers** (its parts), **App**.
+   A tile with a green frame is already in your project.
 3. Connect the board with a USB-C cable and press **Load** (top right). The first Load builds everything and takes a
    minute or two; the next ones are faster.
 
-Your projects are saved on your computer (`PopkaStudio/projects/`). The Wi-Fi password you enter in **Functions →
-Wi-Fi** stays on your computer too (`PopkaStudio/secrets/`) and goes only into the firmware it builds.
+Wi-Fi is off in a new project — the clock takes its time from your computer at each Load. Choose **From: Wi-Fi** for
+a clock's time or pick a weather city, and the Wi-Fi window lists the networks your board sees.
 
-To go back to the board's factory demo, see
-[Waveshare's examples](https://github.com/waveshareteam/ESP32-S3-Touch-AMOLED-1.75C).
+Your projects are saved on your computer (`PopkaStudio/projects/`). The Wi-Fi password stays on your computer too
+(`PopkaStudio/secrets/`) and goes only into the firmware it builds.
+
+To go back to the firmware that was on the board, use the copy from **Save its firmware** (`PopkaStudio/backups/`,
+with `restore.txt`), or see [Waveshare's examples](https://github.com/waveshareteam/ESP32-S3-Touch-AMOLED-1.75C) for
+the factory demo.
 
 ## Trouble?
 
 - **No board in the list** — try another cable (some carry only power). Linux: did you log out and back in after
   installing? Ubuntu's ModemManager can grab the port: `sudo systemctl stop ModemManager`.
+- **Load can't reach the board** — PopkaStudio shows how: hold **BOOT**, plug the cable in again, then **Load
+  again**.
 - **Load failed** — the log is under the Load button; open an [issue](https://github.com/PopaSpinka/PopkaStudio/issues)
   with it.
 - **The board hangs** — hold PWR for 8–10 seconds, then turn it on again.

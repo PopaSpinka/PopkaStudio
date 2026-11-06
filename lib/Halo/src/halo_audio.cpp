@@ -39,7 +39,7 @@ static bool mic_run;            // задача звука: приём вклю�
 static int16_t *ring;
 static volatile uint32_t ring_head;
 static uint32_t ring_tail, mic_lost;
-static volatile float mic_level = -90;
+static volatile float mic_level = -90, mic_level1 = -90, mic_level2 = -90;  // оба вместе, MIC1, MIC2
 
 static void es_w(uint8_t r, uint8_t v) {
   const uint8_t b[2] = {r, v};
@@ -85,8 +85,10 @@ static void mic_pull() {
     const int raw = got / 2;
     if (raw <= 0) return;
     int n = 0, i = 0;
+    float s1 = 0, s2 = 0;
     auto pair = [&](int l, int r) {  // (на месте: пишем в n ≤ i, уже прочитанное)
       ring[at + n++] = (int16_t)((l + r) >> 1);
+      s1 += (float)l * l, s2 += (float)r * r;
     };
     if (mic_half) mic_half = false, pair(mic_carry, ring[at]), i = 1;
     for (; i + 1 < raw; i += 2) pair(ring[at + i], ring[at + i + 1]);
@@ -97,6 +99,8 @@ static void mic_pull() {
       s += v * v;
     }
     mic_level = s > 0 && n ? fmaxf(-90, 10 * log10f(s / n) - 90.309f) : -90;  // 90,309 = 20·lg 32768
+    mic_level1 = s1 > 0 && n ? fmaxf(-90, 10 * log10f(s1 / n) - 90.309f) : -90;
+    mic_level2 = s2 > 0 && n ? fmaxf(-90, 10 * log10f(s2 / n) - 90.309f) : -90;
     __atomic_store_n(&ring_head, h + n, __ATOMIC_RELEASE);
     if (raw < room) return;
   }
@@ -245,7 +249,7 @@ int halo_mic_begin(int sample_rate) {
   if (!rx_ready && !rx_init(rx)) return 0;
   mic_codec_on();
   ring_tail = __atomic_load_n(&ring_head, __ATOMIC_ACQUIRE), mic_lost = 0;
-  mic_level = -90;
+  mic_level = mic_level1 = mic_level2 = -90;
   mic_want = true;  // приём включит задача звука на следующем круге (≤ 10–16 мс)
   halo_stay_awake(true);  // в настоящем сне I2S стоит
   LOG("mic: ES7210 ok, %d Hz, gain %d dB\n", rate, MIC_GAIN * 3);
@@ -269,6 +273,10 @@ int halo_mic_read(int16_t *mono, int n) {
 
 float halo_mic_db() {
   return mic_want ? mic_level : -90;
+}
+
+void halo_mic_db2(float &mic1, float &mic2) {
+  mic1 = mic_want ? mic_level1 : -90, mic2 = mic_want ? mic_level2 : -90;
 }
 
 void halo_mic_end() {

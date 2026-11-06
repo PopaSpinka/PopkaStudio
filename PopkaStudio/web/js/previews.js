@@ -16,7 +16,7 @@ function engine() {
     canvas.width = canvas.height = W;
     eng = new Engine(canvas, 1);  // (screen 1: an empty home before it)
     eng.onAssets = () => {};
-    ready = eng.start();
+    ready = eng.start().catch((e) => { ready = null; throw e; });  // (didn't start: a new one next time)
   }
   return ready;
 }
@@ -25,9 +25,11 @@ function engine() {
 // screen's size (device pixels; none — the tile's)
 export function preview(key, make, whole = false, px = 0) {
   if (!cache.has(key)) {
-    const p = queue.then(() => draw(make(), whole, px)).catch(() => null);
+    const p = queue.then(() => draw(make(), whole, px)).catch(() => { ready = null; return null; });  // (broken: a new engine)
     queue = p;
     cache.set(key, p);
+    p.then((url) => { if (!url) cache.delete(key); });  // (no picture: asked again the next time the folder opens —
+                                                         // once it failed it stayed an icon for the whole session)
   }
   return cache.get(key);
 }

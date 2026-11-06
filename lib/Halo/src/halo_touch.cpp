@@ -11,7 +11,9 @@
 // его флаги прерываний (регистр 0x49: бит 3 — короткое нажатие, после отпускания; бит 2 — долгое, ~1,5 с, пока
 // держат) и сбрасывает их, записав те же биты. Шина у драйвера i2c_master одна на оба чипа и сама их чередует.
 // Раз в 2 с — батарея: есть ли (0x00, бит 3), USB (0x00 бит 5 и 0x01 бит 3 = 0), заряжается (0x01, биты 6..5 = 1),
-// процент (0xA4 — «топливомер» чипа, включён битом 3 в 0x18), напряжение (0x34/0x35, мВ — АЦП включён битом 0 в 0x30).
+// процент (0xA4 — «топливомер» чипа, включён битом 3 в 0x18), напряжение (0x34/0x35, мВ — АЦП включён битом 0 в 0x30);
+// там же АЦП: USB (0x38/0x39, мВ, бит 2), система (0x3A/0x3B, мВ, бит 3), температура чипа (0x3C/0x3D, бит 4:
+// 22 + (7274 − отсчёт) / 20 °C — как XPowersLib). Каждое — 6 старших бит и 8 младших
 #include "halo_internal.h"
 
 #include <driver/gpio.h>
@@ -37,6 +39,11 @@ static uint8_t pmu_reg(uint8_t r) {
   i2c_master_transmit_receive(pmu, &r, 1, &v, 1, 20);
   return v;
 }
+static uint16_t pmu_adc(uint8_t hi) {  // 6 бит из hi, 8 — из следующего
+  uint8_t b[2] = {0, 0};
+  i2c_master_transmit_receive(pmu, &hi, 1, b, 2, 20);
+  return (uint16_t)((b[0] & 0x3F) << 8 | b[1]);
+}
 
 static void pmu_set_bits(uint8_t r, uint8_t bits) {
   const uint8_t w[2] = {r, (uint8_t)(pmu_reg(r) | bits)};
@@ -51,6 +58,9 @@ static void battery_poll() {
   b.ok = true, b.present = s1 & 0x08, b.usb = (s1 & 0x20) && !(s2 & 0x08), b.charging = (s2 >> 5) == 1;
   b.percent = b.present ? (int8_t)min(100, (int)pmu_reg(0xA4)) : -1;
   b.mv = b.present ? (uint16_t)((pmu_reg(0x34) & 0x1F) << 8 | pmu_reg(0x35)) : 0;
+  b.vbus_mv = b.usb ? pmu_adc(0x38) : 0;
+  b.vsys_mv = pmu_adc(0x3A);
+  b.temp10 = (int16_t)(220 + (7274 - (int)pmu_adc(0x3C)) / 2);  // (22 + (7274 − x) / 20) · 10
   portENTER_CRITICAL(&batt_mux);
   batt = b;
   portEXIT_CRITICAL(&batt_mux);
@@ -216,14 +226,16 @@ bool ht_begin() {
     const uint8_t w[2] = {0x41, (uint8_t)(en | 0x0C)}, c[2] = {0x49, 0x0F};
     i2c_master_transmit(pmu, w, 2, 20);
     i2c_master_transmit(pmu, c, 2, 20);
-    pmu_set_bits(0x30, 0x01), pmu_set_bits(0x68, 0x01), pmu_set_bits(0x18, 0x08);  // АЦП батареи, её поиск, топливомер
+    pmu_set_bits(0x30, 0x1D), pmu_set_bits(0x68, 0x01), pmu_set_bits(0x18, 0x08);  // АЦП: батарея, USB, система,
+                                                                                    // температура; поиск батареи, топливомер
   } else {
     pmu = nullptr;
   }
   halo_command("battery", [](const char *) {
     const HaloBattery b = halo_battery();
-    LOG("battery: %s, %d%%, %u mV, usb %s, %s\n", b.present ? "present" : "none", b.percent, b.mv, b.usb ? "yes" : "no",
-        b.charging ? "charging" : "not charging");
+    LOG("battery: %s, %d%%, %u mV, usb %s (%u mV), %s; system %u mV, power chip %.1f C\n", b.present ? "present" : "none",
+        b.percent, b.mv, b.usb ? "yes" : "no", b.vbus_mv, b.charging ? "charging" : "not charging", b.vsys_mv,
+        b.temp10 / 10.0f);
   });
   halo_command("pwr", [](const char *a) {  // pwr / pwr long — то же, что нажатие кнопки PWR
     __atomic_fetch_or(&pwr_ev, strstr(a, "long") ? HALO_PWR_LONG : HALO_PWR_CLICK, __ATOMIC_RELAXED);

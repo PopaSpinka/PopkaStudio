@@ -9,18 +9,15 @@
   <script>if (navigator.userAgent.includes('PopkaStudioApp')) document.documentElement.classList.add('app');</script>
 </head>
 <body>
-  <!-- The field is the whole window; everything else floats over it (the style of the controls at its top): the name at
-       the top left, one panel in the middle — history, the mode, the zoom — the board and Flash at the right; the screens and
-       their layers in a card at the left, the selection's properties in a card at the right; at the bottom — the dock
-       with the folders of what can be added, their menus open upward -->
+  <!-- The field is the whole window; everything else floats over it as cards: the left card — its head is the name
+       (PopkaStudio / the project), under it the three folders of what can be added (Faces, Layers, App: the open one's
+       content to the right of the card, its categories in a column, the chosen one's tiles beside them), then the screens,
+       the functions and the layers; the right card — its head is the board and Load, under it the selection's properties
+       (nothing selected — only the head); in the middle at the top — a card of its own: history, the mode, the zoom
+       (6 Nov 2026: web/mockups/panels.html — variant 3's heads, variant 7's folder content) -->
   <main class="stage">
     <div class="app-drag" aria-hidden="true"></div>
-    <div class="dock dock-l grp">
-      <button class="brand" id="brand" title="Boards and projects">PopkaStudio</button>
-      <span class="brand-sep" aria-hidden="true">/</span>
-      <button class="proj-name" id="proj-name" title="All projects"></button>
-    </div>
-    <div class="dock dock-c grp">
+    <div class="bar grp" id="bar">
       <button id="undo" class="icon" title="Undo (⌘Z)" aria-label="Undo"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 9.5 2.5 6 6 2.5"/><path d="M2.5 6h7a4 4 0 0 1 0 8H8"/></svg></button>
       <button id="redo" class="icon" title="Redo (⇧⌘Z)" aria-label="Redo"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 9.5 13.5 6 10 2.5"/><path d="M13.5 6h-7a4 4 0 0 0 0 8H8"/></svg></button>
       <span class="grp-sep" aria-hidden="true"></span>
@@ -35,32 +32,6 @@
       <button id="zoom-val" class="zoom-val" title="Fit">100%</button>
       <button id="zoom-in" class="icon" title="Zoom in" aria-label="Zoom in"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9M8 3.5v9"/></svg></button>
       <button id="zoom-fit" title="Edit, Try: fit the screen · Map: show all screens">Fit</button>
-    </div>
-    <div class="dock dock-r grp" role="group" aria-label="Board and Load">
-      <!-- About (about.js): who made it; the board (a click — which board and port) and Load: its progress in it — a
-           fill and the percent, then Done or Failed (board.js) -->
-      <button class="sq-btn heart-btn" id="about-btn" title="About PopkaStudio" aria-label="About PopkaStudio"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 13.6S2.4 10.3 2.4 6.3A2.9 2.9 0 0 1 8 4.9a2.9 2.9 0 0 1 5.6 1.4c0 4-5.6 7.3-5.6 7.3z"/></svg></button>
-      <div class="hdr-pick">
-        <button class="sq-btn" id="board-btn" aria-label="Board" aria-haspopup="true">
-          <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="4.2"/><path d="M5.6 4.7 6.2 1.6h3.6l.6 3.1M5.6 11.3l.6 3.1h3.6l.6-3.1"/></svg>
-        </button>
-        <div class="hdr-pop board-pop" id="board-pop" hidden>
-          <label class="color"><span>Board</span><select class="select" id="board-model"></select></label>
-          <label class="color"><span>Port</span><select class="select" id="board-port"></select></label>
-        </div>
-      </div>
-      <div class="hdr-pick">
-        <button id="flash" class="sq-btn idle" disabled>
-          <span class="load-fill" id="load-fill"></span>
-          <span class="load-in" id="load-in">
-            <svg class="li-bolt" viewBox="3 1 10 14" aria-hidden="true"><path d="M9.2 1 3 9h4.3L6.6 15 13 6.8H8.6z"/></svg>
-            <svg class="li-spin" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M8 2a6 6 0 0 1 6 6"/></svg>
-            <svg class="li-check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5"/></svg>
-            <svg class="li-cross" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>
-            <span id="load-txt">Load</span>
-          </span>
-        </button>
-      </div>
     </div>
     <div class="viewport" id="viewport">
       <div class="world" id="world"></div>
@@ -85,6 +56,12 @@
     <div class="status" id="status">Loading the board's code…</div>
 
     <aside class="left card">
+      <div class="card-head head-l grp">
+        <button class="brand" id="brand" title="Boards and projects">PopkaStudio</button>
+        <span class="brand-sep" aria-hidden="true">/</span>
+        <button class="proj-name" id="proj-name" title="All projects"></button>
+      </div>
+      <div class="folders" id="palette" role="toolbar" aria-label="Add"></div>
       <section class="panel screens-panel">
         <h2>Screens <button id="add-screen" class="ghost small" title="A new empty screen on the map">+ New</button></h2>
         <ul class="layers" id="screens"></ul>
@@ -97,12 +74,43 @@
       </section>
       <section class="panel grow">
         <h2><span>Layers · <span id="layers-title" class="layers-title"></span></span>
-          <button id="reset" class="ghost small" title="Start again from HaloWatch's watch face (Undo brings your screens back)">Reset</button></h2>
+          <button id="reset" class="ghost small" title="Start again from an empty watch face (Undo brings your screens back)">Reset</button></h2>
         <ul class="layers" id="layers"></ul>
       </section>
     </aside>
-    <aside class="right card" id="props"></aside>
-    <div class="dock dock-b" role="toolbar" aria-label="Add"><div class="tools" id="palette"></div></div>
+    <!-- The open folder's content: to the right of the left card (panels.js: renderPalette) -->
+    <div class="shelf-box" id="shelf-box"></div>
+    <aside class="right card bare" id="right">
+      <!-- The board (a click — which board and port; the dot: green — connected), About (the heart) and Load: its
+           progress in it — a fill and the percent, then Done or Failed (board.js, about.js) -->
+      <div class="card-head head-r grp" role="group" aria-label="Board and Load">
+        <div class="hdr-pick">
+          <button class="sq-btn board-btn" id="board-btn" aria-label="Board" aria-haspopup="true">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="4.2"/><path d="M5.6 4.7 6.2 1.6h3.6l.6 3.1M5.6 11.3l.6 3.1h3.6l.6-3.1"/></svg>
+            <span class="board-name" id="board-name">Board</span><i class="board-dot" aria-hidden="true"></i>
+          </button>
+          <div class="hdr-pop board-pop" id="board-pop" hidden>
+            <label class="color"><span>Board</span><select class="select" id="board-model"></select></label>
+            <label class="color"><span>Port</span><select class="select" id="board-port"></select></label>
+            <!-- The board's check (board.js): esptool reads it — it restarts for a few seconds, nothing is written -->
+            <div class="board-check"><button class="ghost small" id="check-btn" title="Reads the chip, the memory and the firmware on it — the board restarts for a few seconds; nothing is written">Check the board</button>
+              <div class="check-rows" id="check-rows"></div></div>
+          </div>
+        </div>
+        <button class="sq-btn heart-btn" id="about-btn" title="About PopkaStudio" aria-label="About PopkaStudio"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 13.6S2.4 10.3 2.4 6.3A2.9 2.9 0 0 1 8 4.9a2.9 2.9 0 0 1 5.6 1.4c0 4-5.6 7.3-5.6 7.3z"/></svg></button>
+        <button id="flash" class="sq-btn idle" disabled>
+          <span class="load-fill" id="load-fill"></span>
+          <span class="load-in" id="load-in">
+            <svg class="li-bolt" viewBox="3 1 10 14" aria-hidden="true"><path d="M9.2 1 3 9h4.3L6.6 15 13 6.8H8.6z"/></svg>
+            <svg class="li-spin" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M8 2a6 6 0 0 1 6 6"/></svg>
+            <svg class="li-check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5"/></svg>
+            <svg class="li-cross" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+            <span id="load-txt">Load</span>
+          </span>
+        </button>
+      </div>
+      <div class="props" id="props"></div>
+    </aside>
   </main>
 
   <!-- The start window (start.js): over the editor, blurred behind it — first the board, then its projects (and a new

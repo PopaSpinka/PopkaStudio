@@ -17,7 +17,7 @@ TMP="$ROOT/build/PopkaStudio/engine"
 command -v em++ >/dev/null || { echo "em++ not found: brew install emscripten" >&2; exit 1; }
 
 HALO="$ROOT/lib/Halo/src"
-mkdir -p "$OUT" "$TMP"
+mkdir -p "$OUT" "$TMP/out"
 # The .ino as a C++ file (as the Arduino build does: Arduino.h first), then the editor's calls
 WRAP="$TMP/PopkaWatch.sketch.cpp"
 # The sketch's time() is the computer's clock moved by the zone picked in the editor (studio_clock): localtime here is
@@ -39,5 +39,9 @@ em++ "${FLAGS[@]}" "${SRCS[@]}" \
   -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=16777216 -sSTACK_SIZE=1048576 \
   -sEXPORTED_FUNCTIONS="$EXPORTS" \
   -sEXPORTED_RUNTIME_METHODS='["HEAPU8","HEAPF32","stringToNewUTF8","UTF8ToString"]' \
-  -o "$OUT/PopkaWatch.js"
+  -o "$TMP/out/PopkaWatch.js"
+# Into the page's folder only when whole, by renaming (6 Nov 2026): a page opening while this builds — another
+# studio.py starting, the Mac app's window — took a half-written engine and broke ("Aborted()", no tile pictures)
+mv -f "$TMP/out/PopkaWatch.wasm" "$OUT/PopkaWatch.wasm"
+mv -f "$TMP/out/PopkaWatch.js" "$OUT/PopkaWatch.js"
 ls -l "$OUT/PopkaWatch.js" "$OUT/PopkaWatch.wasm" | awk '{printf "%s  %d KB\n", $NF, $5/1024}'

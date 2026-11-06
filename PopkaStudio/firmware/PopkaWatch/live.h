@@ -46,7 +46,9 @@ static void live_cmd(const char *a) {
   LiveSet q{};
   q.s = s, q.i = i;
   while (*e == ' ') e++;
-  if (*e == '-') {
+  // "-" alone — hide it; "-40…" is dx to the left (before 6 Nov 2026 any "-" hid it: a layer moved to the left half
+  // of the screen vanished on the board)
+  if (e[0] == '-' && (e[1] == ' ' || e[1] == '\0')) {
     q.hide = true;
   } else {
     q.dx = strtof(e, &e), q.dy = strtof(e, &e), q.k = strtof(e, &e);

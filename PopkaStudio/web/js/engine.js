@@ -40,7 +40,9 @@ const iconsKey = (l) => (WX_ICONS.has(l.type) || l.type === 'forecast' ? `icons|
   : l.type === 'infoline' && l.format === 'icons' ? `icons|infoline|${l.size}` : null);
 // What a layer's p2 and p3 are (studio.py writes the same into layers.h)
 const CURVE_I = ['weekday', 'shortdate', 'daymonth', 'weather', 'steps', 'datesteps', 'battery'], INFO_I = ['words', 'short', 'icons'];
-const P2 = { curve: (l) => CURVE_I.indexOf(l.what), stepring: (l) => l.radius, infoline: (l) => INFO_I.indexOf(l.format) };
+const DEV_I = ['cpu', 'mem', 'bat', 'temp', 'snd', 'mot'];  // About (device.h: DV_CPU …)
+const P2 = { curve: (l) => CURVE_I.indexOf(l.what), stepring: (l) => l.radius, infoline: (l) => INFO_I.indexOf(l.format),
+  devcard: (l) => DEV_I.indexOf(l.what), device: (l) => DEV_I.indexOf(l.what) };
 const P3 = { curve: (l) => l.angle, weekarc: (l) => l.angle ?? 0, forecast: (l) => l.angle ?? 0 };
 
 // The engine's code, compiled once for all copies
@@ -292,7 +294,8 @@ export class Engine {
     if (this.pin < 0) {
       const a = fnOf('aod'), b = fnOf('boot'), p = fnOf('pwr'), act = (f) => (!f.on ? 0 : { off: 1, lock: 2, aod: 3 }[f.act] ?? 1);
       const steps = state.project.screens.some((s) => s.layers.some((l) => l.type === 'steps'));  // (the sensor is the pedometer's)
-      const fn = [a.on ? 1 : 0, a.idle, a.bright, act(b), act(p), a.tap ? 1 : 0, a.raise && !steps ? 1 : 0, a.btn || !(a.tap || (a.raise && !steps)) ? 1 : 0, a.home ? 1 : 0];
+      const fn = [a.on ? 1 : 0, a.idle, a.bright, act(b), act(p), a.tap ? 1 : 0, a.raise && !steps ? 1 : 0, a.btn || !(a.tap || (a.raise && !steps)) ? 1 : 0, a.home ? 1 : 0,
+        a.shift === false ? 0 : 1];
       if (fn.join() !== this.fn) this.fn = fn.join(), this.M._studio_fn(...fn);
     }
   }

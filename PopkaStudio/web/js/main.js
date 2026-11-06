@@ -86,7 +86,7 @@ function markMode() {
   const on = $('mode-slide').querySelector(`[data-mode="${m}"]`), plate = $('mode-slide').querySelector('.slide-thumb');
   plate.style.setProperty('--x', on.offsetLeft + 'px'), plate.style.setProperty('--w', on.offsetWidth + 'px');
   $('try').hidden = m !== 'try';
-  document.body.dataset.mode = m;  // (Try: no cards, no dock)
+  document.body.dataset.mode = m;  // (Try: the cards only their heads)
 }
 
 function setMode(m) {
@@ -128,7 +128,7 @@ $('undo').onclick = doUndo;
 $('redo').onclick = doRedo;
 $('add-screen').onclick = () => { const s = addScreen(stage); select({ type: 'screen', id: s.id }); stage.focus(s); };
 $('reset').onclick = () => {
-  if (confirm('Start again from HaloWatch\'s watch face? (Undo brings your screens back.)')) resetToDefault();
+  if (confirm('Start again from an empty watch face? (Undo brings your screens back.)')) resetToDefault();
 };
 
 // ---------- Keys ----------

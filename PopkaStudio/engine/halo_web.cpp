@@ -251,7 +251,7 @@ uint8_t halo_pwr_event() {
   return e;
 }
 HaloBattery halo_battery() {
-  return {true, true, true, false, 100, 4140};  // on USB, full — as the board on the desk
+  return {true, true, true, false, 100, 4140, 5040, 4980, 384};  // on USB, full — as the board on the desk
 }
 HaloI2c halo_i2c(uint8_t) {
   return nullptr;
@@ -280,6 +280,9 @@ int halo_mic_read(int16_t *, int) {
 }
 float halo_mic_db() {
   return -90;
+}
+void halo_mic_db2(float &mic1, float &mic2) {
+  mic1 = mic2 = -90;
 }
 void halo_mic_end() {}
 void halo_sleep(uint32_t ms) {

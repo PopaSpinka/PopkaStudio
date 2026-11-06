@@ -65,8 +65,15 @@ export const KINDS = {
   card: { group: 'gallery', fixed: true, name: 'Card', sub: 'Icon, title, a line under it; opens a screen', text: 'Card', subtitle: 'Description', icon: 'star', color: '#A8C7FA', color2: '#2E3034' },
   edge: { group: 'gallery', fixed: true, name: 'More button', sub: 'At the bottom edge, grows at the list\'s end', text: 'More', color: '#2E3034' },
   scroll: { group: 'gallery', fixed: true, name: 'Scroll indicator', sub: 'On the right while the list moves', color: '#C6C6C6', color2: '#333333' },
+  // About (device.h; PopkaStudio's own — web/mockups/hardware.html, variant 2): a gallery card with a live value and a
+  // small picture (what it shows — DEVS), a card's own screen; Power — variant 10's battery page
+  devcard: { group: 'gallery', fixed: true, name: 'Live card', sub: 'A card with a live value and a small chart: the processor, the memory, the battery, …', what: 'cpu', text: 'Processor', icon: 'chip', color: '#A8C7FA', color2: '#1B1B1F' },
+  device: { group: 'section', fixed: true, round: true, name: 'Device screen', sub: 'A live card\'s own screen: a big number, a chart, two arcs at the edge', what: 'cpu', color: '#A8C7FA' },
+  charge: { group: 'section', fixed: true, round: true, name: 'Power', sub: 'The charge along the edge, the voltages of USB and the system, the power chip' },
 };
-export const KIND_INDEX = { date: 0, clock: 1, weather: 2, arc: 3, city: 4, wxicon: 5, wxtemp: 6, wxhilo: 7, hourly: 8, dots: 9, title: 10, card: 11, edge: 12, scroll: 13, steps: 14, stars: 15, feels: 17, display: 18, battery: 19, stnum: 20, stcap: 21, stfoot: 22, stchart: 23, curve: 24, stepring: 25, weekarc: 26, infoline: 27, forecast: 28, dateframe: 29, dotclock: 30, music: 31, recorder: 32, snkdots: 33, snkspace: 34, snkiso: 35, batring: 36, parrot: 37 };
+// What a live card or a device screen shows (device.h: DV_CPU …)
+export const DEVS = [['cpu', 'Processor'], ['mem', 'Memory'], ['bat', 'Battery'], ['temp', 'Temperature'], ['snd', 'Sound'], ['mot', 'Motion']];
+export const KIND_INDEX = { date: 0, clock: 1, weather: 2, arc: 3, city: 4, wxicon: 5, wxtemp: 6, wxhilo: 7, hourly: 8, dots: 9, title: 10, card: 11, edge: 12, scroll: 13, steps: 14, stars: 15, feels: 17, display: 18, battery: 19, stnum: 20, stcap: 21, stfoot: 22, stchart: 23, curve: 24, stepring: 25, weekarc: 26, infoline: 27, forecast: 28, dateframe: 29, dotclock: 30, music: 31, recorder: 32, snkdots: 33, snkspace: 34, snkiso: 35, batring: 36, parrot: 37, devcard: 38, device: 39, charge: 40 };
 // The pixel art layers (pixelart.h): what is around the picture, its trail
 export const PIXEL_ART = ['parrot'];
 export const CURVES = [['weekday', 'Weekday'], ['shortdate', 'Day and date'], ['daymonth', 'Date'], ['weather', 'Weather'], ['steps', 'Steps'], ['datesteps', 'Date and steps'], ['battery', 'Battery']];
@@ -103,8 +110,8 @@ export const FOUR_SIDES = [
 export const LOOK = ['size', 'weight', 'width', 'scale', 'spacing', 'radius', 'color', 'color2', 'color3', 'goal', 'count', 'twinkle', 'meteors', 'angle', 'sparkles', 'rainbow', 'pill', 'what', 'format', 'gap'];  // what a layer copies from its kind
 export const TEXTS = ['text', 'subtitle', 'icon'];  // and its text (a new layer only: "HaloWatch look" keeps it)
 // The gallery: a screen with any of these is a list, in the order of its layers (gallery.h); a tap on these opens
-export const LISTED = new Set(['title', 'card']);
-export const TAPS = new Set(['card', 'edge']);
+export const LISTED = new Set(['title', 'card', 'devcard']);
+export const TAPS = new Set(['card', 'edge', 'devcard']);
 // The cards' icons: Font Awesome (studio.py: ICONS — the same list); the first five — HaloWatch's cards'
 export const ICONS = {
   chevron: 0xF054, bell: 0xF0F3, music: 0xF001, sun: 0xF185, gear: 0xF013, heart: 0xF004, moon: 0xF186, gauge: 0xF624,
@@ -113,6 +120,7 @@ export const ICONS = {
   volume: 0xF028, contrast: 0xF042, gamepad: 0xF11B, camera: 0xF030, coffee: 0xF0F4, run: 0xF70C, snow: 0xF2DC,
   drop: 0xF043, cloud: 0xF0C2, fire: 0xF06D, star: 0xF005, bulb: 0xF0EB, car: 0xF1B9, plane: 0xF072, stopwatch: 0xF2F2,
   image: 0xF03E, chat: 0xF086, wrench: 0xF0AD, lock: 0xF023, menu: 0xF0C9, tv: 0xF26C, mic: 0xF130,
+  chip: 0xF2DB, memory: 0xF538, thermo: 0xF2C9,
 };
 // The Android 16 transition (lib/Halo: halo_nav_open) — a card's link
 export const A16 = { name: 'Push', sub: 'as on HaloWatch: the screen comes in from the right growing from 0.8, the gallery shrinks to 0.85, moves left and dims' };
@@ -133,10 +141,11 @@ export const FX = {
 };
 // The Functions, as power.h has them by default (studio.py: FUNCTIONS — the same)
 export const FUNCTIONS = {
-  aod: { name: 'Always On', on: true, idle: 15, bright: 24, tap: true, raise: true, btn: true, home: false },  // + how it wakes, on the face or not
-  boot: { name: 'BOOT button', on: true, act: 'off' },
-  pwr: { name: 'PWR button', on: true, act: 'lock' },
-  wifi: { name: 'Wi-Fi', on: true },       // the time from the internet; the network — kept by studio.py, not here
+  // (a new project: Always On and the buttons off — switched on when wanted; the burn-in shift on with Always On)
+  aod: { name: 'Always On', on: false, idle: 15, bright: 24, tap: true, raise: true, btn: true, home: false, shift: true },  // + how it wakes, on the face or not
+  boot: { name: 'BOOT button', on: false, act: 'off' },
+  pwr: { name: 'PWR button', on: false, act: 'lock' },
+  wifi: { name: 'Wi-Fi', on: false },      // the time from the internet; the network — kept by studio.py, not here (wifi.js)
   bt: { name: 'Bluetooth', on: false },    // the watch shows itself over Bluetooth (bt.h)
 };
 // The time (studio.py: ZONES, TIME): the zone the board keeps (iana — for the page's copies of the board) and 12 or
@@ -516,13 +525,34 @@ export const SECTIONS = {
   // HaloWatch's Weather screen as an app: its card as HaloWatch's gallery has it (Weather / now and hourly, the sun)
   wxscreen: { text: 'Weather', subtitle: 'now and hourly', icon: 'sun', color: '#FFB030', tile: 'Weather',
     sub: 'HaloWatch\'s Weather screen: now and hourly, a page a city' },
+  // About (variant 2 of web/mockups/hardware.html): a gallery of live cards, each opening its screen; Power — variant 10's
+  // battery page (About's battery card opens it)
+  about: { text: 'About', subtitle: 'this watch, live', icon: 'chip', color: '#A8C7FA', tile: 'About',
+    sub: 'About this watch: live cards — the processor, the memory, the battery, the temperature, the sound, the motion — each opens its screen' },
+  charge: { text: 'Power', subtitle: 'charge and voltages', icon: 'bolt', color: '#6DD58C', tile: 'Power',
+    sub: 'Power: the charge along the edge, the voltages of USB and the system, the power chip' },
 };
+// About's cards (device.h), top to bottom: what each shows, its label, icon and accent
+export const ABOUT_CARDS = [
+  { what: 'cpu', text: 'Processor', icon: 'chip', color: '#A8C7FA' },
+  { what: 'mem', text: 'Memory', icon: 'memory', color: '#D0BCFF' },
+  { what: 'bat', text: 'Battery', icon: 'battery', color: '#6DD58C' },
+  { what: 'temp', text: 'Temperature', icon: 'thermo', color: '#FFB86B' },
+  { what: 'snd', text: 'Sound', icon: 'mic', color: '#FF9ECD' },
+  { what: 'mot', text: 'Motion', icon: 'run', color: '#7DD8E8' },
+];
+// Power's screen: its own clock along the top edge — inside the charge's line at the bezel
+const POWER_SCREEN = [['arc', { radius: 200 }], 'charge'];
 // What a section's screen is made of: the Steps and Weather screens — their parts; the others — the one layer
-export const sectionParts = (kind) => ({ stepscreen: STEPS_SCREEN, wxscreen: WEATHER_SCREEN }[kind] || [kind]);
+// (a part may be [type, look]); About's — the look of its gallery, for its tile
+export const sectionParts = (kind) => ({ stepscreen: STEPS_SCREEN, wxscreen: WEATHER_SCREEN, charge: POWER_SCREEN,
+  about: [['title', { text: 'About' }], ...ABOUT_CARDS.slice(0, 3).map((c) => ['devcard', { ...c }]), 'arc'] }[kind] || [kind]);
+const partOf = (t) => (Array.isArray(t) ? t : [t, null]);
+export const sectionPart = partOf;
 // Settings as on a phone: Battery and Display go into General — the gallery behind the card "General" (all settings);
 // Display one deeper: General › Display › Brightness (its slider's screen). The looks — as the user made them by hand
 // (5 Nov 2026: Project 1)
-export const SECTION_PATH = { battery: ['General'], display: ['General', 'Display'] };
+export const SECTION_PATH = { battery: ['General'], display: ['General', 'Display'], charge: ['General'], about: ['General'] };
 const SUB_GALLERIES = {
   General: { text: 'General', subtitle: 'all settings', icon: 'gear', color: '#A8C7FA' },
   Display: { text: 'Display', subtitle: 'brightness', icon: 'tv', color: '#A4A7F9' },
@@ -575,20 +605,71 @@ export function gamesGallery(g, key = null) {
 }
 export function addSection(g, kind, key = null) {
   const d = SECTIONS[kind];
-  if (screens().length >= MAX_SCREENS) return null;
+  // (Power made by About already: the new card opens that one)
+  const own = kind === 'charge' && screens().find((s) => s.layers.some((l) => l.type === 'charge'));
+  if (!own && screens().length >= MAX_SCREENS) return null;
   const card = newLayer('card', null, g);
   Object.assign(card, { name: d.text, text: d.text, subtitle: d.subtitle, icon: d.icon, color: d.color });
+  if (own) {
+    card.tap = { to: own.id, fx: 'a16' };
+    change(() => g.layers.splice(listIndex(g, listed(g).length), 0, card), { structure: true, key });
+    return card;
+  }
   let name = d.text;
   for (let k = 2; screens().some((s) => s.name === name); k++) name = `${d.text} ${k}`;
   change((p) => {
     const [x, y] = freeSpot(g, p.screens);
     const scr = { id: nextId('screen'), name, x, y, layers: [] };
-    for (const type of sectionParts(kind)) scr.layers.push(newLayer(type, null, scr));
+    for (const [type, look] of sectionParts(kind).map(partOf)) scr.layers.push(newLayer(type, look, scr));
     p.screens.push(scr);
     card.tap = { to: scr.id, fx: 'a16' };
     // (Weather: as on HaloWatch, the face's first weather pill that opens nothing yet opens it too)
     const pill = kind === 'wxscreen' && p.screens[0].layers.find((l) => l.type === 'weather' && !l.tap);
     if (pill) pill.tap = { to: scr.id, fx: 'fade' };
+    g.layers.splice(listIndex(g, listed(g).length), 0, card);
+  }, { structure: true, key });
+  return card;
+}
+
+// About: its card in gallery g ("About / this watch, live") and the gallery behind it — the title, a live card each
+// (ABOUT_CARDS), the scroll indicator, the top clock; each card opens its screen (the top clock and the device screen
+// of that kind), the battery's — Power (the project's own, if it has one, else a new one). One undo step (key)
+export function addAbout(g, key = null) {
+  const power = screens().find((s) => s.layers.some((l) => l.type === 'charge'));
+  if (screens().length + ABOUT_CARDS.length + (power ? 0 : 1) > MAX_SCREENS) return null;
+  const named = (text) => {
+    let name = text;
+    for (let k = 2; screens().some((s) => s.name === name); k++) name = `${text} ${k}`;
+    return name;
+  };
+  const d = SECTIONS.about, card = newLayer('card', null, g);
+  Object.assign(card, { name: d.text, text: d.text, subtitle: d.subtitle, icon: d.icon, color: d.color });
+  change((p) => {
+    const screen = (name, near) => {
+      const [x, y] = freeSpot(near, p.screens), s = { id: nextId('screen'), name: named(name), x, y, layers: [] };
+      p.screens.push(s);
+      return s;
+    };
+    const list = screen('About', g);
+    list.layers.push(newLayer('title', { text: 'About' }, list));
+    let pw = power;
+    for (const c of ABOUT_CARDS) {
+      let to = c.what === 'bat' ? pw : null;
+      if (!to) {
+        to = screen(c.what === 'bat' ? 'Power' : c.text, list);
+        if (c.what === 'bat') {
+          for (const [type, look] of POWER_SCREEN.map(partOf)) to.layers.push(newLayer(type, look, to));
+          pw = to;
+        } else {
+          to.layers.push(newLayer('arc', null, to), newLayer('device', { what: c.what, color: c.color }, to));
+        }
+      }
+      const dc = newLayer('devcard', { ...c, name: c.text }, list);
+      dc.tap = { to: to.id, fx: 'a16' };
+      list.layers.push(dc);
+    }
+    list.layers.push(newLayer('scroll', null, list), newLayer('arc', null, list));
+    card.tap = { to: list.id, fx: 'a16' };
     g.layers.splice(listIndex(g, listed(g).length), 0, card);
   }, { structure: true, key });
   return card;
@@ -724,14 +805,32 @@ function save() {
 
 async function saveNow() {
   clearTimeout(saveTimer);
-  saveTimer = 0, saving = true;
+  saveTimer = 0;
+  if (!state.pid) return;  // (no project open: it was deleted)
+  saving = true;
+  const pid = state.pid;
   try {
-    const r = await fetch(`/api/project?p=${state.pid}`, { method: 'PUT', body: JSON.stringify({ ...state.project, rev: state.rev }) });
+    const r = await fetch(`/api/project?p=${pid}`, { method: 'PUT', body: JSON.stringify({ ...state.project, rev: state.rev }) });
     const j = await r.json();
     if (r.ok) state.rev = j.rev, emit('saved');
     else if (r.status === 409) adopt(j.project, 'The project was changed in another window — showing that version');
+    else if (r.status === 404 && pid === state.pid) gone();
   } catch (e) { /* studio.py is not running: it is saved with the next change */ }
   saving = false;
+}
+
+// The open project was deleted (here, or in another window — the app and a browser at once): none is open now — the
+// editor keeps what it shows but saves nothing (a new project under the same name gets the same id: the old one's
+// content must not go into it); the start window shows the projects (start.js: 'gone')
+export function closeProject() {
+  clearTimeout(saveTimer);
+  saveTimer = 0;
+  state.pid = '';
+  undo.length = redo.length = 0, lastKey = null;
+}
+function gone() {
+  closeProject();
+  emit('gone');
 }
 
 function adopt(project, note) {
@@ -745,10 +844,12 @@ function adopt(project, note) {
 }
 
 async function poll() {
-  if (saveTimer || saving) return;
+  if (saveTimer || saving || !state.pid) return;
   try {
     const pid = state.pid;
-    const { rev } = await (await fetch(`/api/project/rev?p=${pid}`, { cache: 'no-store' })).json();
+    const r = await fetch(`/api/project/rev?p=${pid}`, { cache: 'no-store' });
+    if (r.status === 404) return pid === state.pid && gone();  // (deleted in another window)
+    const { rev } = await r.json();
     if (rev === undefined || rev === state.rev || saveTimer || saving || pid !== state.pid) return;
     const p = await (await fetch(`/api/project?p=${pid}`, { cache: 'no-store' })).json();
     if (!saveTimer && !saving && pid === state.pid) adopt(p, 'Updated from another window');

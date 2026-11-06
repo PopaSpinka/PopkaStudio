@@ -65,6 +65,12 @@ struct GalRun {
   Press eb_press;
 };
 
+// About's live card (device.h): made, laid out and drawn there — by its place in this list
+struct FaceRun;
+static void dv_run_make(FaceRun &R);
+static void dc_layout(const FaceScreen &S, int i, float a, const HaloView &v);
+static void dc_draw(const FaceScreen &S, int i);
+
 // A tap opened something: this layer's link, from the screen at this depth of lib/Halo's stack (face.h opens it in
 // the next frame, as HaloWatch does: open_req)
 static const FaceLayer *gl_req;
@@ -91,6 +97,7 @@ static void gl_text_base(HaloItem &it, const HaloFont &f, const char *s, float x
 static void gal_layer_build(const FaceScreen &S, int i) {
   const FaceLayer &L = S.layers[i];
   FaceRun &R = S.run[i];
+  if (L.kind == FL_DEVCARD) return dv_run_make(R);
   R.g = new HaloItem[5]();
   if (L.kind == FL_TITLE) R.mid = halo_text_mid(gl_title, gl_str(L.text));
   if (L.kind == FL_EDGE) R.mid = halo_text_mid(gl_t24, gl_str(L.text));
@@ -108,8 +115,8 @@ static void gal_rebuild(FaceScreen &S) {
     if (L.hidden || !fl_gallery(L.kind)) continue;
     parts = true;
     if (L.kind == FL_EDGE) edge = i;
-    if (L.kind == FL_CARD) cards++;
-    if ((L.kind == FL_TITLE || L.kind == FL_CARD) && n < HALO_LIST_MAX)
+    if (L.kind == FL_CARD || L.kind == FL_DEVCARD) cards++;
+    if ((L.kind == FL_TITLE || L.kind == FL_CARD || L.kind == FL_DEVCARD) && n < HALO_LIST_MAX)
       item[n] = i, heights[n++] = L.kind == FL_TITLE ? GL_HEAD_H : GL_ITEM_H;
   }
   if (!parts) {
@@ -191,7 +198,7 @@ static void gal_update(FaceScreen &S, float dt, int depth) {
   // A press on a card (or on the button — it is over the list): the press plays; let go — open
   if (f.pressed) {
     const int i = list ? halo_list_hit(menu, f.y0) : -1;
-    g->armed = i >= 0 && S.layers[g->item[i]].kind == FL_CARD ? i : -1;
+    g->armed = i >= 0 && (S.layers[g->item[i]].kind == FL_CARD || S.layers[g->item[i]].kind == FL_DEVCARD) ? i : -1;
     if (g->armed >= 0 && fabsf(f.x0 - CX) > GL_ITEM_W / 2 * menu.fx[i].s) g->armed = -1;
     g->eb_armed = g->edge >= 0 && g->eb_h.x > 60 && f.y0 > CX + EB_R - g->eb_h.x && fabsf(f.x0 - CX) < EB_W / 2;
     if (g->eb_armed) g->armed = -1;
@@ -220,6 +227,7 @@ static int gal_item_of(const GalRun &g, int layer) {
 static void gal_layout(const FaceScreen &S, int i, float a, const HaloView &v) {
   const FaceLayer &L = S.layers[i];
   FaceRun &R = S.run[i];
+  if (L.kind == FL_DEVCARD) return dc_layout(S, i, a, v);
   HaloItem *it = R.g;
   R.box[0] = R.box[1] = 0, R.box[2] = R.box[3] = -1;
   if (!it) return;
@@ -293,6 +301,7 @@ static void gal_layout(const FaceScreen &S, int i, float a, const HaloView &v) {
 }
 
 static void gal_draw(const FaceScreen &S, int i) {
+  if (S.layers[i].kind == FL_DEVCARD) return dc_draw(S, i);
   const HaloItem *it = S.run[i].g;
   if (!it) return;
   const int n = S.layers[i].kind == FL_CARD ? 5 : S.layers[i].kind == FL_SCROLL ? 3 : S.layers[i].kind == FL_EDGE ? 2 : 1;

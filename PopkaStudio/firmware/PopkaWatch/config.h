@@ -2,7 +2,7 @@
 // The Functions that decide what is built at all (included first): Wi-Fi (HaloClock: the time from the internet,
 // the networks the board sees), Bluetooth (bt.h); the time zone and the clock's 12 or 24 hours.
 #pragma once
-#define FN_WIFI 1
+#define FN_WIFI 0
 #define FN_BT 0
 #define TZ "EST5EDT,M3.2.0,M11.1.0"  // New York
 #define CLOCK_24H 0

@@ -9,6 +9,8 @@ __pycache__/
 PopkaStudio/projects/
 PopkaStudio/secrets/
 wifi_net.h
+# Copies of the firmware that was on your boards (Save its firmware) — yours only
+PopkaStudio/backups/
 # The Mac app's build (PopkaStudio/app/build.sh)
 PopkaStudio/app/node_modules/
 PopkaStudio/app/dist/

@@ -33,6 +33,7 @@ import socketserver
 import struct
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import unicodedata
@@ -54,7 +55,7 @@ SKETCH = os.path.join(BUILD, "PopkaWatch")  # what "Flash" compiles: firmware/Po
 PREVIEW = os.path.join(BUILD, "preview")      # halo_assets.py's previews of the fonts the page asked for
 PROJECTS = os.path.join(HERE, "projects")
 PORT = 8466
-VERSION = "1.1.1"  # PopkaStudio's version (the About window; the release notes)
+VERSION = "1.2"  # PopkaStudio's version (the About window; the release notes)
 
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 import halo_assets as ha  # noqa: E402 — the board's font and image code
@@ -91,11 +92,17 @@ KINDS = {"date": 0, "clock": 1, "weather": 2,                                   
          "title": 10, "card": 11, "edge": 12, "scroll": 13, "steps": 14, "stars": 15, "feels": 17,
          "display": 18, "battery": 19, "stnum": 20, "stcap": 21, "stfoot": 22, "stchart": 23,
          "curve": 24, "stepring": 25, "weekarc": 26, "infoline": 27, "forecast": 28, "dateframe": 29, "dotclock": 30,
-         "music": 31, "recorder": 32, "snkdots": 33, "snkspace": 34, "snkiso": 35, "batring": 36, "parrot": 37}
-GALLERY = ("title", "card", "edge", "scroll")
+         "music": 31, "recorder": 32, "snkdots": 33, "snkspace": 34, "snkiso": 35, "batring": 36, "parrot": 37,
+         "devcard": 38, "device": 39, "charge": 40}
+GALLERY = ("title", "card", "edge", "scroll", "devcard")
+TAPS = ("card", "edge", "devcard")  # the gallery's parts a tap on opens a screen (halo_nav_open)
+# About (device.h): what a live card or a card's screen shows (p2: DV_CPU …) — the processor, the memory, the battery,
+# the temperature, the sound, the motion
+DEVS = ("cpu", "mem", "bat", "temp", "snd", "mot")
 STEPS_SCREEN = ("stnum", "stcap", "stfoot", "stchart")  # the Steps screen's parts (stepscreen.h)
 CURVES = ("weekday", "shortdate", "daymonth", "weather", "steps", "datesteps", "battery")  # widgets.h CV_* (curved text)
 INFOS = ("words", "short", "icons")                                             # widgets.h IF_* (the info line)
+WHATS = {"curve": CURVES, "devcard": DEVS, "device": DEVS}  # what a layer may show, by its kind
 
 
 def uses_steps(layer):
@@ -110,9 +117,14 @@ MAX_SCREENS, MAX_LAYERS = 24, 32  # what the page's engine has room for (engine/
 # "aod" (Always On at once; the button again — back) or "lock" (Always On, locked; a long press of that button unlocks)
 # Waking up (power.h: FN_WAKE_*): a touch (tap), picking it up (raise), a button (btn) — at least one is on; home —
 # out of Always On on the watch face (power.h: FN_AOD_HOME), else where it was
-FUNCTIONS = {"aod": {"on": True, "idle": 15, "bright": 24, "tap": True, "raise": True, "btn": True, "home": False},
-             "boot": {"on": True, "act": "off"},
-             "pwr": {"on": True, "act": "lock"}, "wifi": {"on": True}, "bt": {"on": False}}
+# A new project starts with Always On, the buttons and Wi-Fi off — each is switched on when wanted (Wi-Fi: picked for a
+# clock's time or with the weather — the editor's Wi-Fi window; without it the time comes from the computer) (6 Nov 2026, the user's
+# word: the first firmware is a base, the rest is added like Lego); Always On's burn-in shift (a few pixels every
+# minute) is on with it
+FUNCTIONS = {"aod": {"on": False, "idle": 15, "bright": 24, "tap": True, "raise": True, "btn": True, "home": False,
+                     "shift": True},
+             "boot": {"on": False, "act": "off"},
+             "pwr": {"on": False, "act": "lock"}, "wifi": {"on": False}, "bt": {"on": False}}
 # Wi-Fi (HaloClock: the time from the internet) and Bluetooth (bt.h) — off: not in the firmware at all. The time (the
 # page: state.js ZONES, TIME): the zone (POSIX TZ for the board) and 12 or 24 hours; without Wi-Fi the board gets the
 # computer's time over USB after Flash (the command time)
@@ -185,6 +197,13 @@ DEFAULTS = {
     # Pixel art drawn cell by cell (pixelart.h): Popka, the parrot — its size (scale), the turn (degrees), its notes
     # (sparkles: off, around it, all over the screen)
     "parrot": {"name": "Popka", "scale": 1, "angle": 0, "sparkles": "around"},
+    # About (device.h; PopkaStudio's own, web/mockups/hardware.html variant 2): a gallery card with a live value and
+    # picture (what — DEVS; its label, icon, accent, the card's color) and a card's own screen (what, the accent); Power —
+    # variant 10's battery page
+    "devcard": {"name": "Live card", "what": "cpu", "text": "Processor", "icon": "chip", "color": "#A8C7FA",
+                "color2": "#1B1B1F"},
+    "device": {"name": "Device screen", "what": "cpu", "color": "#A8C7FA"},
+    "charge": {"name": "Power"},
 }
 PIXEL_ART = ["parrot"]  # the pixel art layers: what is around the picture (p2), its trail (p3)
 # The gallery's icons: Font Awesome (tools/fonts/fa-solid-900.ttf) at HaloWatch's ic24 size; the first five — the
@@ -196,7 +215,7 @@ ICONS = {"chevron": 0xF054, "bell": 0xF0F3, "music": 0xF001, "sun": 0xF185, "gea
          "gamepad": 0xF11B, "camera": 0xF030, "coffee": 0xF0F4, "run": 0xF70C, "snow": 0xF2DC, "drop": 0xF043,
          "cloud": 0xF0C2, "fire": 0xF06D, "star": 0xF005, "bulb": 0xF0EB, "car": 0xF1B9, "plane": 0xF072,
          "stopwatch": 0xF2F2, "image": 0xF03E, "chat": 0xF086, "wrench": 0xF0AD, "lock": 0xF023, "menu": 0xF0C9,
-         "tv": 0xF26C, "mic": 0xF130}
+         "tv": 0xF26C, "mic": 0xF130, "chip": 0xF2DB, "memory": 0xF538, "thermo": 0xF2C9}
 # HaloWatch's fonts of the gallery (its halo.conf: t_title, t24, t20, ic24) — in every PopkaWatch, as gl_*
 GALLERY_FONTS = [
     "font  gl_title  GoogleSansFlex.ttf  34  latin punct \"é\"  @wght=620,wdth=104,ROND=100   # the gallery: titles, stubs",
@@ -213,6 +232,11 @@ SETTINGS_FONTS = {
     "stchart": ["font  gl_t16    GoogleSansFlex.ttf  16  digits \"APMTWFS\" @wght=620,wdth=104,ROND=100   # Steps: hours, days"],
     "recorder": ["font  gl_n44    GoogleSansFlex.ttf  44  digits \":\" @wght=660,ROND=100   # Recorder: the timer",
                  "font  gl_rc32   fa-solid-900.ttf    32  0xf04b 0xf04c 0xf028   # Recorder: play, pause, the volume"],
+    ("devcard", "device", "charge"): [
+        "font  gl_n80    GoogleSansFlex.ttf  80  digits \"%.,°−-\" @wght=660,ROND=100   # About, Power: the big number",
+        "font  gl_n34    GoogleSansFlex.ttf  34  digits punct \"KBdg\" @wght=660,ROND=100   # About: a card's value",
+        "font  gl_c16    GoogleSansFlex.ttf  16  digits punct \"ABCDEFGHIJKLMNOPQRSTUVWXYZ\" @wght=620,wdth=104,ROND=100"
+        "   # About, Power: the words along the arc, small captions"],
 }
 TEXT_LEN = 40  # (engine/studio_api.h has room for 40 bytes)
 # The letters each kind needs (halo.conf of HaloWatch)
@@ -241,7 +265,14 @@ def new_layer(kind, n=0):
 
 
 def default_project():
-    """HaloWatch's face: the date, the clock and the pill at their places."""
+    """A new project (6 Nov 2026, the user's word): an empty watch face — a black screen, nothing on it — and the
+    Functions off (FUNCTIONS): its first Load is the base Live needs; what the watch shows is added like Lego."""
+    return {"format": "popkastudio/2", "board": "amoled175",
+            "screens": [{"id": "face", "name": "Watch face", "x": 0, "y": 0, "layers": [], "face": "blankface"}]}
+
+
+def halowatch_project():
+    """HaloWatch's face: the date, the clock and the pill at their places (the firmware folder's own default)."""
     return {"format": "popkastudio/2", "board": "amoled175",
             "screens": [{"id": "face", "name": "Watch face", "x": 0, "y": 0,
                          "layers": [new_layer("date", 1), new_layer("clock", 1), new_layer("weather", 1)]}]}
@@ -278,7 +309,7 @@ def clean_layer(raw):
     if "sparkles" in layer:  # (before: on or off — on was "around")
         v = layer["sparkles"]
         layer["sparkles"] = v if v in SPARKLES else "off" if v is False else "screen"
-    if "what" in layer and layer["what"] not in CURVES:
+    if "what" in layer and layer["what"] not in WHATS.get(kind, ()):
         layer["what"] = DEFAULTS[kind]["what"]
     if "format" in layer and layer["format"] not in INFOS:
         layer["format"] = DEFAULTS[kind]["format"]
@@ -310,7 +341,7 @@ def clean_functions(project):
         if "idle" in f:
             f["idle"] = int(min(max(float(got.get("idle", f["idle"])), 5), 600))
             f["bright"] = int(min(max(float(got.get("bright", f["bright"])), 1), 255))
-            for way in ("tap", "raise", "btn", "home"):
+            for way in ("tap", "raise", "btn", "home", "shift"):
                 f[way] = bool(got.get(way, f[way]))
         elif "act" in f:
             f["act"] = got.get("act") if got.get("act") in ("off", "aod", "lock") else f["act"]
@@ -493,6 +524,7 @@ def board_open(port):
     s = serial.Serial()
     s.port, s.baudrate, s.timeout = port, 115200, 0.2
     s.dtr, s.rts = True, False  # so opening the port doesn't reset the board (tools/monitor.py)
+    s.exclusive = True  # (a second studio, or anything that locks it too, gets "busy" — not half of the board's answers)
     s.open()
     return s
 
@@ -642,6 +674,7 @@ class LiveLink:
                 with self.cv:
                     self.holding = True
                 board, buf, sent, queue, burst, again, asked, tries = None, b"", {}, {}, {}, {}, 0.0, 0
+                said = False  # (it answered hello: ours, or "unknown command" — ours, older)
                 self.mark("connecting")
             try:
                 buf += ser.read(4096)
@@ -649,19 +682,27 @@ class LiveLink:
                 while b"\n" in buf:
                     raw, buf = buf.split(b"\n", 1)
                     line = raw.decode("utf-8", "replace").strip()
-                    if line.startswith("LIVE "):
+                    if line.startswith("POPKA "):  # (hello: who it is — for the board's button)
+                        boards.heard(port, BoardWatch.parse(line) or "other")
+                        said = True
+                    elif "unknown command: hello" in line:
+                        boards.heard(port, "old")
+                        said = True
+                    elif line.startswith("LIVE "):
                         board, done, sent, queue = self.parse(line), -1, {}, {}  # (all of it once: the editor moved on)
                     elif "unknown command: live" in line:
                         self.mark("old", [])
                     elif line.endswith(" start") or line == "setup done":  # it started again: ask it again
-                        board, asked = None, 0.0
+                        board, asked, tries, said = None, 0.0, 0, False
                 buf = buf[-4096:]
                 if board is None:
                     if now - asked > 2:
-                        ser.write(b"live ?\n")
+                        ser.write(b"hello\nlive ?\n" if tries == 0 else b"live ?\n")
                         asked, tries = now, tries + 1
                         if tries > 3:
                             self.mark("old", [])
+                            if tries == 4 and not said:  # (not a word to hello either: other firmware — once)
+                                boards.heard(port, "other")
                 else:
                     if version != done and project is not None:
                         lines, needs = self.plan(project, board)
@@ -970,6 +1011,8 @@ def layer_numbers(layer):
         p2, p3 = layer["twinkle"], layer["meteors"]
     elif kind in PIXEL_ART:  # what is around it, its trail (the turn — p, the size — k)
         p2, p3 = SPARKLES[layer["sparkles"]], layer.get("rainbow", 1)
+    elif kind in ("devcard", "device"):  # About: what it shows
+        p2 = DEVS.index(layer["what"])
     color = lambda key: int(layer.get(key, "#000000")[1:], 16)
     p = next((layer[key] for key in ("goal", "count", "radius", "angle", "gap") if key in layer), 0)
     return {"dx": layer["dx"], "dy": layer["dy"], "k": layer.get("scale", 1), "c": color("color"), "c2": color("color2"),
@@ -984,7 +1027,7 @@ def live_key(layer, home):
     """What only a Load brings for a layer (Live sends just its numbers): its kind, fonts, icons, texts, its link, whether
     it counts steps — 4 hex digits; the firmware keeps it (LIVE_MAP) and Live compares."""
     kind = layer["type"]
-    tap = layer["tap"] if home or kind in ("card", "edge") else None
+    tap = layer["tap"] if home or kind in TAPS else None
     return live_hash([kind, font_spec(layer), font2_spec(layer), icon_set(layer), layer.get("text"), layer.get("subtitle"),
                       layer.get("icon"), tap, uses_steps(layer)], 4)
 
@@ -1005,8 +1048,9 @@ def cfloat(v):
     return s + "f"
 
 
-def write_sketch(project, folder):
-    """firmware/PopkaWatch with the project's screens into folder: layers.h, assets/halo.conf, icons, src/."""
+def write_sketch(project, folder, meta=None):
+    """firmware/PopkaWatch with the project's screens into folder: layers.h, assets/halo.conf, icons, src/. meta — the
+    project's id and revision (a Load): into config.h, for the board's hello (hello.h)."""
     screens = clean_screens(project)
     for scr in screens:
         scr["layers"] = [layer for layer in scr["layers"] if not layer["hidden"]]
@@ -1017,7 +1061,7 @@ def write_sketch(project, folder):
         for name in ("PopkaWatch.ino", "face.h", "weather.h", "wxscreen.h", "gallery.h", "power.h", "steps.h", "stars.h",
                      "pixelart.h", "parrot.h", "bt.h", "wxfetch.h", "settings.h", "stepscreen.h", "widgets.h",
                      "music.h", "player.h", "sound.h", "volume.h", "recorder.h", "snake.h", "games.h", "game_dots.h",
-                     "game_space.h", "game_iso.h", "live.h"):
+                     "game_space.h", "game_iso.h", "live.h", "device.h", "hello.h", "wifiscan.h"):
             shutil.copy(os.path.join(FIRMWARE, name), os.path.join(folder, name))
     fonts, icons = {}, {}  # spec -> name, (set, scale) -> name
     all_layers = [layer for scr in screens for layer in scr["layers"]]
@@ -1035,8 +1079,9 @@ def write_sketch(project, folder):
         used = ", ".join(sorted({layer["name"] for layer in all_layers if spec in (font_spec(layer), font2_spec(layer))}))
         conf.append(f"font  {name}  {spec}   # {used}")
     conf += GALLERY_FONTS
-    for kind, lines in SETTINGS_FONTS.items():
-        if os.path.abspath(folder) == os.path.abspath(FIRMWARE) or any(layer["type"] == kind for layer in all_layers):
+    for kinds, lines in SETTINGS_FONTS.items():
+        kinds = kinds if isinstance(kinds, tuple) else (kinds,)
+        if os.path.abspath(folder) == os.path.abspath(FIRMWARE) or any(layer["type"] in kinds for layer in all_layers):
             conf += lines
     for old in glob.glob(os.path.join(folder, "assets/icons*_*.png")):
         os.remove(old)
@@ -1061,6 +1106,7 @@ def write_sketch(project, folder):
           f"#define FN_AOD {1 if fn['aod']['on'] else 0}", f"#define FN_AOD_IDLE {fn['aod']['idle']}",
           f"#define FN_AOD_BRIGHT {fn['aod']['bright']}",
           f"#define FN_AOD_HOME {1 if fn['aod']['home'] else 0} // out of Always On on the watch face (1) or where it was",
+          f"#define FN_AOD_SHIFT {1 if fn['aod']['shift'] else 0} // Always On: a few pixels elsewhere every minute (burn-in)",
           f"#define FN_BOOT {act(fn['boot'])}",
           f"#define FN_PWR {act(fn['pwr'])}",
           "// Waking up from Always On or dark (power.h): a touch, picking it up (off, or the Steps layer has the motion",
@@ -1073,6 +1119,10 @@ def write_sketch(project, folder):
           f"#define FN_BATTERY {1 if any(layer['type'] == 'battery' for layer in all_layers) else 0}",
           f"#define FN_MUSIC {1 if any(layer['type'] == 'music' for layer in all_layers) else 0}",
           f"#define FN_RECORDER {1 if any(layer['type'] == 'recorder' for layer in all_layers) else 0}",
+          "// About and Power (device.h): only with their layers (About: the microphones and the motion sensor only while",
+          "// something on screen shows them)",
+          f"#define FN_ABOUT {1 if any(layer['type'] in ('devcard', 'device') for layer in all_layers) else 0}",
+          f"#define FN_CHARGE {1 if any(layer['type'] == 'charge' for layer in all_layers) else 0}",
           "// The Games (games.h): only the snakes added",
           *[f"#define FN_{k.upper()} {1 if any(layer['type'] == k for layer in all_layers) else 0}"
             for k in ("snkdots", "snkspace", "snkiso")],
@@ -1092,6 +1142,14 @@ def write_sketch(project, folder):
            "// the networks the board sees), Bluetooth (bt.h); the time zone and the clock's 12 or 24 hours.",
            "#pragma once", f"#define FN_WIFI {1 if fn['wifi']['on'] else 0}", f"#define FN_BT {1 if fn['bt']['on'] else 0}",
            f"#define TZ {c_string(ZONES[tm['zone']])}  // {tm['zone']}", f"#define CLOCK_24H {1 if tm['h24'] else 0}"]
+    if meta is not None:  # (a Load: who this firmware is — the board's answer to hello, hello.h)
+        pid = str(meta.get("pid") or "")
+        cfg += ["// Who this firmware is: the board's answer to hello (hello.h) — the editor tells its own boards",
+                f"#define POPKA_BOARD {c_string(project.get('board') or 'amoled175')}",
+                f"#define POPKA_VERSION {c_string(VERSION)}",
+                f"#define POPKA_PROJECT {c_string(pid if PROJECT_ID.fullmatch(pid) else '-')}",
+                f"#define POPKA_REV {int(meta.get('rev') or 0)}",
+                f"#define POPKA_LOADED {c_string(time.strftime('%Y-%m-%dT%H:%M'))}"]
     with open(os.path.join(folder, "config.h"), "w", encoding="utf-8") as f:
         f.write("\n".join(cfg) + "\n")
     # The network picked in the editor: only into the build copy (never firmware/PopkaWatch: it is in git)
@@ -1121,7 +1179,7 @@ def write_sketch(project, folder):
             ic = icons[icon_set(layer)] if icon_set(layer) else "nullptr"
             # Links: from the watch face (halo_nav_face_open) and from the gallery's cards and button (halo_nav_open);
             # neither opens the face, the gallery or (a card) its own screen
-            tap = layer["tap"] if i == 0 or kind in ("card", "edge") else None
+            tap = layer["tap"] if i == 0 or kind in TAPS else None
             to = index.get(tap["to"], -1) if tap else -1
             if to in (0, main, i if i else -1):
                 to = -1
@@ -1130,6 +1188,8 @@ def write_sketch(project, folder):
                 icon = chr(ICONS[layer["icon"]]) if "icon" in layer else ""
                 text = ", " + ", ".join(c_string(v) if v is not None else "nullptr"
                                         for v in (layer.get("text"), layer.get("subtitle"), icon or None))
+                if kind == "devcard":  # (and what it shows: p2)
+                    text += f", 0x000000, nullptr, {cfloat(n['p2'])}, {cfloat(n['p3'])}"
             else:  # no text; the third color, the second font (the Steps pill's shoe, the info line's), p2, p3
                 f2 = f"&{fonts[font2_spec(layer)]}" if font2_spec(layer) else "nullptr"
                 text = f", nullptr, nullptr, nullptr, 0x{n['c3']:06X}, {f2}, {cfloat(n['p2'])}, {cfloat(n['p3'])}"
@@ -1180,23 +1240,432 @@ def build_engine(force=False):
 BOARDS = [{"id": "amoled175", "name": "Waveshare ESP32-S3-Touch-AMOLED-1.75C", "short": "AMOLED 1.75",
            "maker": "Waveshare", "title": "ESP32-S3 AMOLED 1.75", "screen": "466 × 466, round",
            "spec": "1.75″ round · 466 × 466",
-           "photo": "img/board-amoled175.webp", "drawn": "round"},
+           "photo": "img/board-amoled175.webp", "drawn": "round", "usb": ["303A:1001"],
+           "chip": "ESP32-S3", "psram": 8, "flash": 32},  # (what esptool reads on it: the board's check)
           {"id": "p4lcd7", "name": "Waveshare ESP32-P4-WIFI6-Touch-LCD-7B", "short": "P4 LCD 7″",
            "maker": "Waveshare", "title": "ESP32-P4 LCD 7″", "screen": "1024 × 600", "spec": "7″ · 1024 × 600",
-           "soon": True}]
+           "soon": True, "usb": ["1A86:55D3"], "chip": "ESP32-P4", "psram": 32, "flash": 32}]
 
 
 def usb_ports():
-    """The boards on USB: the ESP32-S3's own USB has Espressif's vendor id (Mac: /dev/cu.usbmodem…, Linux: /dev/ttyACM…)."""
+    """The boards on USB: the ESP32-S3's own USB has Espressif's vendor id (Mac: /dev/cu.usbmodem…, Linux: /dev/ttyACM…);
+    its serial number is the chip's MAC — each board's own (BoardWatch remembers boards by it)."""
     ports = []
     try:
         from serial.tools import list_ports
-        ports = sorted(p.device for p in list_ports.comports() if p.vid == 0x303A and not p.device.startswith("/dev/tty."))
+        ports = sorted(({"port": p.device, "name": os.path.basename(p.device), "usb": f"{p.vid:04X}:{p.pid:04X}",
+                         "mac": p.serial_number or ""} for p in list_ports.comports()
+                        if p.vid == 0x303A and not p.device.startswith("/dev/tty.")), key=lambda q: q["port"])
     except Exception:  # noqa: BLE001 — no pyserial or no USB info: the usual names
         pass
     if not ports:
-        ports = sorted(glob.glob("/dev/cu.usbmodem*") + glob.glob("/dev/ttyACM*"))
-    return [{"port": p, "name": os.path.basename(p)} for p in ports]
+        ports = [{"port": p, "name": os.path.basename(p), "usb": "", "mac": ""}
+                 for p in sorted(glob.glob("/dev/cu.usbmodem*") + glob.glob("/dev/ttyACM*"))]
+    return ports
+
+
+# ---------- Who is on USB (docs/board-detect.md, step 1): each board that appears is asked "hello" once ----------
+class BoardWatch:
+    """Each USB port that appears is asked once who it is, with one opening of the port (no reset: DTR=1, RTS=0; not
+    again and again — that can hang the chip): our firmware answers "POPKA 1 board=… fw=… project=… rev=… loaded=…"
+    (hello.h) — "ours"; "unknown command: hello" — ours, made before hello — "old"; silence — "other" firmware (or none).
+    Asked again after a Load; a port another program holds — "busy", tried again in a while. While Live holds the port,
+    LiveLink asks (and tells this). Boards are remembered by their MAC in projects/.boards.json: the model and what was
+    on it — a board seen once is known at once the next time."""
+
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.ports, self.again, self.retry = {}, set(), {}  # port -> its check; ports to ask again; port -> when (busy)
+        self.quiet = {}  # port -> how many times a board known as ours said nothing (asked again before "other")
+        self.memory, self.thread = None, None
+
+    def path(self):
+        return os.path.join(PROJECTS, ".boards.json")
+
+    def remembered(self):
+        if self.memory is None:
+            try:
+                with open(self.path(), encoding="utf-8") as f:
+                    self.memory = json.load(f)
+            except (OSError, ValueError):
+                self.memory = {}
+        return self.memory
+
+    def remember(self, mac, check):
+        if not mac:
+            return
+        mem = self.remembered()
+        was = mem.get(mac, {})
+        since = was.get("since", 0) if was.get("state") == check["state"] else int(time.time())  # (when it became so)
+        mem[mac] = {**was, "state": check["state"], "seen": int(time.time()), "since": since,
+                    **{k: check[k] for k in ("board", "fw", "project", "rev", "loaded") if check.get(k) not in (None, "")}}
+        try:
+            os.makedirs(PROJECTS, exist_ok=True)
+            with open(self.path(), "w", encoding="utf-8") as f:
+                json.dump(mem, f, indent=1)
+        except OSError:
+            pass
+
+    @staticmethod
+    def parse(line):
+        """ "POPKA 1 board=amoled175 fw=1.1.1 project=project-1 rev=57 loaded=… live=1" -> the check, None — not it."""
+        parts = line.split()
+        if len(parts) < 2 or parts[0] != "POPKA" or parts[1] != "1":
+            return None
+        kv = dict(x.split("=", 1) for x in parts[2:] if "=" in x)
+        rev = kv.get("rev", "0")
+        return {"state": "ours", "board": kv.get("board", ""), "fw": kv.get("fw", ""),
+                "project": "" if kv.get("project", "-") == "-" else kv["project"],
+                "rev": int(rev) if rev.isdigit() else 0, "loaded": "" if kv.get("loaded", "-") == "-" else kv["loaded"],
+                "live": kv.get("live") == "1"}
+
+    def heard(self, port, check):
+        """What the board said (here or through LiveLink): a check, or the state alone ("old", "other", "busy")."""
+        check = check if isinstance(check, dict) else {"state": check}
+        mac = next((p["mac"] for p in usb_ports() if p["port"] == port), "")
+        with self.lock:
+            self.ports[port] = check
+            self.again.discard(port)
+            if check["state"] == "busy":
+                self.retry[port] = time.time() + 5
+        if check["state"] != "busy":
+            self.remember(mac, check)
+
+    def remember_check(self, mac, info):
+        """The check's findings (board_check) next to what the board said: the next time — known without asking."""
+        if not mac:
+            return
+        mem = self.remembered()
+        mem.setdefault(mac, {})["check"] = {k: info[k] for k in ("chip", "rev", "psram", "flash", "firmware", "empty", "fits", "copy", "at")}
+        try:
+            with open(self.path(), "w", encoding="utf-8") as f:
+                json.dump(mem, f, indent=1)
+        except OSError:
+            pass
+
+    def ask_again(self, port):
+        with self.lock:
+            self.again.add(port)
+
+    def ask(self, port):
+        with self.lock:
+            self.ports[port] = {"state": "checking"}
+        try:
+            ser = board_open(port)
+        except Exception:  # noqa: BLE001 — another program has it (a monitor, an upload): later
+            return self.heard(port, "busy")
+        try:
+            ser.timeout = 0
+            board_read(ser, 0.15)  # (what it was saying before: its log)
+            buf, tries, said = "", 0, None
+            while tries < 3 and said is None:
+                ser.write(b"hello\n")
+                tries += 1
+                end = time.time() + 1.2
+                while time.time() < end and said is None:
+                    buf += ser.read(4096).decode("utf-8", "replace")
+                    *lines, buf = buf.split("\n")
+                    for line in (x.strip() for x in lines):
+                        if line.startswith("POPKA "):
+                            said = self.parse(line) or said
+                        elif "unknown command: hello" in line:
+                            said = "old"
+                        elif line == "setup done" or line.endswith(" start"):
+                            tries = min(tries, 2)  # (it just started: one more question)
+                    time.sleep(0.02)
+            if said is None:  # (a board ours last time, silent now: something else read its answer, or it was busy —
+                mac = next((p["mac"] for p in usb_ports() if p["port"] == port), "")  # asked twice more, 5 s apart)
+                if self.remembered().get(mac, {}).get("state") in ("ours", "old") and self.quiet.get(port, 0) < 2:
+                    self.quiet[port] = self.quiet.get(port, 0) + 1
+                    return self.heard(port, "busy")
+            self.quiet.pop(port, None)
+            self.heard(port, said or "other")
+        finally:
+            ser.close()
+
+    def run(self):
+        while True:
+            try:
+                ports = {p["port"] for p in usb_ports()}
+                now = time.time()
+                with self.lock:
+                    for gone in set(self.ports) - ports:
+                        self.ports.pop(gone, None), self.again.discard(gone), self.retry.pop(gone, None)
+                    todo = [port for port in sorted(ports) if port in self.again or port not in self.ports
+                            or (self.ports[port]["state"] == "busy" and now > self.retry.get(port, 0))]
+                for port in todo:
+                    with job_lock:
+                        flashing = job["state"] == "running"
+                    if flashing or live.on or port_user["what"]:  # (a Load, the check or a copy holds the port;
+                        continue                                    # Live asks the board itself)
+                    self.ask(port)
+            except Exception:  # noqa: BLE001 — never let it die: a port gone in the middle of a question
+                pass
+            time.sleep(1.5)
+
+    def status(self):
+        """For /api/boards: each port — its MAC, its check and the model to pick: what the board said, else what it was
+        last time, else the one board its USB ids fit (if only one)."""
+        if self.thread is None:
+            self.thread = threading.Thread(target=self.run, daemon=True)
+            self.thread.start()
+        out, mem = [], self.remembered()
+        for p in usb_ports():
+            with self.lock:
+                check = dict(self.ports.get(p["port"]) or {"state": "checking"})
+            was = mem.get(p["mac"], {}) if p["mac"] else {}
+            fits = [b["id"] for b in BOARDS if p["usb"] in b.get("usb", [])]
+            model = check.get("board") or was.get("board") or (fits[0] if len(fits) == 1 else "")
+            out.append({**p, **check, "model": model, "known": bool(was), "check": was.get("check"),
+                        "since": was.get("since", 0)})  # (since when it is what it is: the page's offer — once a change)
+        return out
+
+
+boards = BoardWatch()
+
+
+# ---------- The board's check (docs/board-detect.md, step 2): esptool reads, writes nothing ----------
+# The board restarts into its loader for a few seconds (esptool does it over USB), what is read: the chip, its memory
+# and flash (flash-id), the partition table, which app boots (otadata) and its description (esp_app_desc_t) — then a
+# restart, and its own firmware runs again. The reads go one after another in the loader (--before / --after no-reset),
+# the last one always --before default-reset: after "no-reset" the S3's USB keeps DTR held, and its hard reset (RTS)
+# starts the chip in its loader again — it stayed there, dark (found on the board, 6 Nov 2026).
+# What it tells: the chip, PSRAM, flash, which of our boards it fits, what kind of firmware (an
+# Arduino sketch says "arduino-lib-builder": the core's, not the sketch's — ours is told by its hello), or none.
+# The read isn't fast over the S3's own USB (at 460800 ~40 KB/s; at the default 115200 ~11 KB/s — measured 6 Nov 2026):
+# a copy of a firmware takes only what it needs — the loader, the partition table, its data partitions (settings, its
+# pictures and files: without them it wouldn't come back whole — Waveshare's factory firmware keeps its pictures in a
+# 9 MB "assets") and the app that boots, by its own size — not the empty rest of the flash.
+COPY_RATE = 40_000  # bytes a second a copy reads (for its estimate)
+
+
+def copy_regions(parts, app, size):
+    """What a copy of the firmware reads: [(file, offset, bytes)] — the loader, the partition table, each data partition
+    but the core dump (nvs, otadata, phy, its file systems), the app that boots (its own size)."""
+    out = [("bootloader.bin", 0, 0x8000), ("partitions.bin", 0x8000, 0xC00)]
+    out += [(f"{p['name']}.bin", p["offset"], p["size"]) for p in parts if p["type"] == 1 and p["sub"] != 3]
+    out += [("app.bin", app["offset"], size)] if app and size else []
+    return out
+port_user = {"what": ""}  # (the check or a copy has the port: BoardWatch waits)
+BACKUPS = os.path.join(HERE, "backups")
+BOOT_TROUBLE = ("Failed to connect", "No serial data received", "Wrong boot mode", "Could not connect to an Espressif",
+                "Invalid head of packet", "Timed out waiting for packet", "Download mode")
+
+
+def boot_trouble(text):
+    """The board didn't go into its loader (other firmware took the USB, a boot loop, asleep): hold BOOT, plug it in."""
+    return any(k in text for k in BOOT_TROUBLE)
+
+
+def esptool_run(port, args, progress=None):
+    """One esptool run on the board's port -> its output; progress(percent) for a read; failed — RuntimeError."""
+    proc = subprocess.Popen(esptool_cmd() + ["-p", port, "-b", "460800"] + args, stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT, text=True, bufsize=1)  # (460800: reads ~40 KB/s, the default
+                                                                             # 115200 ~11; 921600 broke off)
+    lines = []
+    for line in proc.stdout:  # (its progress comes with \r: a line each, in text mode)
+        lines.append(line.rstrip())
+        m = re.search(r"([\d.]+)%", line)
+        if progress and m and line.lstrip().startswith("Reading"):
+            progress(float(m.group(1)))
+    text = "\n".join(lines)
+    if proc.wait():
+        err = next((x for x in reversed(lines) if x.strip()), "esptool failed")
+        raise RuntimeError(("BOOT: " if boot_trouble(text) else "") + err.replace("A fatal error occurred: ", ""))
+    return text
+
+
+def parse_parts(buf):
+    """The partition table (32-byte entries, magic AA 50) -> [{name, type, sub, offset, size}]."""
+    out = []
+    for i in range(0, min(len(buf), 0xC00), 32):
+        e = buf[i:i + 32]
+        if e[:2] != b"\xaa\x50":
+            break
+        off, size = struct.unpack("<II", e[4:12])
+        out.append({"name": e[12:28].split(b"\0")[0].decode("latin1"), "type": e[2], "sub": e[3], "offset": off, "size": size})
+    return out
+
+
+def boot_app(parts, otadata):
+    """The app partition that boots: by otadata (the newest valid sequence), else factory, else the first one."""
+    apps = [p for p in parts if p["type"] == 0]
+    otas = [p for p in apps if 0x10 <= p["sub"] < 0x20]
+    seqs = [struct.unpack("<I", otadata[k:k + 4])[0] for k in (0, 0x1000) if len(otadata) >= k + 4]
+    seqs = [q for q in seqs if q not in (0, 0xFFFFFFFF)]
+    if otas and seqs:
+        return otas[(max(seqs) - 1) % len(otas)]
+    return next((p for p in apps if p["sub"] == 0), apps[0] if apps else None)
+
+
+def app_desc(head):
+    """The app image's head (0x100 bytes): magic E9, then esp_app_desc_t at 0x20 -> its words, or None — no app."""
+    if len(head) < 0x100 or head[0] != 0xE9:
+        return None
+    d = head[0x20:0x20 + 0xB0]
+    text = lambda b: b.split(b"\0")[0].decode("latin1").strip()
+    if struct.unpack("<I", d[:4])[0] != 0xABCD5432:
+        return {"project": "", "version": "", "date": "", "idf": ""}
+    return {"version": text(d[16:48]), "project": text(d[48:80]), "date": f"{text(d[96:112])} {text(d[80:96])}".strip(),
+            "idf": text(d[112:144])}
+
+
+def board_check(port):
+    """What the board is — board_check_once, once more if it broke off between its reads (another program opened the
+    port in a gap between two esptool runs and spoke into the loader: "the chip stopped responding" — seen with a
+    second studio running, 6 Nov 2026); not again when the board can't reach its loader (BOOT: that won't change)."""
+    for attempt in (1, 2):
+        try:
+            return board_check_once(port)
+        except RuntimeError as e:
+            if attempt == 2 or str(e).startswith("BOOT: "):
+                raise
+            time.sleep(1)
+
+
+def board_check_once(port):
+    """What the board is (esptool, nothing written; it restarts): the chip, PSRAM, flash, MAC, the partitions, the
+    firmware that boots and which of our boards it fits."""
+    tmp = tempfile.mkdtemp(prefix="popka-check-")
+    port_user["what"] = "check"
+    loader = False  # (the board is in its loader now: a restart is owed)
+    try:
+        with live.pause():
+            text = esptool_run(port, ["--before", "default-reset", "--after", "no-reset", "flash-id"])
+            loader = True
+            grab = lambda rx: (re.search(rx, text) or [None, ""])[1].strip()
+            chip = grab(r"Chip type:\s*(.+)")
+            info = {"chip": re.sub(r"\s*\(.*", "", chip), "package": grab(r"Chip type:.*?\((\w+)\)"),
+                    "rev": grab(r"revision (v[\d.]+)"), "features": grab(r"Features:\s*(.+)"),
+                    "psram": int(grab(r"PSRAM (\d+)MB") or 0), "flash": int(grab(r"Detected flash size:\s*(\d+)MB") or 0),
+                    "usb": grab(r"USB mode:\s*(.+)"), "mac": grab(r"MAC:\s*([0-9a-f:]+)").upper()}
+            head = os.path.join(tmp, "head.bin")  # the partition table, otadata (0xe000) and app0's head (0x10000)
+            esptool_run(port, ["--before", "no-reset", "--after", "no-reset", "read-flash", "0x8000", "0x8100", head])
+            buf = open(head, "rb").read()
+            parts = parse_parts(buf)
+            ota = next((p for p in parts if p["type"] == 1 and p["sub"] == 0), None)
+            otadata = b""
+            if ota and ota["offset"] + 0x1004 <= 0x10100:
+                otadata = buf[ota["offset"] - 0x8000:ota["offset"] - 0x8000 + 0x1004]
+            elif ota:  # (further on: read it — which app boots)
+                more = os.path.join(tmp, "ota.bin")
+                esptool_run(port, ["--before", "no-reset", "--after", "no-reset", "read-flash", hex(ota["offset"]), "0x1004", more])
+                otadata = open(more, "rb").read()
+            app = boot_app(parts, otadata)
+            desc, size = None, 0
+            if app and 0x8000 <= app["offset"] <= 0x10000:
+                desc = app_desc(buf[app["offset"] - 0x8000:app["offset"] - 0x8000 + 0x100])
+            elif app:  # (it boots from further on: its head read too)
+                more = os.path.join(tmp, "app.bin")
+                esptool_run(port, ["--before", "no-reset", "--after", "no-reset", "read-flash", hex(app["offset"]), "0x100", more])
+                desc = app_desc(open(more, "rb").read())
+            if desc is not None:
+                size = image_size(port, app["offset"])  # (for a copy's estimate)
+            esptool_run(port, ["--before", "default-reset", "--after", "hard-reset", "read-mac"])  # (its firmware again)
+            loader = False
+    except RuntimeError:
+        if loader:  # (left in its loader: back to its firmware)
+            try:
+                esptool_run(port, ["--before", "default-reset", "--after", "hard-reset", "read-mac"])
+            except RuntimeError:
+                pass
+        raise
+    finally:
+        port_user["what"] = ""
+        boards.ask_again(port)  # (it restarted: its hello again)
+        shutil.rmtree(tmp, ignore_errors=True)
+    family = ("" if desc is None else "Arduino" if desc["project"] == "arduino-lib-builder" else "ESP-IDF" if desc["idf"] else "")
+    info.update({"parts": [{**p, "offset": hex(p["offset"]), "size": p["size"]} for p in parts],
+                 "app": None if app is None else {"name": app["name"], "offset": hex(app["offset"]), "size": app["size"]},
+                 "firmware": None if desc is None else {**desc, "family": family},
+                 "empty": not parts or desc is None,
+                 "copy": None if desc is None else (lambda n: {"bytes": n, "seconds": round(n / COPY_RATE)})(
+                     sum(r[2] for r in copy_regions(parts, app, size))),
+                 "fits": [b["id"] for b in BOARDS if b.get("chip") == info["chip"] and b.get("psram") == info["psram"]
+                          and b.get("flash") == info["flash"]],
+                 "at": int(time.time())})
+    boards.remember_check(info["mac"], info)
+    return info
+
+
+def image_size(port, offset):
+    """An app image's own size (the loader is open, --before/--after no-reset): its head, then each segment's head —
+    a small read each — then the checksum's 16-byte padding and the SHA-256 if appended."""
+    tmp = tempfile.mkdtemp(prefix="popka-size-")
+    try:
+        f = os.path.join(tmp, "h.bin")
+        esptool_run(port, ["--before", "no-reset", "--after", "no-reset", "read-flash", hex(offset), "0x20", f])
+        h = open(f, "rb").read()
+        if h[0] != 0xE9:
+            return 0
+        n, hashed, at = h[1], h[23] == 1, 24
+        for _ in range(n):
+            esptool_run(port, ["--before", "no-reset", "--after", "no-reset", "read-flash", hex(offset + at), "0x8", f])
+            at += 8 + struct.unpack("<II", open(f, "rb").read()[:8])[1]
+        return (at + 16) // 16 * 16 + (32 if hashed else 0)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def backup_job(port):
+    """A copy of the firmware on the board (before ours replaces it): into backups/<MAC>-<time>/ — what makes it run
+    again: the loader, the partition table, otadata, nvs, the app that boots (its own size); restore.txt — the command
+    that writes it back. Progress: by the bytes read."""
+    port_user["what"] = "backup"
+    loader = False
+    try:
+        with live.pause():
+            job_set(step="Reading the partitions", progress=1)
+            text = esptool_run(port, ["--before", "default-reset", "--after", "no-reset", "read-mac"])
+            loader = True
+            mac = (re.search(r"MAC:\s*([0-9a-f:]+)", text) or [None, "board"])[1].replace(":", "").upper()
+            out = os.path.join(BACKUPS, f"{mac}-{time.strftime('%Y%m%d-%H%M%S')}")
+            os.makedirs(out, exist_ok=True)
+            pt = os.path.join(out, "partitions.bin")
+            esptool_run(port, ["--before", "no-reset", "--after", "no-reset", "read-flash", "0x8000", "0xC00", pt])
+            parts = parse_parts(open(pt, "rb").read())
+            if not parts:
+                raise RuntimeError("Nothing to save: the flash has no partition table")
+            ota = next((p for p in parts if p["type"] == 1 and p["sub"] == 0), None)
+            otadata = b""
+            if ota:
+                f = os.path.join(tmp_ota := tempfile.mkdtemp(prefix="popka-ota-"), "otadata.bin")
+                esptool_run(port, ["--before", "no-reset", "--after", "no-reset", "read-flash", hex(ota["offset"]), "0x1004", f])
+                otadata = open(f, "rb").read()
+                shutil.rmtree(tmp_ota, ignore_errors=True)
+            app = boot_app(parts, otadata)
+            job_set(step="Measuring the app", progress=3)
+            size = image_size(port, app["offset"]) if app else 0
+            if not size:
+                raise RuntimeError("Nothing to save: no app in the flash")
+            reads = [r for r in copy_regions(parts, app, size) if r[0] != "partitions.bin"]  # (read already)
+            total, done = sum(r[2] for r in reads), 0
+            for k, (name, off, n) in enumerate(reads):
+                last = k == len(reads) - 1
+                job_set(step=f"Saving {name[:-4]}")
+                esptool_run(port, ["--before", "default-reset" if last else "no-reset", "--after", "hard-reset" if last else "no-reset", "read-flash",
+                                   hex(off), hex(n), os.path.join(out, name)],
+                            progress=lambda pc, d=done, n=n: job_set(progress=5 + 94 * (d + n * pc / 100) / total))
+                done += n
+            loader = False
+            files = [(hex(off), name) for name, off, _ in copy_regions(parts, app, size)]
+            with open(os.path.join(out, "restore.txt"), "w", encoding="utf-8") as f:
+                f.write("The firmware that was on this board before PopkaStudio's (saved by PopkaStudio). To put it back:\n"
+                        "  esptool -p <port> write-flash " + " ".join(f"{a} {b}" for a, b in files) + "\n")
+            rel = os.path.relpath(out, ROOT)
+            job_set(state="done", step=f"Saved in {rel}", progress=100, result=rel)
+    except Exception as e:  # noqa: BLE001 — anything goes to the page
+        if loader:
+            try:
+                esptool_run(port, ["--before", "default-reset", "--after", "hard-reset", "read-mac"])
+            except RuntimeError:
+                pass
+        msg = str(e)
+        job_set(state="error", step="Failed: " + msg.replace("BOOT: ", "").splitlines()[0][:200],
+                hint="boot" if msg.startswith("BOOT: ") else "")
+    finally:
+        port_user["what"] = ""
+        boards.ask_again(port)
 
 
 # ---------- Load: arduino-cli compiles the sketch and uploads it ----------
@@ -1221,7 +1690,7 @@ def load_commands(port):
 
 
 # ---------- Flash: one job at a time, the page polls it ----------
-job = {"id": 0, "state": "idle", "step": "", "progress": 0, "log": []}
+job = {"id": 0, "state": "idle", "step": "", "progress": 0, "log": [], "kind": "", "hint": "", "result": ""}
 job_lock = threading.Lock()
 
 
@@ -1239,16 +1708,17 @@ def job_set(**kw):
         job.update(kw)
 
 
-def flash_job(project, port):
+def flash_job(project, port, meta=None):
     with live.pause():  # (Live gives the port back to the upload and the time; takes it again after)
-        flash_steps(project, port)
+        flash_steps(project, port, meta)
+    boards.ask_again(port)  # (who it is now: this project)
 
 
-def flash_steps(project, port):
+def flash_steps(project, port, meta=None):
     t0 = time.time()
     try:
         job_set(step="Preparing the firmware", progress=2)
-        job_log(write_sketch(project, SKETCH).strip())
+        job_log(write_sketch(project, SKETCH, meta or {}).strip())
         job_set(step="Compiling", progress=8)
         if not port:
             raise RuntimeError("No board: connect it over USB")
@@ -1278,7 +1748,10 @@ def flash_steps(project, port):
         job_set(state="done", step=f"On the board in {time.time() - t0:.0f} s", progress=100)
     except Exception as e:  # noqa: BLE001 — anything goes to the page
         job_log(str(e))
-        job_set(state="error", step="Failed: " + str(e).splitlines()[0][:200])
+        with job_lock:
+            stuck = boot_trouble("\n".join(job["log"][-60:]))  # (the upload couldn't reach the board's loader)
+        job_set(state="error", step="Failed: " + ("the board didn't switch to flashing" if stuck else str(e).splitlines()[0][:200]),
+                hint="boot" if stuck else "")
 
 
 # ---------- The projects: a file each in projects/, its id — the file's name; every save gets the next revision ----------
@@ -1463,7 +1936,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if url.path == "/api/about":
             return self.send(200, {"version": VERSION})
         if url.path == "/api/boards":
-            return self.send(200, {"boards": BOARDS, "ports": usb_ports()})
+            return self.send(200, {"boards": BOARDS, "ports": boards.status()})
         if url.path == "/api/live":
             return self.send(200, live.status())
         if url.path == "/api/job":
@@ -1539,15 +2012,39 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if url.path == "/api/live":  # {"on", "port", "project"} — Live on or off; the project as it is now
                 project = data.get("project") if isinstance(data.get("project"), dict) else None
                 return self.send(200, live.set(bool(data.get("on")), str(data.get("port") or ""), project))
-            if url.path == "/api/flash":
+            if url.path == "/api/check":  # {"port"} — what the board is (it restarts; nothing written)
+                port = data.get("port") or next((p["port"] for p in usb_ports()), "")
+                with job_lock:
+                    busy = job["state"] == "running"
+                if not port or busy or port_user["what"]:
+                    return self.send(409, {"error": "No board" if not port else "The board is busy"})
+                try:
+                    return self.send(200, board_check(port))
+                except RuntimeError as e:
+                    msg = str(e)
+                    return self.send(500, {"error": msg.replace("BOOT: ", ""), "hint": "boot" if msg.startswith("BOOT: ") else ""})
+            if url.path == "/api/backup":  # {"port"} — a copy of the firmware on it (a job: /api/job)
+                port = data.get("port") or next((p["port"] for p in usb_ports()), "")
+                if not port or port_user["what"]:
+                    return self.send(409, {"error": "No board" if not port else "The board is busy"})
+                with job_lock:
+                    if job["state"] == "running":
+                        return self.send(409, {"error": "Busy"})
+                    job.update(id=job["id"] + 1, state="running", step="Starting", progress=0, log=[], kind="backup", hint="",
+                               result="")
+                threading.Thread(target=backup_job, args=(port,), daemon=True).start()
+                return self.send(200, {"id": job["id"]})
+            if url.path == "/api/flash":  # {"project", "port", "pid", "rev"}
                 port = data.get("port") or next((p["port"] for p in usb_ports()), "")
                 if not port:
                     return self.send(409, {"error": "No board: connect it by USB"})
                 with job_lock:
                     if job["state"] == "running":
                         return self.send(409, {"error": "Already flashing"})
-                    job.update(id=job["id"] + 1, state="running", step="Starting", progress=0, log=[])
-                threading.Thread(target=flash_job, args=(data.get("project", {}), port), daemon=True).start()
+                    job.update(id=job["id"] + 1, state="running", step="Starting", progress=0, log=[], kind="load", hint="",
+                               result="")
+                meta = {"pid": str(data.get("pid") or ""), "rev": int(data.get("rev") or 0)}
+                threading.Thread(target=flash_job, args=(data.get("project", {}), port, meta), daemon=True).start()
                 return self.send(200, {"id": job["id"]})
             return self.send(404, {"error": "not found"})
         except Exception as e:  # noqa: BLE001
@@ -1583,7 +2080,7 @@ class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
 
 def main():
     if "--template" in sys.argv:
-        print(write_sketch(default_project(), FIRMWARE))
+        print(write_sketch(halowatch_project(), FIRMWARE))
         return
     build_engine(force="--build" in sys.argv)
     if "--build" in sys.argv:

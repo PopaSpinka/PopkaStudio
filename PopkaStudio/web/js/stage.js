@@ -302,8 +302,8 @@ export class Stage {
   // Edit: the active screen in the middle — fitted to the window, or at the zoom set by hand
   editFitZoom() {
     const r = this.viewport.getBoundingClientRect();
-    const z = Math.min((r.width - 600) / TILE, (r.height - 230) / TILE);  // room for the cards at the sides, the groups at
-                                                                          // the top, the dock at the bottom, the name
+    const z = Math.min((r.width - 600) / TILE, (r.height - 230) / TILE);  // room for the cards at the sides, the top row,
+                                                                          // the name above the screen
     return Math.max(0.25, Math.min(2, Math.floor(z * 4) / 4));
   }
 
@@ -495,10 +495,9 @@ export class Stage {
     const r = this.viewport.getBoundingClientRect();
     const x0 = Math.min(...list.map((s) => s.x)) - 60, x1 = Math.max(...list.map((s) => s.x + span(s))) + 60;
     const y0 = Math.min(...list.map((s) => s.y - 110)), y1 = Math.max(...list.map((s) => s.y + TILE)) + 150;
-    // (in the room the cards leave: the screens' card at the left, the properties' at the right while it is shown, the
-    // top bar, the dock at the bottom)
-    const props = document.querySelector('.card.right:not(.empty)');
-    const L = 260, T = 50, R = props ? 300 : 20, B = 70, w = r.width - L - R, hh = r.height - T - B;
+    // (in the room the cards leave: the left card, the right one while it shows properties, the top row)
+    const props = document.querySelector('.card.right:not(.bare)');
+    const L = 280, T = 50, R = props ? 300 : 20, B = 30, w = r.width - L - R, hh = r.height - T - B;
     const z = Math.max(0.1, Math.min(1, w / (x1 - x0), hh / (y1 - y0)));
     state.view = { z, x: L + (w - (x1 - x0) * z) / 2 - x0 * z, y: T + (hh - (y1 - y0) * z) / 2 - y0 * z };
     this.applyView();

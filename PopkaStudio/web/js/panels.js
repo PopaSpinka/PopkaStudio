@@ -3,14 +3,15 @@
 // a layer, a screen, a link, the way to the gallery or a function: what can be set, no more).
 import {
   state, screens, home, screenById, activeScreen, layers, selected, select, change, KINDS, layerById, screenOf,
-  linkedScreens, newScreen, emit, PAGED, sync as saved, mainScreen, canLink, targetsFor, ICONS, TAPS, PAGES, paged,
+  linkedScreens, links, newScreen, emit, PAGED, sync as saved, mainScreen, canLink, targetsFor, ICONS, TAPS, PAGES, paged,
   pagesOf, pageName, weatherPaged,
   LISTED, listed, moveInList, newLayer, FACE_SCREEN, FUNCTIONS, fnOf, setFn, ZONES, timeOf, setTime, citiesOf, unitsOf,
-  setWeather, WX_MAX, moveCity, isGallery, galleryFor, SECTIONS, sectionParts, addSection, SECTION_PATH, titleOf, subGallery, keepHead, gamesGallery, newList, stepsSet, STEP_FAMILY,
+  setWeather, WX_MAX, moveCity, isGallery, galleryFor, SECTIONS, sectionParts, sectionPart, addSection, addAbout, DEVS, SECTION_PATH, titleOf, subGallery, keepHead, gamesGallery, newList, stepsSet, STEP_FAMILY,
   savedFaces, saveFace, removeFace, faceLayers,
   FACE_PRESETS, FOUR_SIDES, CURVES, INFOS, PIXEL_ART,
 } from './state.js';
 import { thumb } from './previews.js';
+import { openWifi, needWifi } from './wifi.js';
 
 // What a tile adds, made apart from the project (for its picture): layers on a screen of their own
 const apart = (parts) => () => {
@@ -36,6 +37,8 @@ const h = (tag, attrs = {}, ...kids) => {
 const ICON = {
   clock: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4.8V8l2.2 1.4"/></svg>',
   watch: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="4.3"/><path d="M6 3.9 6.5 1.5h3l.5 2.4M6 12.1l.5 2.4h3l.5-2.4M8 6v2l1.3.8"/></svg>',
+  widgets: '<svg viewBox="0 0 16 16"><rect x="2" y="2" width="5" height="5" rx="1.3"/><rect x="2" y="9" width="5" height="5" rx="1.3"/><rect x="9" y="9" width="5" height="5" rx="1.3"/><path d="M11.5 1.5 14 4l-2.5 2.5L9 4z"/></svg>',
+  stack: '<svg viewBox="0 0 16 16"><path d="M8 2 14 5.2 8 8.4 2 5.2z"/><path d="M2 8.1 8 11.3 14 8.1"/><path d="M2 11 8 14.2 14 11"/></svg>',
   apps: '<svg viewBox="0 0 16 16"><circle cx="4" cy="4" r="1.6"/><circle cx="8" cy="4" r="1.6"/><circle cx="12" cy="4" r="1.6"/><circle cx="4" cy="8" r="1.6"/><circle cx="8" cy="8" r="1.6"/><circle cx="12" cy="8" r="1.6"/><circle cx="4" cy="12" r="1.6"/><circle cx="8" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/></svg>',
   date: '<svg viewBox="0 0 16 16"><rect x="2.5" y="3.5" width="11" height="10" rx="2"/><path d="M2.5 6.5h11M5.5 2v3M10.5 2v3"/></svg>',
   weather: '<svg viewBox="0 0 16 16"><path d="M4.5 12.5h7a2.5 2.5 0 0 0 0-5 3.5 3.5 0 0 0-6.8.6A2.2 2.2 0 0 0 4.5 12.5z"/></svg>',
@@ -93,6 +96,11 @@ const ICON = {
   snkiso: '<svg viewBox="0 0 16 16"><path d="M3 13h4v-4h6V3"/></svg>',
   recorder: '<svg viewBox="0 0 16 16"><rect x="5.8" y="1.8" width="4.4" height="7.6" rx="2.2"/><path d="M3.6 7.6a4.4 4.4 0 0 0 8.8 0M8 12v2.2"/></svg>',
   battery: '<svg viewBox="0 0 16 16"><rect x="1.5" y="5" width="11.5" height="6" rx="1.6"/><path d="M14.5 7v2M3.6 7.2v1.6M5.6 7.2v1.6"/></svg>',
+  // About: a chip; its screen — a chart; Power — a plug's bolt in a ring
+  devcard: '<svg viewBox="0 0 16 16"><rect x="4" y="4" width="8" height="8" rx="1.6"/><path d="M6.2 1.8v2.2M9.8 1.8v2.2M6.2 12v2.2M9.8 12v2.2M1.8 6.2h2.2M1.8 9.8h2.2M12 6.2h2.2M12 9.8h2.2"/></svg>',
+  device: '<svg viewBox="0 0 16 16"><path d="M2 12.5l3.2-4 2.6 2.2 3.4-5.2 2.8 3.2"/><path d="M2 14.2h12"/></svg>',
+  charge: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.2"/><path d="M8.8 4.2 6.2 8.4h3.4l-2.4 3.6"/></svg>',
+  about: '<svg viewBox="0 0 16 16"><rect x="4" y="4" width="8" height="8" rx="1.6"/><path d="M6.2 1.8v2.2M9.8 1.8v2.2M6.2 12v2.2M9.8 12v2.2M1.8 6.2h2.2M1.8 9.8h2.2M12 6.2h2.2M12 9.8h2.2"/></svg>',
   buttons: '<svg viewBox="0 0 16 16"><circle cx="7" cy="8" r="5.3"/><path d="M14 4.6v1.8M14 9.6v1.8"/></svg>',
   tap: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.3"/><path d="M3.6 5.2a5.2 5.2 0 0 1 8.8 0M3.6 10.8a5.2 5.2 0 0 0 8.8 0" opacity=".55"/></svg>',
   raise: '<svg viewBox="0 0 16 16"><path d="M3.5 12.5c0-4.6 3-7.6 7.4-7.6M8.8 2.8l2.4 2.1-2.4 2.1"/></svg>',
@@ -111,29 +119,29 @@ const signal = (rssi) => {
   return `<svg class="sig" viewBox="0 0 16 16"><path${n < 3 ? ' class="off"' : ''} d="M1.6 6.2a9.2 9.2 0 0 1 12.8 0"/><path${n < 2 ? ' class="off"' : ''} d="M3.7 8.4a6.2 6.2 0 0 1 8.6 0"/><path d="M5.8 10.6a3.2 3.2 0 0 1 4.4 0"/><circle cx="8" cy="12.9" r=".6"/></svg>`;
 };
 
-// ---------- Elements: the dock at the bottom — three folders in a row (Watch faces, Face, App); the
-// open one shows its menu above the dock,
-// over the field (it moves nothing). A card of an element: drag it onto a screen, or click — onto the active screen,
-// at its place on HaloWatch. A card of a screen: a new screen to the right on the map. The menu closes (folding back
-// into its folder) after a card is used, by its folder again, Esc or a click anywhere else
+// ---------- Elements: three folders at the top of the left card, under its head — Faces, Layers, App: equal tiles, each
+// with how many it holds (6 Nov 2026, web/mockups/panels.html, variants 3 and 7). The open one's content shows to the
+// right of the card, over the field (it moves nothing): its categories in a column — an icon, a name, how many — and the
+// chosen one's tiles beside them, three in a row (each folder's chosen category is kept: localStorage 'popka.cat'). A
+// tile of an element: drag it onto a screen, or click — onto the active screen, at its place on HaloWatch. A tile of a
+// screen: a new screen to the right on the map. The content closes (folding back to the left) after a tile is used, by
+// its folder again, Esc or a click anywhere else
 const FOLDERS = [
-  { id: 'faces', name: 'Watch faces', icon: 'watch', title: 'Whole watch faces: a click makes it the watch face in place of the one before' },
-  { id: 'face', name: 'Face', icon: 'clock', title: 'HaloWatch\'s watch face: the whole screen or its parts — date, clock, weather pill' },
-  { id: 'app', name: 'App', icon: 'apps', title: 'Apps: Gallery, Display, Battery, Music, Recorder, Weather, Steps, games — each its own screen' },
+  { id: 'faces', name: 'Faces', icon: 'watch', title: 'Whole watch faces: a click makes it the watch face in place of the one before' },
+  { id: 'face', name: 'Layers', icon: 'stack', title: 'Layers for a watch face: clocks, dates, weather, steps, battery, backgrounds' },  // (Widgets until 6 Nov 2026)
+  { id: 'app', name: 'App', icon: 'widgets', title: 'Apps: Gallery, Display, Battery, Power, About, Music, Recorder, Weather, Steps, games — each its own screen' },
 ];
 const FACE_SUB = 'HaloWatch\'s watch face: the date, the clock and the weather pill — becomes the watch face in place of the one before';
 const GALLERY_SUB = 'A new gallery: the title, the top clock, one card and More; a swipe up on the face opens it';
 const SCREEN_CARDS = {
   fwhole: { name: 'HaloWatch', icon: 'whole', kind: 'face', sub: FACE_SUB },
   fours: { name: 'Four sides', icon: 'whole', kind: 'foursides', sub: 'The clock, and the weekday, the date, the weather and the steps along the four sides — becomes the watch face in place of the one before' },
-  fempty: { name: 'Empty', icon: 'empty', kind: 'blankface', sub: 'An empty watch face: nothing on it — put on it what you like (Face) — in place of the one before' },
+  fempty: { name: 'Empty', icon: 'empty', kind: 'blankface', sub: 'An empty watch face: nothing on it — put on it what you like (Layers) — in place of the one before' },
   fscreen: { name: 'Watch face', icon: 'clock', kind: 'face', sub: FACE_SUB },
   gscreen: { name: 'Gallery', icon: 'gallery', kind: 'gallery', sub: GALLERY_SUB },
   empty: { name: 'Empty', icon: 'empty', kind: 'empty', sub: 'A blank screen' },
 };
-// A folder's tiles by category: each under its header (a chevron, its icon, its name, how many) — a click on the header
-// folds its tiles away or shows them again; what is folded is kept (localStorage 'popka.shut': "folder:category") — the
-// same after a restart
+// A folder's tiles by category (the column at the left of its content: a click shows that category's tiles)
 const SHELVES = {
   faces: [
     { name: 'Built-in', icon: 'watch', items: ['fwhole', 'fours', 'fempty'] },
@@ -149,7 +157,7 @@ const SHELVES = {
     { name: 'Backgrounds', icon: 'stars', items: ['stars', 'parrot'] },
   ],
   app: [
-    { name: 'Gallery', icon: 'gallery', items: ['gscreen', 'display', 'battery'] },
+    { name: 'Gallery', icon: 'gallery', items: ['gscreen', 'display', 'battery', 'charge', 'about'] },
     { name: 'Media', icon: 'music', items: ['music', 'recorder'] },
     { name: 'Info', icon: 'info', items: ['wxscreen', 'stepscreen'] },
     { name: 'Games', icon: 'games', items: ['snkdots', 'snkspace', 'snkiso'] },  // (in the Games gallery: toGames)
@@ -161,70 +169,106 @@ const SHELVES = {
   const rest = [...Object.keys(KINDS).filter((k) => KINDS[k].group === 'face'), ...Object.keys(FACE_PRESETS)].filter((k) => !placed.has(k));
   if (rest.length) SHELVES.face.push({ name: 'More', icon: 'plus', items: rest });
 }
+// What is folded (Functions in the left card: 'left:Functions') — kept after a restart
 const shut = new Set((() => { try { return JSON.parse(localStorage.getItem('popka.shut')) || []; } catch { return []; } })());
+// Each folder's chosen category — kept after a restart
+const catOf = (() => { try { return JSON.parse(localStorage.getItem('popka.cat')) || {}; } catch { return {}; } })();
 let shelf = '', paletteStage = null;  // the open folder
 
-// A category: its header and its tiles (folded — the tiles slide shut, studio.css .cat-body)
-function category(folder, cat, tiles, count) {
-  const key = `${folder}:${cat.name}`;
-  const box = h('div', { class: 'cat' + (shut.has(key) ? ' shut' : '') });
-  const hd = h('button', { class: 'cat-hd', 'aria-expanded': String(!shut.has(key)) },
-    h('span', { class: 'cat-chev', html: ICON.chev }), h('span', { class: 'cat-ic', html: ICON[cat.icon] }), cat.name,
-    h('span', { class: 'cat-n' }, String(count)));
-  hd.addEventListener('click', () => {
-    shut.has(key) ? shut.delete(key) : shut.add(key);
-    localStorage.setItem('popka.shut', JSON.stringify([...shut]));
-    box.classList.toggle('shut', shut.has(key));
-    hd.setAttribute('aria-expanded', String(!shut.has(key)));
-  });
-  box.append(hd, h('div', { class: 'cat-body' }, h('div', { class: 'cat-clip' }, h('div', { class: 'cat-tiles' }, ...tiles))));
-  return box;
-}
-const tile = (stage, key, i) => SCREEN_CARDS[key] ? screenCard(stage, key, i) : SECTIONS[key] ? sectionCard(stage, key)
-  : FACE_PRESETS[key] ? presetCard(stage, key) : elementCard(stage, key);
+const tile = (stage, key, i) => onWatch(SCREEN_CARDS[key] ? screenCard(stage, key, i) : SECTIONS[key] ? sectionCard(stage, key)
+  : FACE_PRESETS[key] ? presetCard(stage, key) : elementCard(stage, key), placesOf(key));
 
-// A menu closes by folding back into its folder (shelf-close), then it is gone; another folder's — at once
+// What is on the watch already (6 Nov 2026, variant 5 of web/mockups/added.html): a tile whose element is in the project
+// gets a green chip on its picture's lower edge — a watch and how many — and a green frame; its tip starts with where it
+// is. Only the tiles inside a folder: no marks on the folders or the categories (the user's word). Counted: a widget —
+// the layers of its kind; a ready piece (Curved date…) — the layers of its kind with its "what" / "format"; an app —
+// the screens with its own layer (Weather — a city, Steps — the number…); a watch face — when the home is that one
+// (Empty — only while the home has nothing on it)
+const sig = (l) => `${l.type}|${l.what ?? ''}|${l.format ?? ''}`;
+const presetSigs = new Map();
+const presetSig = (key) => presetSigs.get(key) ?? presetSigs.set(key, sig(apart([FACE_PRESETS[key].parts[0]])()[0])).get(key);
+function placesOf(key) {
+  const where = [], layersWhere = (test) => { for (const s of screens()) for (const l of s.layers) if (test(l)) where.push(s.name); };
+  if (SCREEN_CARDS[key]) {
+    const kind = SCREEN_CARDS[key].kind;
+    if (kind === 'gallery') mainScreen() && where.push(mainScreen().name);
+    else if (home().face === kind && (kind !== 'blankface' || !home().layers.length)) where.push(home().name);  // (Empty — while it is)
+  } else if (SECTIONS[key]) {
+    const own = sectionParts(key).map(sectionPart).map(([k]) => k).find((k) => !['arc', 'title', 'dots', 'scroll'].includes(k));
+    for (const s of screens()) if (s.layers.some((l) => l.type === own)) where.push(s.name);
+  } else if (FACE_PRESETS[key]) layersWhere((l) => sig(l) === presetSig(key));
+  else layersWhere((l) => l.type === key);
+  return where;
+}
+function onWatch(b, where) {
+  if (!where.length) return b;
+  const n = new Map();
+  for (const w of where) n.set(w, (n.get(w) || 0) + 1);
+  const list = [...n].map(([w, k]) => (k > 1 ? `${w} ×${k}` : w)).join(', ');
+  b.classList.add('on');
+  b.title = `On the watch${where.length > 1 ? ` ${where.length} times` : ''}: ${list}\n${b.title}`;
+  b.firstChild.after(h('span', { class: 'on-watch', html: ICON.watch + where.length }));
+  return b;
+}
+// A folder's categories: how many each holds and its tiles (Faces → Saved: the project's own faces, then Add)
+const saved_ = (id, cat) => id === 'faces' && cat.name === 'Saved';
+const shelfCats = (stage, id) => SHELVES[id].map((cat) => saved_(id, cat)
+  ? { cat, n: savedFaces().length, tiles: () => [...savedFaces().map((f) => onWatch(savedFaceCard(stage, f), home().face === 'saved:' + f.id ? [home().name] : [])), addFaceCard(stage)] }
+  : { cat, n: cat.items.length, tiles: () => cat.items.map((key, i) => tile(stage, key, i)) });
+const folderCount = (id) => SHELVES[id].reduce((n, cat) => n + (saved_(id, cat) ? savedFaces().length : cat.items.length), 0);
+
+// The content closes by folding back to the left (shelf-close), then it is gone; another folder's — at once
 function setShelf(id) {
-  const open = document.querySelector('#palette .shelf');
+  const open = $('shelf-box').querySelector('.shelf');
   shelf = id;
   if (id || !open) return renderPalette(paletteStage);
   open.classList.add('closing');
-  for (const b of document.querySelectorAll('#palette > .tool')) b.classList.remove('open');
+  for (const b of document.querySelectorAll('#palette > .folder')) b.classList.remove('open'), b.setAttribute('aria-expanded', 'false');
   setTimeout(() => { if (!shelf) renderPalette(paletteStage); }, 120);
 }
 
 export function renderPalette(stage) {
-  const box = $('palette');
   if (!paletteStage) {
-    document.addEventListener('pointerdown', (e) => { if (shelf && !e.target.closest('#palette')) setShelf(''); });
-    // Esc closes the shelf only (before main.js's Esc, which drops the selection)
+    document.addEventListener('pointerdown', (e) => { if (shelf && !e.target.closest('#palette, #shelf-box')) setShelf(''); });
+    // Esc closes the folder only (before main.js's Esc, which drops the selection)
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && shelf) e.stopPropagation(), setShelf(''); }, true);
   }
   paletteStage = stage;
-  const folders = FOLDERS.map((f) => {
-    const b = h('button', { class: 'tool' + (shelf === f.id ? ' open' : ''), title: f.title, 'aria-expanded': String(shelf === f.id) },
-      h('span', { html: ICON[f.icon] }), f.name);
+  $('palette').replaceChildren(...FOLDERS.map((f) => {
+    const b = h('button', { class: 'folder' + (shelf === f.id ? ' open' : ''), title: f.title, 'aria-expanded': String(shelf === f.id) },
+      h('span', { class: 'folder-n' }, String(folderCount(f.id))), h('span', { class: 'folder-ic', html: ICON[f.icon] }), f.name);
     b.addEventListener('click', () => setShelf(shelf === f.id ? '' : f.id));
     return b;
-  });
-  const kids = [...folders];
-  if (shelf && SHELVES[shelf]) {
-    const notch = h('i', { class: 'shelf-notch' });
-    const body = h('div', { class: 'shelf-grid' }, ...SHELVES[shelf].map((cat) => cat.name === 'Saved' && shelf === 'faces'
-        ? category(shelf, cat, [...savedFaces().map((f) => savedFaceCard(stage, f)), addFaceCard(stage)], savedFaces().length)
-        : category(shelf, cat, cat.items.map((key, i) => tile(stage, key, i)), cat.items.length)));
-    const el = h('div', { class: 'shelf' }, notch, body);
-    kids.push(el);
-    const at = folders[FOLDERS.findIndex((q) => q.id === shelf)];  // (taken now: by the next frame it may be closed)
-    requestAnimationFrame(() => {  // the notch at the open folder, by the laid-out page
-      const f = at.getBoundingClientRect(), r = el.getBoundingClientRect();
-      if (r.width) notch.style.setProperty('--notch-x', `${f.left + f.width / 2 - r.left}px`);
-    });
-  }
-  box.replaceChildren(...kids);
+  }));
+  renderShelf(stage);
 }
 
-// The left card's Functions: folded or not by its title, kept as the folders' categories are (popka.shut)
+// The open folder's content: its categories at the left, the chosen one's tiles at the right (scrolling when they are
+// more than the window holds). Grows out to the right only when it opens — built again while open (a face saved), it
+// stays put
+function renderShelf(stage) {
+  const box = $('shelf-box');
+  if (!shelf || !SHELVES[shelf]) return box.replaceChildren();
+  const id = shelf, cats = shelfCats(stage, id), on = cats.find((c) => c.cat.name === catOf[id]) || cats[0];
+  const grid = h('div', { class: 'cat-tiles' }, ...on.tiles()), pane = h('div', { class: 'shelf-tiles' }, grid);
+  const rows = cats.map((c) => {
+    const r = h('button', { class: 'cat-row' + (c === on ? ' on' : ''), 'aria-pressed': String(c === on) },
+      h('span', { class: 'cat-ic', html: ICON[c.cat.icon] }), h('span', { class: 'cat-name' }, c.cat.name), h('span', { class: 'cat-n' }, String(c.n)));
+    r.addEventListener('click', () => {
+      catOf[id] = c.cat.name;
+      localStorage.setItem('popka.cat', JSON.stringify(catOf));
+      for (const q of rows) q.classList.toggle('on', q === r), q.setAttribute('aria-pressed', String(q === r));
+      grid.replaceChildren(...c.tiles());
+      pane.scrollTop = 0;
+    });
+    return r;
+  });
+  const still = !!box.querySelector('.shelf:not(.closing)');
+  box.replaceChildren(h('div', { class: 'shelf' + (still ? ' still' : ''), role: 'dialog', 'aria-label': FOLDERS.find((f) => f.id === id).name },
+    h('div', { class: 'shelf-cats' }, ...rows), pane));
+}
+
+// The left card's Functions: folded or not by its title, kept after a restart (popka.shut)
 export function initFold() {
   const panel = $('fn-panel'), btn = $('fn-fold'), key = 'left:Functions';
   const show = () => { panel.classList.toggle('shut', shut.has(key)), btn.setAttribute('aria-expanded', String(!shut.has(key))); };
@@ -256,7 +300,7 @@ function elementCard(stage, kind) {
 // no gallery yet — one is made, the whole of it (a title, the top clock, a card, More). Never onto the face or another
 // screen over everything. A section (Display, Battery): its card in the gallery and its screen behind it; a new gallery
 // gets it as its first card (and no plain card)
-export const IN_GALLERY = new Set(['title', 'card', 'edge', 'scroll']);
+export const IN_GALLERY = new Set(['title', 'card', 'edge', 'scroll', 'devcard']);
 // Battery and Display go deeper (SECTION_PATH: Gallery › General, Gallery › General › Display): from the gallery being
 // edited if it is on that path, else from the main one; the galleries on the way are made if missing — one undo step
 export function toGallery(stage, kind) {
@@ -270,7 +314,7 @@ export function toGallery(stage, kind) {
     if (at >= 0) path = path.slice(at + 1);
     else if (path.length && isGallery(mainScreen())) g = mainScreen();
     for (const name of path) g = g && subGallery(g, name, key);
-    const card = g && addSection(g, kind, key);
+    const card = g && (kind === 'about' ? addAbout(g, key) : addSection(g, kind, key));
     if (card) select({ type: 'layer', id: card.id });
   } else if (!fresh) {
     stage.add(kind, g);
@@ -311,7 +355,7 @@ function sectionCard(stage, kind) {
   const where = SECTION_PATH[kind] ? `Gallery › ${SECTION_PATH[kind].join(' › ')}` : KINDS[kind]?.game ? 'the Games gallery' : 'the gallery';
   const b = h('button', { class: 'tool', title: `${SECTIONS[kind].tile || SECTIONS[kind].text} — ${what}: its card in ${where} and its screen` },
     thumb('section:' + kind, ICON[SECTIONS[kind].tile ? 'whole' : kind],
-      apart(sectionParts(kind).map((t) => [t, null])), true),
+      apart(sectionParts(kind).map(sectionPart)), true),
     SECTIONS[kind].tile || SECTIONS[kind].text);
   b.addEventListener('click', () => { setShelf(''); KINDS[kind]?.game ? toGames(stage, kind) : toGallery(stage, kind); });
   return b;
@@ -319,7 +363,7 @@ function sectionCard(stage, kind) {
 
 function screenCard(stage, key, i) {
   const c = SCREEN_CARDS[key];
-  const face = c.kind === 'face' || c.kind === 'foursides' || c.kind === 'blankface';  // (Watch faces: the home's)
+  const face = c.kind === 'face' || c.kind === 'foursides' || c.kind === 'blankface';  // (Faces: the home's)
   const b = h('button', { class: 'tool' + (i === 0 && key.endsWith('whole') ? ' main' : ''), title: `${c.sub}. Click: ${face ? 'it becomes the watch face' : 'a new screen on the map'}` },
     c.kind === 'empty' ? h('span', { html: ICON[c.icon] }) : thumb('screen:' + c.kind, ICON[c.icon], () => newScreen(c.kind).layers, true), c.name);
   b.addEventListener('click', () => {
@@ -330,9 +374,9 @@ function screenCard(stage, key, i) {
   return b;
 }
 
-// A whole face from Watch faces becomes THE watch face (the home: the first screen) in place of the one before: the
+// A whole face from Faces becomes THE watch face (the home: the first screen) in place of the one before: the
 // home keeps its id and its place on the map, its layers are the new face's — the old face is gone (Undo brings it
-// back; Watch faces → Add keeps one). What the old face's layers opened, the new face's layers of the same part open
+// back; Faces → Saved → Add keeps one). What the old face's layers opened, the new face's layers of the same part open
 // (the pill — Weather); a pill that opens nothing — the first Weather screen, as on HaloWatch. The same face again
 // puts it back as it was (a part deleted or changed — there again); untouched — nothing happens
 export function toHomeFace(stage, kind) {
@@ -343,7 +387,7 @@ export function toHomeFace(stage, kind) {
   const part = (l) => l.type + ':' + (l.what || '');
   hm.layers = [];  // (made on the home itself, one by one: each new layer's id counts the ones before it)
   if (own) hm.layers = faceLayers(own, hm);
-  else if (kind !== 'blankface') {  // (Empty: no layers — what the face gets is added from Face)
+  else if (kind !== 'blankface') {  // (Empty: no layers — what the face gets is added from Layers)
     for (const [type, look] of kind === 'foursides' ? FOUR_SIDES : FACE_SCREEN.map((t) => [t, null])) hm.layers.push(newLayer(type, look, hm));
   }
   const ls = hm.layers;
@@ -368,7 +412,7 @@ export function toHomeFace(stage, kind) {
     hm.name = title;
     for (let k = 2; screens().some((q) => q !== hm && q.name === hm.name); k++) hm.name = `${title} ${k}`;
   }, { structure: true });
-  saved.note = kind === 'blankface' ? `${hm.name}: empty — put on it what you like (Face)` : again ? `${hm.name}: back as it was`
+  saved.note = kind === 'blankface' ? `${hm.name}: empty — put on it what you like (Layers)` : again ? `${hm.name}: back as it was`
     : was === hm.name ? `${hm.name}: the watch face` : `${hm.name}: the watch face now, in place of ${was}`;
   select({ type: 'screen', id: hm.id });
   state.screen = hm.id;
@@ -376,7 +420,7 @@ export function toHomeFace(stage, kind) {
   stage.focus(hm);
   return hm;
 }
-// A face saved from the project: its picture, its name; the bin — out of Watch faces (Undo brings it back)
+// A face saved from the project: its picture, its name; the bin — out of Faces (Undo brings it back)
 function savedFaceCard(stage, f) {
   const b = h('button', { class: 'tool', title: `${f.name} — saved from this project. Click: it becomes the watch face` },
     thumb('saved:' + f.id, ICON.whole, () => f.layers, true), f.name);
@@ -384,7 +428,7 @@ function savedFaceCard(stage, f) {
   del.addEventListener('click', (e) => {
     e.stopPropagation();
     removeFace(f.id);
-    saved.note = `${f.name}: deleted from Watch faces`;
+    saved.note = `${f.name}: deleted from Faces`;
     renderPalette(stage);
   });
   b.append(del);
@@ -404,7 +448,7 @@ function addFaceCard(stage) {
     input.focus(), input.select();
     const done = (ok) => {
       const v = input.value.trim();
-      if (ok && v) saveFace(v), (saved.note = `${v}: saved in Watch faces`);
+      if (ok && v) saveFace(v), (saved.note = `${v}: saved in Faces`);
       renderPalette(stage);
     };
     input.addEventListener('keydown', (e) => {
@@ -634,44 +678,122 @@ function fillHome(kind = 'face') {
   return s;
 }
 
+// A screen goes with everything under it in Screens (6 Nov 2026, at the user's word: a gallery deleted — all its
+// screens too, however many and however deep; before, the games stayed when their gallery went). A gallery's card that
+// opened one of them goes too (it was its way in); the face's layers and More that opened one open nothing now. One
+// Undo brings it all back
 export function removeScreen(id) {
+  const s = screenById(id), n = screenTree().find((q) => q.s === s);
+  const gone = new Set([...(n ? carried(n) : [s])].map((q) => q.id));
   change((p) => {
-    p.screens = p.screens.filter((s) => s.id !== id);
-    for (const s of p.screens) for (const l of s.layers) if (l.tap && l.tap.to === id) l.tap = null;
-    if (p.main === id) p.main = null;
+    p.screens = p.screens.filter((q) => !gone.has(q.id));
+    for (const q of p.screens) {
+      q.layers = q.layers.filter((l) => !(l.tap && gone.has(l.tap.to) && LISTED.has(l.type) && q !== p.screens[0]));
+      for (const l of q.layers) if (l.tap && gone.has(l.tap.to)) l.tap = null;
+    }
+    if (gone.has(p.main)) p.main = null;
   }, { structure: true });
-  if (state.screen === id) state.screen = home().id, emit('screen');
+  if (gone.has(state.screen)) state.screen = home().id, emit('screen');
+  if (gone.size > 1) saved.note = `${s.name} and ${gone.size - 1} under it: deleted · Undo brings them back`;
   select(null);
 }
 
-// A screen with pages (the Weather screen's cities): a twist shows them under it — a click on one picks it
-const opened = new Set();
+// Screens as a tree (6 Nov 2026, at the user's word: "the gallery folds into a list, as Weather and Steps do"): a
+// gallery's screens — the ones its cards and its More open, in its list's order — under it, a step in; a gallery in a
+// gallery (General › Display) — its own under it again. A screen opened from several galleries — under the first one
+// met from the top; opened only from the watch face (the pill's Weather) — at the top level, as the screens nothing
+// opens. A twist folds a gallery (its screens) or a screen with pages (the Weather's cities, the Steps' two pages): a
+// gallery starts open, pages start folded; what was folded or opened by hand is kept per project
+// (localStorage 'popka.tree'). The screen being edited is always in sight: its galleries open when it becomes the active
+// one; folded away by hand later — its gallery's row is lit instead
+const tree = (() => { try { return JSON.parse(localStorage.getItem('popka.tree')) || {}; } catch { return {}; } })();
+const treeKey = (s) => `${state.pid}:${s.id}`;
+const isOpen = (s, kids) => tree[treeKey(s)] ?? kids;  // (a gallery — open, pages — folded, until set by hand)
+const setOpen = (s, v) => { tree[treeKey(s)] = v; localStorage.setItem('popka.tree', JSON.stringify(tree)); };
+let revealed = null;  // the active screen whose galleries were last opened
+
+// The screens in the list's order: {s, depth, kids, parent} — kids: whether screens are under it
+function screenTree() {
+  const under = new Map();  // a gallery → the screens its cards and More open (not the face's links)
+  for (const k of links()) {
+    if (k.from === home()) continue;
+    const a = under.get(k.from) || [];
+    if (!a.includes(k.to)) a.push(k.to);
+    under.set(k.from, a);
+  }
+  const child = new Set([...under.values()].flat()), out = [], placed = new Set();
+  const visit = (s, depth, parent = null) => {
+    if (placed.has(s)) return;
+    placed.add(s);
+    const node = { s, depth, kids: false, parent };  // (parent — the gallery whose card places it here; null — the top)
+    out.push(node);
+    const at = out.length;
+    for (const q of under.get(s) || []) visit(q, depth + 1, s);
+    node.kids = out.length > at;
+  };
+  for (const q of screens()) if (!child.has(q)) visit(q, 0);
+  for (const q of screens()) visit(q, 0);  // (galleries opening each other in a ring: none is at the top otherwise)
+  return out;
+}
+
 export function renderScreens(stage) {
-  $('screens').replaceChildren(...screens().flatMap((s, i) => {
-    const pages = paged(s), open = pages && opened.has(s.id), cur = s.id === state.screen;
-    const row = h('li', { class: 'layer' + (cur && !open ? ' sel' : '') },
-      h('span', { class: 'layer-icon', html: i === 0 ? ICON.home : s === mainScreen() ? ICON.gallery : ICON.screen }),
+  if (treeDrag) endTreeDrag(false);  // (drawn anew under a drag: its rows are gone)
+  treeStage = stage;
+  const list = screenTree();
+  const at = list.findIndex((n) => n.s.id === state.screen);
+  if (state.screen !== revealed && at >= 0) {  // the active screen's galleries open (once, when it becomes the active one)
+    revealed = state.screen;
+    for (let i = at - 1, d = list[at].depth; i >= 0 && d > 0; i--) if (list[i].depth < d) d = list[i].depth, isOpen(list[i].s, true) || setOpen(list[i].s, true);
+  }
+  const rows = [];
+  const under = (i) => { const k = list.slice(i + 1).findIndex((q) => q.depth <= list[i].depth); return k < 0 ? list.length - i - 1 : k; };
+  treeBlocks = [];
+  let shut = Infinity;  // inside a folded gallery: its depth
+  list.forEach((n, i) => {
+    if (n.depth > shut) return;
+    shut = Infinity;
+    const s = n.s, pages = paged(s), twist = n.kids || pages, open = twist && isOpen(s, n.kids), cur = s.id === state.screen;
+    // folded: lit when the active screen is in it (its pages, or a screen under the gallery)
+    let inside = cur && pages && !open;
+    for (let j = i + 1; !open && n.kids && j < list.length && list[j].depth > n.depth; j++) inside ||= list[j].s.id === state.screen;
+    const row = h('li', { class: 'layer' + ((cur && !(pages && open)) || inside ? ' sel' : ''), style: `padding-left: ${8 + n.depth * 16}px` },
+      h('span', { class: 'layer-icon', html: s === home() ? ICON.home : n.kids || isGallery(s) ? ICON.gallery : ICON.screen }),
       h('span', { class: 'layer-name', ondblclick: (e) => rename(e, s.name, (v) => { s.name = v; }) }, s.name),
-      pages ? h('button', {
-        class: 'icon-btn twist' + (open ? ' open' : ''), title: open ? 'Hide its pages' : 'Its pages', html: ICON.chev,
-        onclick: (e) => { e.stopPropagation(); open ? opened.delete(s.id) : opened.add(s.id); renderScreens(stage); },
-      }) : h('span', { class: 'tag' }, i === 0 || linkedScreens().includes(s) ? '' : 'not linked'),
-      i === 0 ? h('span') : h('button', {
-        class: 'icon-btn', title: 'Delete the screen', html: ICON.trash,
+      twist ? h('button', {
+        class: 'icon-btn twist' + (open ? ' open' : ''), html: ICON.chev,
+        title: open ? (n.kids ? 'Fold its screens' : 'Hide its pages') : n.kids ? 'Its screens' : 'Its pages',
+        onclick: (e) => { e.stopPropagation(); setOpen(s, !open); renderScreens(stage); },
+      }) : h('span', { class: 'tag' }, s === home() || linkedScreens().includes(s) ? '' : 'not linked'),
+      s === home() ? h('span') : h('button', {
+        class: 'icon-btn', html: ICON.trash,
+        title: n.kids ? `Delete it and the ${under(i)} screens under it` : 'Delete the screen',
         onclick: (e) => { e.stopPropagation(); removeScreen(s.id); },
       }));
     // (Map: only picked, as a click on it there — the map stays still; Edit, Try: shown in the screen's place)
     row.addEventListener('click', () => { select({ type: 'screen', id: s.id }); if (state.mode !== 'map') stage.focus(s); });
-    if (!open) return [row];
+    rows.push(row);
+    const block = { node: n, row, pages: [], open: n.kids && open };
+    treeBlocks.push(block);
+    if (s !== home()) {  // (the face stays first, at the top)
+      row.classList.add('sortable');
+      row.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0 || e.target.closest('button, input') || sorting) return;
+        treeDrag = { block, id: e.pointerId, x0: e.clientX, y0: e.clientY, live: false, to: null };
+      });
+    }
+    if (n.kids && !open) shut = n.depth;
+    if (!pages || !open) return;
     const subs = Array.from({ length: pagesOf(s) }, (_, k) => {
-      const sub = h('li', { class: 'layer sub' + (cur && state.page === k ? ' sel' : '') },
+      const sub = h('li', { class: 'layer sub' + (cur && state.page === k ? ' sel' : ''), style: `padding-left: ${30 + n.depth * 16}px` },
         h('span', { class: 'page-dot' }), h('span', { class: 'layer-name' }, pageName(s, k)));
       sub.addEventListener('click', () => stage.showPage(s, k));
       return sub;
     });
     if (weatherPaged(s)) sortable(subs, (from, to) => { moveCity(from, to); stage.keepPage(); });  // (the cities' order)
-    return [row, ...subs];
-  }));
+    rows.push(...subs);
+    block.pages = subs;
+  });
+  $('screens').replaceChildren(...rows);
 }
 
 // ---------- Layers of the active screen: the top row is drawn last (in front) ----------
@@ -706,6 +828,139 @@ export function renderLayers() {
   sortable(rows, (from, to) => move(shown[from].id, shown[to].id, to < from));
 }
 
+// ---------- Screens: a screen dragged to another place in the tree (6 Nov 2026, at the user's word: "drag Weather where
+// it should be, and everything it has comes with it"). Grab a row (not the face's) and move it: what it carries — the
+// screens under it and its pages — fades, a label follows the pointer, a blue line shows where it goes (indented as it
+// will be), or a gallery's row lights up — into it, at the end of its list. Let go — it moves; Esc — nothing. What
+// moves is the card that opens it: from its gallery into the new one, at the line's place (its look and its text go
+// with it); what is under it comes along by itself (its own cards open those). A screen nothing in a gallery opens (at
+// the top) dropped into a gallery gets a new card named after it there; at the top only the order changes. Never: into
+// itself or into what it carries, into a screen that is no gallery, a gallery's screen out to the top (its card would
+// be lost), the gallery the swipe opens into another one, the pages — a city stays in its Weather screen (they are put
+// in order only among themselves). A gallery has room for 24 items (lib/Halo HALO_LIST_MAX) and a screen for 32 layers
+const LIST_MAX = 24, LAYERS_MAX = 32;
+let treeDrag = null, treeBlocks = [], treeStage = null, treeLine = null, treeGhost = null;
+const linkIn = (g, s) => links().find((k) => k.from === g && k.to === s)?.layer || null;
+// What a dragged screen carries: itself and the screens under it (all of them, folded or not)
+function carried(n) {
+  const list = screenTree(), at = list.findIndex((q) => q.s === n.s), out = new Set([n.s]);
+  for (let i = at + 1; i < list.length && list[i].depth > list[at].depth; i++) out.add(list[i].s);
+  return out;
+}
+// May screen s (now under gallery `from`, null — at the top) go to `to` ({into: gallery or null — the top, ...})?
+function canDrop(s, from, to, carry) {
+  if (!to.into) return !from && !(to.ref === home() && to.place === 'before');  // (the top: its own order, the face first)
+  const g = to.into;
+  if (carry.has(g) || g === home() || !isGallery(g) || s === mainScreen()) return false;
+  if (g !== from && linkIn(g, s)) return false;  // (it opens it already)
+  if (g === from) return true;
+  return listed(g).length < LIST_MAX && g.layers.length < LAYERS_MAX;
+}
+// Where the pointer is: {into, ref, place, line: [y, depth] | null, lit: row | null} or null (nowhere it may go)
+function dropAt(d, y) {
+  const blocks = treeBlocks.filter((b) => !d.carry.has(b.node.s));
+  for (const b of treeBlocks) {
+    const r = b.row.getBoundingClientRect(), bottom = (b.pages.at(-1) || b.row).getBoundingClientRect().bottom;
+    if (y < r.top - 1 || y >= bottom + 1) continue;
+    if (d.carry.has(b.node.s)) return null;  // (over itself or what it carries)
+    const n = b.node, rel = (y - r.top) / r.height;
+    const before = n.parent ? { into: n.parent, ref: linkIn(n.parent, n.s), place: 'before' } : { into: null, ref: n.s, place: 'before' };
+    const after = b.open ? { into: n.s, ref: null, place: 'start' }  // (an open gallery: at the top of its screens)
+      : n.parent ? { into: n.parent, ref: linkIn(n.parent, n.s), place: 'after' } : { into: null, ref: n.s, place: 'after' };
+    const into = { into: n.s, ref: null, place: 'end' };
+    const gallery = n.s !== home() && isGallery(n.s);
+    const pick = y >= r.bottom ? after : gallery && rel > 0.28 && rel < 0.72 ? into : rel < 0.5 ? before : after;
+    if (!canDrop(d.s, d.from, pick, d.carry)) return null;
+    if (pick === into) return { ...pick, lit: b.row };
+    // the line: above this row, or under it (an open gallery — its first screen's place; else — under its pages)
+    const ly = pick === before ? r.top - 1 : (pick.place === 'start' ? r.bottom : bottom) + 1;
+    return { ...pick, line: [ly, pick === after && b.open ? n.depth + 1 : n.depth] };
+  }
+  // under the last row: the end of the top
+  const last = blocks.filter((b) => !b.node.parent).at(-1);
+  if (!last || d.from) return null;
+  const end = { into: null, ref: last.node.s, place: 'after' };
+  const bottom = treeBlocks.at(-1);
+  return { ...end, line: [(bottom.pages.at(-1) || bottom.row).getBoundingClientRect().bottom + 1, 0] };
+}
+function startTreeDrag(d) {
+  d.live = true;
+  d.s = d.block.node.s, d.from = d.block.node.parent, d.carry = carried(d.block.node);
+  for (const b of treeBlocks) if (d.carry.has(b.node.s)) for (const r of [b.row, ...b.pages]) r.classList.add('carried');
+  treeLine = h('div', { class: 'tree-line' });
+  const more = d.carry.size - 1;
+  treeGhost = h('div', { class: 'tree-ghost' }, h('span', { html: ICON[d.block.node.kids || isGallery(d.s) ? 'gallery' : 'screen'] }), d.s.name,
+    more ? h('span', { class: 'n' }, `+${more}`) : null);
+  document.body.append(treeLine, treeGhost);
+  document.body.classList.add('sorting');
+}
+document.addEventListener('pointermove', (e) => {
+  const d = treeDrag;
+  if (!d || e.pointerId !== d.id) return;
+  if (!d.live) {
+    if (Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 5) return;  // (a click, not a drag)
+    startTreeDrag(d);
+  }
+  // at the very edge of Screens (or past it), when there is more that way: it scrolls
+  const box = $('screens').closest('.screens-panel'), br = box.getBoundingClientRect();
+  if (e.clientY < br.top + 10 && box.scrollTop > 0) box.scrollTop -= 8;
+  else if (e.clientY > br.bottom - 10 && box.scrollTop + box.clientHeight < box.scrollHeight) box.scrollTop += 8;
+  treeGhost.style.transform = `translate(${e.clientX + 14}px, ${e.clientY + 10}px)`;
+  for (const r of document.querySelectorAll('#screens .drop-into')) r.classList.remove('drop-into');
+  d.to = dropAt(d, e.clientY);
+  treeLine.hidden = !d.to?.line;
+  if (d.to?.lit) d.to.lit.classList.add('drop-into');
+  if (d.to?.line) {
+    const lr = $('screens').getBoundingClientRect(), x = lr.left + 6 + d.to.line[1] * 16;
+    Object.assign(treeLine.style, { left: x + 'px', top: d.to.line[0] - 1 + 'px', width: lr.right - x - 4 + 'px' });
+  }
+  document.body.classList.toggle('no-drop', !d.to);
+});
+function endTreeDrag(keep) {
+  const d = treeDrag;
+  treeDrag = null;
+  if (!d?.live) return;
+  clickAfterSort = true;  // (the click that ends a drag picks nothing)
+  setTimeout(() => { clickAfterSort = false; });
+  treeLine?.remove(), treeGhost?.remove(), treeLine = treeGhost = null;
+  document.body.classList.remove('sorting', 'no-drop');
+  for (const r of document.querySelectorAll('#screens .carried, #screens .drop-into')) r.classList.remove('carried', 'drop-into');
+  if (keep && d.to) moveScreen(d.s, d.from, d.to);
+}
+document.addEventListener('pointerup', (e) => { if (treeDrag && e.pointerId === treeDrag.id) endTreeDrag(true); });
+document.addEventListener('pointercancel', (e) => { if (treeDrag && e.pointerId === treeDrag.id) endTreeDrag(false); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && treeDrag?.live) e.stopPropagation(), endTreeDrag(false); }, true);
+
+// Screen s from gallery `from` (null — the top) to `to`: its card moves into the new gallery's list at the place (More
+// that opened it stays and opens nothing — the screen gets a card), or a new card named after it; at the top — the order
+export function moveScreen(s, from, to) {
+  const link = from && linkIn(from, s);
+  if (to.into === from && (to.ref === s || to.ref === link)) return;  // (onto its own place)
+  change((p) => {
+    if (!to.into) {
+      p.screens.splice(p.screens.indexOf(s), 1);
+      const k = p.screens.indexOf(to.ref) + (to.place === 'after' ? 1 : 0);
+      p.screens.splice(Math.max(1, k), 0, s);  // (the face stays first)
+      return;
+    }
+    const g = to.into;
+    let card = link && LISTED.has(link.type) ? link : null;
+    if (link && !card) link.tap = null;
+    if (card) from.layers.splice(from.layers.indexOf(card), 1);
+    else {
+      const text = [...s.name].filter((c) => c >= ' ' && c <= '~').join('').trim().slice(0, 39) || 'Card';
+      card = newLayer('card', { name: text, text, subtitle: '', tap: { to: s.id, fx: 'a16' } }, g);
+    }
+    const items = g.layers.filter((l) => LISTED.has(l.type)), first = items.find((l) => l.type !== 'title');
+    const k = to.ref && g.layers.includes(to.ref) ? g.layers.indexOf(to.ref) + (to.place === 'after' ? 1 : 0)
+      : to.place === 'start' && first ? g.layers.indexOf(first)
+        : items.length ? g.layers.indexOf(items.at(-1)) + 1 : g.layers.length;
+    g.layers.splice(k, 0, card);
+    keepHead(g, card);
+  }, { structure: true });
+  if (to.into && to.into !== from) saved.note = `${s.name}: in ${to.into.name} now`;
+}
+
 // ---------- A short list put in order by dragging a row (the layers, the cities): the row lifts and follows the
 // pointer, the others slide apart to show where it lands; let go — it settles into the gap; Esc — all back ----------
 let sorting = null, clickAfterSort = false;
@@ -736,7 +991,9 @@ document.addEventListener('pointermove', (e) => {
   s.row.style.transform = `translateY(${d}px) scale(1.02)`;
   // where it lands: past the middle of a row — that row's place
   const mid = r0.top + r0.height / 2 + d;
-  s.to = s.rects.filter((r, i) => i !== s.k && mid > r.top + r.height / 2).length;
+  // (held at the end of the list, its middle is right at the last row's: the half pixel the way it goes lets it take
+  // the last place, and the first one going up)
+  s.to = s.rects.filter((r, i) => i !== s.k && mid + Math.sign(d) * 0.5 > r.top + r.height / 2).length;
   s.rows.forEach((r, i) => {
     if (i === s.k) return;
     const shift = s.k < s.to && i > s.k && i <= s.to ? -s.step : s.k > s.to && i >= s.to && i < s.k ? s.step : 0;
@@ -920,19 +1177,20 @@ export function renderProps(stage, force = false) {
   if (!force && key === shownFor) return refreshers.forEach((f) => f());
   shownFor = key;
   refreshers = [];
-  // Only its head (a screen with nothing to set: its name and bin are in Screens too) — no card, as with nothing selected
+  // Only its head (a screen with nothing to set: its name and bin are in Screens too) — no properties, as with nothing
+  // selected: the right card is its own head alone (the board, Load)
   const s = state.sel, show = (parts) => {
     parts = parts.filter(Boolean);
     const bare = parts.every((p) => p.classList.contains('props-head'));
     $('props').replaceChildren(...(bare ? [] : parts));
-    $('props').classList.toggle('empty', bare);
+    $('right').classList.toggle('bare', bare);
   };
   if (s && s.type === 'layer' && layerById(s.id)) return show(layerProps(stage, layerById(s.id)));
   if (s && s.type === 'link' && layerById(s.id)?.tap) return show(linkProps(stage, layerById(s.id)));
   if (s && s.type === 'main' && mainScreen()) return show(mainProps(stage, mainScreen()));
   if (s && (s.type === 'screen' || s.type === 'back') && screenById(s.id)) return show(screenProps(stage, screenById(s.id)));
   if (s && s.type === 'fn' && FN_ROWS.includes(fnRowOf(s.id))) return show(fnProps(fnRowOf(s.id)));
-  show([]);  // nothing selected: no card
+  show([]);  // nothing selected: the head alone
 }
 
 function layerProps(stage, l) {
@@ -1070,8 +1328,18 @@ function layerProps(stage, l) {
   } else if (l.type === 'title' || l.type === 'edge') {
     groups.push(h('div', { class: 'group' }, h('h3', {}, 'Text'), words('Text', 'text'),
       color(l.type === 'edge' ? 'Button' : 'Color', () => l.color, upd('color'), 'color')));
-  } else if (l.type === 'display' || l.type === 'battery' || l.type === 'music' || l.type === 'recorder' || KINDS[l.type]?.game) {
+  } else if (l.type === 'display' || l.type === 'battery' || l.type === 'music' || l.type === 'recorder' || l.type === 'charge' || KINDS[l.type]?.game) {
     // (HaloWatch's screen as it is: nothing to set)
+  } else if (l.type === 'devcard') {
+    groups.push(h('div', { class: 'group' }, h('h3', {}, 'Card'),
+      choice('Shows', l.what, DEVS, (v) => change(() => { l.what = v; }, { structure: true })), words('Label', 'text'),
+      iconPicker(() => l.icon, (v) => change(() => { l.icon = v; })),
+      color('Accent', () => l.color, upd('color'), 'color'),
+      color('Card', () => l.color2, upd('color2'), 'color2')));
+  } else if (l.type === 'device') {
+    groups.push(h('div', { class: 'group' }, h('h3', {}, 'Screen'),
+      choice('Shows', l.what, DEVS.filter(([k]) => k !== 'bat'), (v) => change(() => { l.what = v; }, { structure: true })),
+      color('Accent', () => l.color, upd('color'), 'color')));
   } else if (l.type === 'card') {
     groups.push(h('div', { class: 'group' }, h('h3', {}, 'Card'), words('Title', 'text'), words('Subtitle', 'subtitle'),
       iconPicker(() => l.icon, (v) => change(() => { l.icon = v; })),
@@ -1089,12 +1357,13 @@ function layerProps(stage, l) {
 }
 
 // The time the watch shows — the same for all its clocks and dates: from Wi-Fi (the Wi-Fi function) or from the
-// computer (over USB after Flash), the zone, 12 or 24 hours
+// computer (over USB after Flash), the zone, 12 or 24 hours. Wi-Fi picked — the Wi-Fi window (wifi.js): the networks
+// the board sees, a password, Save — and only then Wi-Fi is on
 const TIMED = new Set(['date', 'clock', 'arc']);
 function timeGroup() {
   return h('div', { class: 'group' }, h('h3', {}, 'Time'),
     segmented('From', () => (fnOf('wifi').on ? 'wifi' : 'computer'), [['wifi', 'Wi-Fi'], ['computer', 'Computer']],
-      (v) => setFn('wifi', { on: v === 'wifi' }, { structure: true })),
+      (v) => (v === 'wifi' ? openWifi() : setFn('wifi', { on: false }, { structure: true }))),
     choice('Zone', timeOf().zone, ZONES.map(([n]) => [n, n]), (v) => setTime({ zone: v })),
     segmented('Clock', () => (timeOf().h24 ? '24' : '12'), [['12', '12 h'], ['24', '24 h']], (v) => setTime({ h24: v === '24' })));
 }
@@ -1233,7 +1502,9 @@ function fnProps(id) {
       slider('Brightness', () => Math.round(fnOf(id).bright * 100 / 255), (v, key) => setFn(id, { bright: Math.max(1, Math.round(v * 255 / 100)) }, { key }),
         { min: 2, max: 50, unit: '%', key: 'aod-bright' }),
       h('div', { class: 'switch-row' }, h('label', {}, 'Back to watch face'),
-        toggle(f.home, (v) => set({ home: v }), 'Back to watch face'))),
+        toggle(f.home, (v) => set({ home: v }), 'Back to watch face')),
+      h('div', { class: 'switch-row' }, h('label', {}, 'Burn-in shift'),  // (a few pixels elsewhere every minute: AMOLED)
+        toggle(f.shift !== false, (v) => set({ shift: v }), 'Burn-in shift'))),
       wakeGroup());
   }
   return parts;
@@ -1265,13 +1536,16 @@ let cityTimer = 0, citySeq = 0;
 
 function citiesGroup(stage, s, first = false) {
   const cities = citiesOf(), cur = s && s.id === state.screen ? Math.min(state.page, cities.length - 1) : -1;
-  const open = (k) => {
+  // a city is the weather from the internet: Wi-Fi off — the pen and + look off, a click asks for Wi-Fi (wifi.js), then
+  // goes on to the search
+  const wifi = fnOf('wifi').on, needs = wifi ? '' : ' needs-wifi';
+  const open = (k) => needWifi(() => {
     cityEdit.at = cityEdit.at === k ? null : k, cityEdit.q = '', cityEdit.results = [], cityEdit.err = '';
     renderProps(stage, true);
-  };
+  });
   const cityRows = [];
   const rows = (first ? cities.slice(0, 1) : cities).flatMap((c, k) => {
-    const pen = h('button', { class: 'icon-btn', title: 'Another city', 'aria-label': 'Another city', html: ICON.pen });
+    const pen = h('button', { class: 'icon-btn' + needs, title: wifi ? 'Another city' : 'Another city — needs Wi-Fi', 'aria-label': 'Another city', html: ICON.pen });
     pen.addEventListener('click', (e) => { e.stopPropagation(); open(k); });
     const bin = cities.length > 1 && !first ? h('button', { class: 'icon-btn', title: 'Remove this city', 'aria-label': 'Remove this city', html: ICON.trash }) : null;
     bin?.addEventListener('click', (e) => {
@@ -1282,13 +1556,13 @@ function citiesGroup(stage, s, first = false) {
     const row = h('li', { class: 'layer city' + (k === cur ? ' sel' : '') + (cityEdit.at === k ? ' editing' : '') },
       h('span', { class: 'layer-icon', html: ICON.city }), h('span', { class: 'layer-name' }, c.name),
       h('span', { class: 'tag', title: c.where }, c.where), h('span', { class: 'acts' }, pen, bin));
-    if (s) row.addEventListener('click', () => stage.showPage(s, k));
+    row.addEventListener('click', () => (s ? stage.showPage(s, k) : open(k)));  // (the pill's City: the row is its button)
     cityRows.push(row);
     return cityEdit.at === k ? [row, citySearch(stage, k)] : [row];
   });
   if (!first && cityEdit.at === null) sortable(cityRows, (from, to) => { moveCity(from, to); stage.keepPage(); });
   const add = !first && cities.length < WX_MAX
-    ? h('button', { class: 'icon-btn', title: 'Add a city', 'aria-label': 'Add a city', html: ICON.plus, onclick: () => open(-1) }) : null;
+    ? h('button', { class: 'icon-btn' + needs, title: wifi ? 'Add a city' : 'Add a city — needs Wi-Fi', 'aria-label': 'Add a city', html: ICON.plus, onclick: () => open(-1) }) : null;
   return h('div', { class: 'group' }, h('h3', {}, first ? 'City' : 'Cities', add),
     h('ul', { class: 'layers cities' }, ...rows, cityEdit.at === -1 && !first ? citySearch(stage, -1) : null),
     first ? null : segmented('Units', unitsOf, [['C', '°C'], ['F', '°F']], (v) => setWeather((w) => { w.units = v; })));

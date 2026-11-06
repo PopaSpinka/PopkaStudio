@@ -82,7 +82,10 @@ enum : uint8_t {
   FL_RECORDER,                            // the Recorder: record, play back, forget (settings.h, recorder.h)
   FL_SNKDOTS, FL_SNKSPACE, FL_SNKISO,  // the Games: self-playing snakes (games.h)
   FL_BATRING,                          // the face's widgets too: the battery's charge along the bezel (widgets.h)
-  FL_PARROT                            // pixel art: Popka, the parrot (pixelart.h)
+  FL_PARROT,                           // pixel art: Popka, the parrot (pixelart.h)
+  FL_DEVCARD,                          // About: a gallery card with a live value and picture (device.h)
+  FL_DEVICE,                           // About: a card's own screen — the processor, the memory, … (device.h)
+  FL_CHARGE                            // Power: the charge, the voltages, the power chip (device.h)
 };
 static inline bool fl_pixels(uint8_t k) {  // pixel art drawn cell by cell (pixelart.h)
   return k == FL_PARROT
@@ -94,8 +97,11 @@ static inline bool fl_widget(uint8_t k) {  // a widget from the face mockups (an
 static inline bool fl_wx(uint8_t k) {  // a part of the Weather screen
   return (k >= FL_ARC && k <= FL_DOTS) || k == FL_FEELS;
 }
-static inline bool fl_gallery(uint8_t k) {  // a part of the gallery
-  return k >= FL_TITLE && k <= FL_SCROLL;
+static inline bool fl_gallery(uint8_t k) {  // a part of the gallery (About's live card is a card too)
+  return (k >= FL_TITLE && k <= FL_SCROLL) || k == FL_DEVCARD;
+}
+static inline bool fl_dev(uint8_t k) {  // About's card screen, Power: each fills its screen (device.h)
+  return k == FL_DEVICE || k == FL_CHARGE;
 }
 static inline bool fl_steps(uint8_t k) {  // a part of the Steps screen
   return k >= FL_STNUM && k <= FL_STCHART;
@@ -143,6 +149,7 @@ struct FaceRun {
                            // (stars: the stars and the meteor)
   struct StarRun *stars;   // stars: where each one is, how it twinkles (stars.h)
   char *txt;               // the widgets: their texts (widgets.h)
+  struct DvRun *dv;        // About's card and screens, Power: their items, chart, words (device.h)
 };
 struct GalRun;  // gallery.h
 struct FaceScreen {
@@ -262,6 +269,7 @@ static int screen_pages(const FaceScreen &S);  // (how many pages it swipes thro
 #include "gallery.h"   // the gallery's layers
 #include "wxscreen.h"  // the Weather screen's layers
 #include "settings.h"  // Display and Battery (HaloWatch's Settings sections)
+#include "device.h"    // About (live cards and their screens) and Power
 #include "stepscreen.h"  // the Steps screen
 #include "widgets.h"     // the face's widgets
 #include "stars.h"     // the starry background
@@ -331,6 +339,7 @@ static void face_layer_build(const FaceScreen &S, int i) {
   stars_layer_free(R);
 #endif
   free(R.txt);
+  dv_run_free(R);
   // Afresh in its own place: no copy on the stack (it is ~4.8 KB; Live rebuilds a layer in the frame task — 6 KB)
   R.~FaceRun();
   new (&R) FaceRun();
@@ -339,6 +348,7 @@ static void face_layer_build(const FaceScreen &S, int i) {
   if (fl_gallery(L.kind)) return gal_layer_build(S, i);
   if (fl_wx(L.kind)) return wx_layer_build(S, i);
   if (fl_section(L.kind)) return;  // (settings.h: one of a kind)
+  if (fl_dev(L.kind)) return dv_run_make(R);
 #if HAS_STEPSCR
   if (fl_steps(L.kind)) return ss_layer_build(S, i);
 #endif
@@ -482,6 +492,10 @@ static void screen_layout(int s, const HaloView &v) {
       if (!L.hidden) settings_layout(R, L.kind, v);
       continue;
     }
+    if (fl_dev(L.kind)) {
+      if (!L.hidden) dv_layout(S, i, v);
+      continue;
+    }
     if (fl_steps(L.kind)) {
 #if HAS_STEPSCR
       ss_layout(S, i, L.hidden ? 0 : 1, v);
@@ -599,6 +613,8 @@ static void screen_draw(int s) {
       gal_draw(S, i);
     } else if (fl_section(L.kind)) {
       if (!L.hidden) settings_draw(L.kind);
+    } else if (fl_dev(L.kind)) {
+      if (!L.hidden) dv_draw(S, i);
     } else if (fl_steps(L.kind)) {
 #if HAS_STEPSCR
       ss_draw(S, i);
@@ -661,6 +677,7 @@ static void screen_enter(int s) {
   S.drag = false;
   gal_enter(S);
   settings_enter(S);
+  dv_enter(S);
   if (screen_steps(S)) ss_enter();
 }
 // Still and on top: paging, if it has pages; the list, if it has one (depth — in lib/Halo's stack, -1 — over the face)

@@ -60,7 +60,8 @@ bool halo_boot_long();
 // Команды pwr и pwr long — то же из порта. Нужен тач (cfg.touch): чип на его шине
 enum : uint8_t { HALO_PWR_CLICK = 1, HALO_PWR_LONG = 2 };
 uint8_t halo_pwr_event();
-// Батарея — от того же чипа питания, раз в 2 с (из любой задачи; команда battery — в журнал)
+// Батарея — от того же чипа питания, раз в 2 с (из любой задачи; команда battery — в журнал). Там же — его АЦП:
+// напряжение USB (VBUS) и системы (VSYS, то, что питает плату) и температура самого чипа питания
 struct HaloBattery {
   bool ok;          // чип питания ответил (ok = false — данных ещё нет)
   bool present;     // батарея подключена
@@ -68,6 +69,9 @@ struct HaloBattery {
   bool charging;    // заряжается
   int8_t percent;   // 0..100 («топливомер» чипа), −1 — нет батареи
   uint16_t mv;      // напряжение батареи
+  uint16_t vbus_mv;  // напряжение USB (0 — USB нет)
+  uint16_t vsys_mv;  // напряжение системы
+  int16_t temp10;    // температура чипа питания, десятые °C
 };
 HaloBattery halo_battery();
 // Общая шина I2C (тач, AXP2101, кодек, датчик движения QMI8658 — 0x6B), 400 кГц: устройство на ней (nullptr — не
@@ -95,6 +99,7 @@ int halo_audio_get_volume();
 int halo_mic_begin(int sample_rate = 16000);
 int halo_mic_read(int16_t *mono, int n);  // сколько положил (0 — пока нечего или выключен)
 float halo_mic_db();                      // громкость последнего блока (~12–16 мс): −90 (тишина) … 0 (предел)
+void halo_mic_db2(float &mic1, float &mic2);  // то же для каждого микрофона отдельно (левый слот — MIC1, правый — MIC2)
 void halo_mic_end();
 // Касания: выключить (блокировка) — палец не виден никому; halo_finger_blocked() — коснулись, пока выключены (раз на
 // касание: показать подсказку)
@@ -144,6 +149,7 @@ uint32_t halo_motion_count();      // сколько раз сработал с 
 struct HaloImu {
   float ax, ay, az;  // g
   float gx, gy, gz;  // °/с
+  float temp;        // температура датчика, °C (он внутри корпуса: теплее комнаты)
 };
 bool halo_imu_begin();
 bool halo_imu_read(HaloImu &out);

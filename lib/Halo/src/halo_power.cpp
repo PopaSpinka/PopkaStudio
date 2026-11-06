@@ -214,10 +214,11 @@ bool halo_imu_begin() {
 bool halo_imu_read(HaloImu &out) {
   // The gyroscope turns on in 150 ms + 3 samples (datasheet, table 8): until then its registers are not data
   if (!imu_live || esp_timer_get_time() - imu_live_us < 170000) return false;
-  uint8_t b[12];
-  if (!halo_i2c_read(imu, 0x35, b, sizeof(b))) return false;  // AX_L … GZ_H, little-endian
+  uint8_t b[14];
+  if (!halo_i2c_read(imu, 0x33, b, sizeof(b))) return false;  // TEMP_L, TEMP_H, AX_L … GZ_H, little-endian
+  out.temp = (int8_t)b[1] + b[0] * (1.0f / 256);                // TEMP_H — целые °C, TEMP_L — доли
   int16_t v[6];
-  for (int i = 0; i < 6; i++) v[i] = (int16_t)(b[2 * i] | b[2 * i + 1] << 8);
+  for (int i = 0; i < 6; i++) v[i] = (int16_t)(b[2 + 2 * i] | b[3 + 2 * i] << 8);
   out.ax = v[0] * (1.0f / 4096), out.ay = v[1] * (1.0f / 4096), out.az = v[2] * (1.0f / 4096);  // 8 g / 32768
   out.gx = v[3] * (1.0f / 64), out.gy = v[4] * (1.0f / 64), out.gz = v[5] * (1.0f / 64);  // 512 °/s / 32768
   return true;

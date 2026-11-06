@@ -13,7 +13,8 @@
 // The editor builds a copy of this folder with its own layers in build/PopkaStudio/PopkaWatch and flashes that; this
 // folder holds the default — HaloWatch's face as it is, so ./tools/flash.sh PopkaStudio/firmware/PopkaWatch shows it.
 // The same code runs in the editor's browser page (PopkaStudio/engine): what the page shows is what the board shows.
-// Commands: demo, wx N, tick [N], day (face.h); aod, idle, sleep, wake (power.h); time N; live (live.h); ntp, wifi, wifi scan
+// Commands: demo, wx N, tick [N], day (face.h); aod, idle, sleep, wake (power.h); time N; live (live.h); hello (hello.h);
+// ntp, wifi, wifi scan
 // (with Wi-Fi: HaloClock.h); Halo's own — face / face off, back,
 // boot / boot long, pwr / pwr long, steps (power.h, steps.h), shot, trace, sys, log ...
 #pragma GCC optimize("O3", "fast-math")
@@ -28,6 +29,7 @@
 static inline bool halo_clock_valid() {  // no Wi-Fi: the time comes from the computer (studio.py: the command time)
   return time(nullptr) > 1735689600;
 }
+#include "wifiscan.h"  // no Wi-Fi function: still "wifi scan" — the editor's Wi-Fi window lists the networks it sees
 #endif
 #include "src/halo_assets.h"
 
@@ -41,6 +43,7 @@ static inline bool halo_clock_valid() {  // no Wi-Fi: the time comes from the co
 #include "steps.h"    // today's steps (only with a Steps layer)
 #include "bt.h"       // Bluetooth (only when it is on)
 #include "live.h"     // Live: the layers' looks from the editor over USB, at once (no Load)
+#include "hello.h"    // hello: who this board is — its model, the firmware, the project (the editor asks)
 
 static void update(float dt) {
   halo_finger_update();  // the finger — once a frame, first
@@ -73,6 +76,7 @@ void setup() {
   power_build();         // the motion sensor (it wakes the board when picked up) and the commands aod, idle, sleep
   steps_build();         // the chip's pedometer, today's steps from flash
   live_build();          // the command live (the editor's Live)
+  hello_build();         // the command hello (the editor: is this board ours, and which project)
   setenv("TZ", TZ, 1), tzset();
   // The time from the computer: studio.py sends "time <seconds since 1970, UTC>" after Flash (also with Wi-Fi: the
   // clock is right at once, before the first sync)
@@ -94,6 +98,9 @@ void setup() {
 #endif
 #endif
   bt_begin();
+#if !FN_WIFI
+  wifiscan_build();  // (the editor's Wi-Fi window: the networks around, before the first Load with Wi-Fi)
+#endif
   Serial.println("setup done");
 }
 

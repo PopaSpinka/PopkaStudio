@@ -4,7 +4,7 @@
 // PopkaStudio — at the boards, the project's name — at the projects (opened right there, no slide). A project's circle
 // is its watch face: the picture the page makes a while after each save (thumbSoon), kept next to the project by
 // studio.py.
-import { state, on, openProject, change, projectName, home, screens, newLayer, FACE_SCREEN } from './state.js';
+import { state, on, openProject, closeProject, change, projectName, home, screens, newLayer, FACE_SCREEN } from './state.js';
 import { engines } from './engine.js';
 import { preview } from './previews.js';
 
@@ -189,11 +189,16 @@ async function rename(p, name) {
   showName();
 }
 
+// The open one deleted: the newest other one opens; none left — no project is open, the list stays with New alone
+// (before 6 Nov 2026 a new one was made at once: it took the free name "Project 1" and the same id — the project looked
+// as if it had not gone)
 async function remove(p) {
   await api({ delete: p.id });
-  if (opened && p.id === state.pid) {  // the open one went: the newest other one, or a new one
-    await openProject(projects[0]?.id || (await api({ board })).id);
-    onOpen?.();
+  if (p.id === state.pid) {
+    if (projects[0]) {
+      await openProject(projects[0].id);
+      if (opened) onOpen?.();
+    } else closeProject(), (opened = false);
   }
   renderProjects();
 }
@@ -271,6 +276,7 @@ export function thumbSoon(stage, ms = 2000, tries = 10) {
   }, ms);
 }
 on((what) => {
+  if (what === 'gone') opened = false, showStart(2);  // (the open project deleted in another window: the projects)
   if (what === 'saved' && window.popka?.stage) thumbSoon(window.popka.stage);
   if (what === 'project') showName();  // (opened, renamed here or in another window)
 });

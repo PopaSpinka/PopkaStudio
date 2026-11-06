@@ -35,6 +35,12 @@
 #endif
 
 #define ST_CARD_HI 0x2E3034  // HaloWatch's CARD_HI (surfaceContainerHigh)
+// About and Power (device.h, included after this): what runs every frame, from loop(), at start; About wants the
+// microphones (the Recorder's too: the one who still wants them keeps them on)
+static void dev_build();
+static void dev_tick(float dt);
+static void dev_poll();
+static volatile bool dv_mic_want;
 static int pw_awake_level = 180;  // the panel awake (power.h): Display's slider, else HaloWatch's default (step 7)
 static int pw_boot_fn();          // what BOOT does (power.h): Display's hint
 
@@ -498,6 +504,7 @@ static void settings_load() {
 }
 
 static void settings_build() {  // the fonts' middles (face_build)
+  dev_build();
 #if HAS_DISPLAY
   display_build();
 #endif
@@ -519,6 +526,7 @@ static void settings_build() {  // the fonts' middles (face_build)
 // From loop() (a flash write stalls the other core for a moment — not in the middle of a frame): the brightness 0.8 s
 // after the last change (not on every step of a drag); the battery's slot
 static void settings_poll() {
+  dev_poll();
 #if HAS_DISPLAY
   const int v = dp_value;
   if (v != dp_seen) dp_seen = v, dp_changed_at = millis();
@@ -533,6 +541,7 @@ static void settings_poll() {
 }
 
 static void settings_tick(float dt) {  // every frame, whatever is on screen
+  dev_tick(dt);
 #if HAS_DISPLAY
   display_tick(dt);
 #endif

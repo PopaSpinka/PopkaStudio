@@ -148,7 +148,10 @@ static void rc_mic_sync() {
             const int r = halo_mic_begin(RC_RATE);
             if (r > 0) rc_rate = r, snd_begin(r);  // (the speaker on the same bus: the playback)
             rc_mic_ok = r > 0, rc_mic_on = true;
-          } else halo_mic_end(), rc_mic_on = false;
+          } else {
+            if (!dv_mic_want) halo_mic_end();  // (About's sound still shows them: they stay on — device.h)
+            rc_mic_on = false;
+          }
         }
         rc_mic_busy = false;
         vTaskDelete(nullptr);

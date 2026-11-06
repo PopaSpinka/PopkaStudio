@@ -27,7 +27,7 @@ static std::vector<const HaloFont *> st_fonts;
 static std::vector<const HaloImage *const *> st_icons;
 static char st_text[ST_SCREENS][ST_LAYERS][3][40];  // the gallery's text: the title, the line under it, the icon
 static char st_name[ST_SCREENS][40];                // the screens' names (an empty one shows its name)
-static float st_boxes[ST_LAYERS * 4], st_places[ST_LAYERS * 2], st_bases[FL_PARROT * 2 + 2], st_radii[ST_LAYERS * 2];
+static float st_boxes[ST_LAYERS * 4], st_places[ST_LAYERS * 2], st_bases[FL_CHARGE * 2 + 2], st_radii[ST_LAYERS * 2];
 static int st_pin = -1, st_page = 0;
 
 void web_loop(HaloUpdate update, HaloDraw draw);  // halo_web.cpp
@@ -170,9 +170,10 @@ EMSCRIPTEN_KEEPALIVE int studio_set(const char *json) {
 // The Functions (power.h): Always On when idle (0/1), after idle s, its panel level (of 255); what BOOT and PWR do
 // (FN_NOTHING, FN_SCREEN_OFF, FN_LOCK). A button that no longer locks — unlocked
 EMSCRIPTEN_KEEPALIVE void studio_fn(int aod, int idle, int bright, int boot, int pwr, int tap, int raise, int btn,
-                                    int home) {
+                                    int home, int shift) {
   pw_aod_on = aod, pw_idle_s = idle, pw_aod_level = constrain(bright, 1, 255), pw_boot = boot, pw_pwr = pwr;
-  pw_aod_home = home;  // (Back to watch face)
+  pw_aod_home = home;    // (Back to watch face)
+  pw_aod_shift = shift;  // (Burn-in shift)
   pw_wake_tap = tap, pw_wake_raise = raise, pw_wake_btn = btn;  // (Wake up)
   if (pw_locked && (pw_lock_btn == 1 ? boot : pwr) != FN_LOCK) pw_lock_set(false, 0), pw_wake(0);
 }
@@ -325,6 +326,7 @@ EMSCRIPTEN_KEEPALIVE float *studio_bases() {
   for (int k = 0; k < 7; k++) st_bases[(FL_CURVE + k) * 2] = wg[k][0], st_bases[(FL_CURVE + k) * 2 + 1] = wg[k][1];
   st_bases[FL_BATRING * 2] = st_bases[FL_BATRING * 2 + 1] = CX;
   st_bases[FL_PARROT * 2] = CX, st_bases[FL_PARROT * 2 + 1] = CX;
+  for (int k = FL_DEVCARD; k <= FL_CHARGE; k++) st_bases[k * 2] = st_bases[k * 2 + 1] = CX;
   return st_bases;
 }
 
