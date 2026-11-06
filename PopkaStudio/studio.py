@@ -1,6 +1,6 @@
 """PopkaStudio — the editor of Halo watch screens, in the browser; this is its helper on the Mac.
 
-Run:   python3 PopkaStudio/studio.py      (after ./install.sh: ./popkastudio — it starts this and opens the page)
+Run:   python3 PopkaStudio/studio.py      (after ./install.sh: popkastudio, i.e. bin/popkastudio — it starts this and opens the page)
 then open http://localhost:8466.
 
 The page does the editing; it shows the screen with the board's own code built for the browser (engine/build.sh),
@@ -54,7 +54,7 @@ SKETCH = os.path.join(BUILD, "PopkaWatch")  # what "Flash" compiles: firmware/Po
 PREVIEW = os.path.join(BUILD, "preview")      # halo_assets.py's previews of the fonts the page asked for
 PROJECTS = os.path.join(HERE, "projects")
 PORT = 8466
-VERSION = "1.1"  # PopkaStudio's version (the About window; the release notes)
+VERSION = "1.1.1"  # PopkaStudio's version (the About window; the release notes)
 
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 import halo_assets as ha  # noqa: E402 — the board's font and image code

@@ -26,10 +26,16 @@ command -v curl >/dev/null || die "curl is needed (Linux: sudo apt install curl)
 
 # ---------- 1. The code: this folder (a clone), or a fresh copy in ~/PopkaStudio ----------
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"
+# Up to 1.1 the launcher was PopkaStudio/popkastudio, and on a Mac ./install.sh run twice turned it into a link to its
+# own folder ("popkastudio" and "PopkaStudio" are one name there): put it back, so the update can go in.
+repair() {
+  git -C "$1" checkout -q -- PopkaStudio/popkastudio 2>/dev/null || true
+}
 if [ -n "$HERE" ] && [ -f "$HERE/PopkaStudio/studio.py" ]; then
   DIR="$HERE"
   if [ -d "$DIR/.git" ] && command -v git >/dev/null; then
     say "Updating PopkaStudio"
+    repair "$DIR"
     git -C "$DIR" pull --ff-only || note "(not updated: $DIR has changes of its own — kept as it is)"
   fi
 else
@@ -37,6 +43,7 @@ else
   command -v git >/dev/null || die "git is needed. macOS: xcode-select --install · Linux: sudo apt install git"
   if [ -d "$DIR/.git" ]; then
     say "Updating PopkaStudio in $DIR"
+    repair "$DIR"
     git -C "$DIR" pull --ff-only
   else
     say "Downloading PopkaStudio into $DIR"
@@ -95,9 +102,15 @@ if [ "$OS" = Linux ]; then
 fi
 
 # ---------- 6. The command `popkastudio` (and a menu entry on Linux) ----------
-chmod +x "$DIR/popkastudio"
+# The launcher is bin/popkastudio: next to install.sh it would be the folder PopkaStudio/ on a Mac (same name there).
+RUN="$DIR/bin/popkastudio"
+[ -f "$RUN" ] || die "$RUN is missing — the update did not go in (see above). Run this installer again."
+if [ -L "$DIR/PopkaStudio/popkastudio" ]; then rm -f "$DIR/PopkaStudio/popkastudio"; fi  # (left by installers ≤ 1.1)
+chmod +x "$RUN"
 mkdir -p "$HOME/.local/bin"
-ln -sf "$DIR/popkastudio" "$HOME/.local/bin/popkastudio"
+ln -sfn "$RUN" "$HOME/.local/bin/popkastudio"  # (-n: replace an old link, never follow it into a folder)
+[ -x "$HOME/.local/bin/popkastudio" ] && [ -f "$HOME/.local/bin/popkastudio" ] ||
+  die "$HOME/.local/bin/popkastudio does not lead to the launcher."
 if [ "$OS" = Linux ]; then
   mkdir -p "$HOME/.local/share/applications"
   cat > "$HOME/.local/share/applications/popkastudio.desktop" <<EOF
@@ -105,7 +118,7 @@ if [ "$OS" = Linux ]; then
 Type=Application
 Name=PopkaStudio
 Comment=Watch screens for ESP32 boards
-Exec=$DIR/popkastudio
+Exec=$RUN
 Icon=$DIR/PopkaStudio/app/icon.png
 Terminal=false
 Categories=Development;
@@ -115,7 +128,7 @@ fi
 say "PopkaStudio is ready"
 case ":$PATH:" in
   *":$HOME/.local/bin:"*) note "Start it:  popkastudio" ;;
-  *) note "Start it:  $DIR/popkastudio      (or add ~/.local/bin to your PATH and type popkastudio)" ;;
+  *) note "Start it:  $RUN      (or add ~/.local/bin to your PATH and type popkastudio)" ;;
 esac
 note "It opens http://localhost:8466 in your browser. Connect the board with a USB-C cable and press Load."
 [ -n "$RELOGIN" ] && note "Linux: log out and back in once, so the board's USB port opens for you."

@@ -1,7 +1,7 @@
 {
   "name": "popkastudio",
   "productName": "PopkaStudio",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "PopkaStudio as a Mac app: the editor in its own window, studio.py started and stopped with it",
   "main": "main.js",
   "private": true,
