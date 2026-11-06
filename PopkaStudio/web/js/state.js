@@ -13,7 +13,8 @@
 //   color2; a card's or the button's tap — {to, fx: "a16"}: the Android 16 transition (none — a screen with its title).
 // main — the screen a swipe up on the face opens (HaloWatch's gallery), or null.
 // functions — the watch's Functions (firmware/PopkaWatch/power.h): {aod: {on, idle (s), bright (the panel in Always On,
-// of 255)}, boot: {on, act}, pwr: {on, act}}; act — 'off' (the screen off) or 'lock' (Always On, locked).
+// of 255), tap, raise, btn (what wakes it), home (out of it on the watch face)}, boot: {on, act}, pwr: {on, act}}; act —
+// 'off' (the screen off) or 'lock' (Always On, locked).
 // Anything that changes the project goes through change(): it keeps the undo history and saves (to studio.py).
 
 // HaloWatch's look of each kind (studio.py: DEFAULTS — the same numbers); group — where the Elements rail has it
@@ -132,7 +133,7 @@ export const FX = {
 };
 // The Functions, as power.h has them by default (studio.py: FUNCTIONS — the same)
 export const FUNCTIONS = {
-  aod: { name: 'Always On', on: true, idle: 15, bright: 24, tap: true, raise: true, btn: true },  // + how it wakes
+  aod: { name: 'Always On', on: true, idle: 15, bright: 24, tap: true, raise: true, btn: true, home: false },  // + how it wakes, on the face or not
   boot: { name: 'BOOT button', on: true, act: 'off' },
   pwr: { name: 'PWR button', on: true, act: 'lock' },
   wifi: { name: 'Wi-Fi', on: true },       // the time from the internet; the network — kept by studio.py, not here

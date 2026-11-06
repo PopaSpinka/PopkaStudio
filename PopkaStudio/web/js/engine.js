@@ -292,7 +292,7 @@ export class Engine {
     if (this.pin < 0) {
       const a = fnOf('aod'), b = fnOf('boot'), p = fnOf('pwr'), act = (f) => (!f.on ? 0 : { off: 1, lock: 2, aod: 3 }[f.act] ?? 1);
       const steps = state.project.screens.some((s) => s.layers.some((l) => l.type === 'steps'));  // (the sensor is the pedometer's)
-      const fn = [a.on ? 1 : 0, a.idle, a.bright, act(b), act(p), a.tap ? 1 : 0, a.raise && !steps ? 1 : 0, a.btn || !(a.tap || (a.raise && !steps)) ? 1 : 0];
+      const fn = [a.on ? 1 : 0, a.idle, a.bright, act(b), act(p), a.tap ? 1 : 0, a.raise && !steps ? 1 : 0, a.btn || !(a.tap || (a.raise && !steps)) ? 1 : 0, a.home ? 1 : 0];
       if (fn.join() !== this.fn) this.fn = fn.join(), this.M._studio_fn(...fn);
     }
   }

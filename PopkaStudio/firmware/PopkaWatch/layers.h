@@ -11,6 +11,7 @@
 #define FN_AOD 1
 #define FN_AOD_IDLE 15
 #define FN_AOD_BRIGHT 24
+#define FN_AOD_HOME 0 // out of Always On on the watch face (1) or where it was
 #define FN_BOOT 1
 #define FN_PWR 2
 // Waking up from Always On or dark (power.h): a touch, picking it up (off, or the Steps layer has the motion
@@ -37,7 +38,7 @@
 #define FN_PARROT 0
 static const HaloImage *const icons0[4] = {&icons0_partly, &icons0_sun, &icons0_cloud, &icons0_rain};
 // Live (live.h): what this firmware has, for the editor's Live to check its project against
-#define LIVE_SHAPE "ce879aa7"
+#define LIVE_SHAPE "6690b6f4"
 #define LIVE_MAP "face=date1:0:6145,clock1:1:858e,weather1:2:0fd8"
 
 // Watch face — the home

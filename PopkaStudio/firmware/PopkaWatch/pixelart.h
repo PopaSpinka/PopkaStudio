@@ -8,7 +8,7 @@
 // it), 2 — all over the screen (repeated every way: HaloItem.tile); p3 — a trail's length, times the GIF's (its wave
 // repeated further left: HaloItem.trail; a picture without a trail ignores it). Only what is on the screen is drawn and
 // checked for changes: the copies beyond the edge cost nothing.
-// In Always On — its first frame, still.
+// In Always On and on the way there — its first frame, still (fc_calm).
 // Only in a firmware with such a layer (FN_PARROT — the editor writes it into layers.h); the editor's page has them
 // always. Included from face.h after stars.h.
 #if HAS_PIXELS
@@ -34,7 +34,7 @@ static void pixel_layout(const FaceScreen &S, int i, float a, const HaloView &v)
   it.x = CX + L.dx, it.y = CX + L.dy, it.scale = PX_CELL * L.k, it.a0 = L.p * (HALO_PI / 180), it.alpha = a;
   it.hide = L.p2 > 0.5f ? 0 : P.apart, it.tile = L.p2 > 1.5f, it.on_black = true;
   it.trail = L.p3 > 1 ? (int16_t)lroundf((L.p3 - 1) * P.tn) : 0;
-  it.frame = fc_still ? 0 : (halo_ms() / P.ms) % P.frames;
+  it.frame = fc_calm ? 0 : (halo_ms() / P.ms) % P.frames;
   R.ax = it.x, R.ay = it.y;
   halo_view_commit(it, v);
   // Where it is: the picture and its trail (as long as it is), turned (what is around it is not) — the editor frames that

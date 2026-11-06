@@ -5,7 +5,7 @@
 // every frame while it flies, 0.7 s). What it costs — PopkaStudio/README.md.
 // The layer (FaceLayer): p — how many stars (up to ST_MAX), k — their brightness (1 — Orbit's), p2 — twinkling (1 —
 // Orbit's pace, 0 — still), p3 — meteors a minute (0 — none); color — the stars'. The same stars every start (a seed
-// per layer): the editor shows the board's sky. In Always On — still, no meteors.
+// per layer): the editor shows the board's sky. In Always On and on the way there — still, no meteors (fc_calm).
 // Only in a firmware with a Stars layer (FN_STARS — the editor writes it into layers.h); the editor's page has it
 // always. Command: stars rate N (updates a second, to measure; 20 by default).
 // Included from face.h after wxscreen.h.
@@ -48,9 +48,11 @@ static void stars_layout(const FaceScreen &S, int i, float a, const HaloView &v)
   StarRun *st = R.stars;
   R.box[0] = R.box[1] = 0, R.box[2] = R.box[3] = -1;
   if (!st || !R.g) return;
-  // Twinkling: the phases go on st_rate times a second (still in Always On); a brightness only in 1/16 steps
+  // Twinkling: the phases go on st_rate times a second (still in Always On and on the way there: fc_calm — from where
+  // they stopped, without a jump); a brightness only in 1/16 steps
   const uint32_t ms = halo_ms();
-  if (!fc_still && ms - st->tick >= 1000u / (uint32_t)max(1, (int)st_rate)) {
+  if (fc_calm) st->tick = ms;
+  if (!fc_calm && ms - st->tick >= 1000u / (uint32_t)max(1, (int)st_rate)) {
     const float dt = (ms - st->tick) / 1000.0f;
     st->tick = ms;
     for (int k = 0; k < st->n; k++) {
@@ -69,7 +71,7 @@ static void stars_layout(const FaceScreen &S, int i, float a, const HaloView &v)
   // of 0.13 s behind it, fading). A dot past the screen's edge is not drawn, and once all of it is past — it is over (a
   // straight way out of a circle never comes back): no frames for what cannot be seen
   const float now = ms / 1000.0f;
-  if (fc_still || L.p3 <= 0) {
+  if (fc_calm || L.p3 <= 0) {
     st->mage = 9;
   } else {
     if (now >= st->next) {

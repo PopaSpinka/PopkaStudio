@@ -9,7 +9,10 @@
 // from any other screen it is fade through (halo_nav_ambient). Then the board sleeps and wakes once a minute for one
 // frame: new digits, set without rolling, and the face a few pixels elsewhere (AMOLED burn-in: 8 places on a 7 px
 // circle). A touch, a button or picking the board up — the same move back, quicker; the waking touch presses nothing.
-// Off — the screen stays on.
+// Off — the screen stays on. The face's animations (the stars, the pixel art: fc_calm) stop the moment the move into
+// Always On starts and go on the moment the move back starts — the same both ways. Back to watch face (FN_AOD_HOME):
+// once there (only the face is seen), everything over the face is closed (halo_nav_home_now) — the watch wakes on the
+// face, the face itself coming out of Always On; off — on the screen where it was.
 //
 // The buttons (FN_BOOT, FN_PWR): FN_SCREEN_OFF — the same move to fully dark, the panel off; a touch, a button or
 // picking it up — back. FN_AMBIENT — into Always On at once, as when idle (also with Always On off): the same button
@@ -28,7 +31,8 @@
 // wake — always.
 //
 // The editor writes the settings into layers.h; its page changes them on the fly (engine/studio_api.h: studio_fn).
-// Commands: aod on|off, aod N (the panel in Always On, of 255), idle N (s), sleep (Always On now), wake (as a touch);
+// Commands: aod on|off, aod N (the panel in Always On, of 255), aod home on|off (Back to watch face), idle N (s), sleep
+// (Always On now), wake (as a touch);
 // lib/Halo's boot / boot long, pwr / pwr long — the buttons.
 // Included from PopkaWatch.ino after face.h.
 #include <sys/time.h>
@@ -39,6 +43,9 @@
 #define FN_AOD_BRIGHT 24
 #define FN_BOOT 1
 #define FN_PWR 2
+#endif
+#ifndef FN_AOD_HOME
+#define FN_AOD_HOME 0  // out of Always On on the face (1) or where it was (0)
 #endif
 #ifndef FN_WAKE_TAP
 #define FN_WAKE_TAP 1
@@ -70,7 +77,7 @@ static uint32_t pw_shake_at;  // touched while locked then: the lock wiggles
 static float pw_mid_lock;
 static HaloItem pw_lock_ic;
 static volatile bool pw_cmd_sleep, pw_cmd_wake;
-static volatile int pw_aod_on = FN_AOD, pw_idle_s = FN_AOD_IDLE, pw_aod_level = FN_AOD_BRIGHT;
+static volatile int pw_aod_on = FN_AOD, pw_idle_s = FN_AOD_IDLE, pw_aod_level = FN_AOD_BRIGHT, pw_aod_home = FN_AOD_HOME;
 static volatile int pw_boot = FN_BOOT, pw_pwr = FN_PWR;
 static int pw_boot_fn() {  // (settings.h: Display's hint)
   return pw_boot;
@@ -178,6 +185,7 @@ static void power_tick(float dt) {
         if (pw_to_aod) {
           pw_mode = PW_AOD;
           face_still(true);
+          if (pw_aod_home) halo_nav_home_now();  // Back to watch face: only the face is seen now — close the rest
         } else {
           pw_mode = PW_DARK;
           halo_display_on(false), LOG("screen off\n");
@@ -200,6 +208,7 @@ static void power_tick(float dt) {
       break;
   }
   pw_cmd_sleep = false;  // sent while already asleep — it must not put the board back to sleep right after it wakes
+  fc_calm = pw_mode == PW_AOD || (pw_mode == PW_FADING && pw_to_aod);  // the animations: still from the move's start
   halo_spring_run(pw_amb, pw_amb.target > 0.5f ? K_PW_IN : K_PW_OUT, dt);
   halo_spring_run(pw_lock, K_PW_LOCK, dt);
   const int level = pw_level(pw_awake_level);
@@ -246,6 +255,7 @@ static void power_build() {  // after halo_begin: the motion sensor is on its I2
   pw_active_us = esp_timer_get_time();
   halo_command("aod", [](const char *a) {
     if (isdigit((unsigned char)*a)) pw_aod_level = constrain(atoi(a), 1, 255), LOG("aod: brightness %d\n", pw_aod_level);
+    else if (!strncmp(a, "home", 4)) pw_aod_home = !strstr(a, "off"), LOG("aod: back to face %s\n", pw_aod_home ? "on" : "off");
     else pw_aod_on = strcmp(a, "off") != 0, LOG("aod: %s\n", pw_aod_on ? "on" : "off");
   });
   halo_command("idle", [](const char *a) { pw_idle_s = max(0, atoi(a)), LOG("idle: %d s\n", pw_idle_s); });

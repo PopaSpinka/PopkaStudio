@@ -1180,9 +1180,9 @@ function mainChoice(stage) {
   });
 }
 
-// A function: its switch in the head; Always On — after how long idle, how bright; a button — what a press does (a lock
-// is Always On with the touch off; a long press of that button unlocks)
-const AFTER = [[10, '10 s'], [15, '15 s'], [30, '30 s'], [60, '1 m']];
+// A function: its switch in the head; Always On — after how long idle, how bright, out of it on the watch face or where
+// it was; a button — what a press does (a lock is Always On with the touch off; a long press of that button unlocks)
+const AFTER = [[5, '5 s'], [10, '10 s'], [15, '15 s'], [30, '30 s'], [60, '1 m']];
 // What brings the screen back from Always On or dark (power.h: FN_WAKE_*) — whether the watch went there by itself or
 // by a button: a touch, picking it up, a button. At least one stays on (its switch can't be turned off); with a Steps
 // layer the motion sensor is the pedometer's — no Raise
@@ -1231,7 +1231,9 @@ function fnProps(id) {
     parts.push(h('div', { class: 'group' + (f.on ? '' : ' dim-off') },
       segmented('After', f.idle, AFTER, (v) => set({ idle: v })),
       slider('Brightness', () => Math.round(fnOf(id).bright * 100 / 255), (v, key) => setFn(id, { bright: Math.max(1, Math.round(v * 255 / 100)) }, { key }),
-        { min: 2, max: 50, unit: '%', key: 'aod-bright' })),
+        { min: 2, max: 50, unit: '%', key: 'aod-bright' }),
+      h('div', { class: 'switch-row' }, h('label', {}, 'Back to watch face'),
+        toggle(f.home, (v) => set({ home: v }), 'Back to watch face'))),
       wakeGroup());
   }
   return parts;

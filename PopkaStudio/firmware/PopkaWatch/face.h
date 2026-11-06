@@ -225,6 +225,9 @@ static int32_t fc_offset;       // shift of the clock, s (the demo, tick, day)
 static uint32_t fc_demo_until;  // the demo's clock goes back to real time then
 static bool fc_check;
 static bool fc_still;  // Always On (power.h): the clock and the date change without rolling — asleep there is no time
+// The layers' animations (the stars, the pixel art) stand still: from the moment the watch starts going into Always On
+// until the moment it starts coming back — in step with the move's start both ways (power.h sets it every frame)
+static bool fc_calm;
 static volatile int fc_cmd_wx = -1;
 static volatile bool fc_cmd_demo;
 static volatile int32_t fc_cmd_shift;

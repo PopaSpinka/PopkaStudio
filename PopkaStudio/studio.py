@@ -54,7 +54,7 @@ SKETCH = os.path.join(BUILD, "PopkaWatch")  # what "Flash" compiles: firmware/Po
 PREVIEW = os.path.join(BUILD, "preview")      # halo_assets.py's previews of the fonts the page asked for
 PROJECTS = os.path.join(HERE, "projects")
 PORT = 8466
-VERSION = "1.0"  # PopkaStudio's version (the About window; the release notes)
+VERSION = "1.1"  # PopkaStudio's version (the About window; the release notes)
 
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 import halo_assets as ha  # noqa: E402 — the board's font and image code
@@ -108,8 +108,10 @@ MAX_SCREENS, MAX_LAYERS = 24, 32  # what the page's engine has room for (engine/
 # The watch's Functions (firmware/PopkaWatch/power.h; the page: state.js FUNCTIONS — the same): Always On when idle
 # (after idle s, the panel at bright of 255), what BOOT and PWR do (on: False — nothing) — act: "off" (the screen off),
 # "aod" (Always On at once; the button again — back) or "lock" (Always On, locked; a long press of that button unlocks)
-# Waking up (power.h: FN_WAKE_*): a touch (tap), picking it up (raise), a button (btn) — at least one is on
-FUNCTIONS = {"aod": {"on": True, "idle": 15, "bright": 24, "tap": True, "raise": True, "btn": True}, "boot": {"on": True, "act": "off"},
+# Waking up (power.h: FN_WAKE_*): a touch (tap), picking it up (raise), a button (btn) — at least one is on; home —
+# out of Always On on the watch face (power.h: FN_AOD_HOME), else where it was
+FUNCTIONS = {"aod": {"on": True, "idle": 15, "bright": 24, "tap": True, "raise": True, "btn": True, "home": False},
+             "boot": {"on": True, "act": "off"},
              "pwr": {"on": True, "act": "lock"}, "wifi": {"on": True}, "bt": {"on": False}}
 # Wi-Fi (HaloClock: the time from the internet) and Bluetooth (bt.h) — off: not in the firmware at all. The time (the
 # page: state.js ZONES, TIME): the zone (POSIX TZ for the board) and 12 or 24 hours; without Wi-Fi the board gets the
@@ -308,7 +310,7 @@ def clean_functions(project):
         if "idle" in f:
             f["idle"] = int(min(max(float(got.get("idle", f["idle"])), 5), 600))
             f["bright"] = int(min(max(float(got.get("bright", f["bright"])), 1), 255))
-            for way in ("tap", "raise", "btn"):
+            for way in ("tap", "raise", "btn", "home"):
                 f[way] = bool(got.get(way, f[way]))
         elif "act" in f:
             f["act"] = got.get("act") if got.get("act") in ("off", "aod", "lock") else f["act"]
@@ -1057,7 +1059,9 @@ def write_sketch(project, folder):
     h += ["// The Functions (power.h): Always On when idle, after idle s, the panel in it (of 255); BOOT and PWR: 0 — nothing,",
           "// 1 — the screen off, 2 — lock (Always On, the touch off; a long press of that button unlocks), 3 — Always On",
           f"#define FN_AOD {1 if fn['aod']['on'] else 0}", f"#define FN_AOD_IDLE {fn['aod']['idle']}",
-          f"#define FN_AOD_BRIGHT {fn['aod']['bright']}", f"#define FN_BOOT {act(fn['boot'])}",
+          f"#define FN_AOD_BRIGHT {fn['aod']['bright']}",
+          f"#define FN_AOD_HOME {1 if fn['aod']['home'] else 0} // out of Always On on the watch face (1) or where it was",
+          f"#define FN_BOOT {act(fn['boot'])}",
           f"#define FN_PWR {act(fn['pwr'])}",
           "// Waking up from Always On or dark (power.h): a touch, picking it up (off, or the Steps layer has the motion",
           "// sensor — not at all), a button; a way that is off does not wake the screen",

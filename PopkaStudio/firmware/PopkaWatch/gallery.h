@@ -133,6 +133,10 @@ static void gal_rebuild(FaceScreen &S) {
   g->edge = edge, g->eb_mode = mode;
   memcpy(g->item, item, n);
   if (n) halo_list_init(g->list, heights, n, 64, end, S.layers[item[0]].kind == FL_TITLE);
+  // Still (two cards): the list stands where it ends — 8 px above the button — and doesn't scroll. From HaloWatch's
+  // top (64) a title and two cards end 7 px into the button, and only a scroll to the end set the gap right
+  if (n && mode == EB_STILL && halo_list_min(g->list) < g->list.top)
+    g->list.top = halo_list_min(g->list), halo_list_reset(g->list);
   // still — full height (and nothing scrolls: the same); none — 0; growing — from the list's place (0 at its top)
   if (mode == EB_STILL || (mode == EB_GROWS && !n)) halo_spring_set(g->eb_h, EB_FULL);
 }

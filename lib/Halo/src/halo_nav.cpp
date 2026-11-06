@@ -330,6 +330,25 @@ static void face_arrived() {
   if (scr[0].enter) scr[0].enter();
 }
 
+// Сразу на циферблат (в Always On его и так уже видно одного): закрыть всё над ним, главный — в начало, а выход из
+// Always On — как с циферблата (сам циферблат из вида amb_v, без fade through)
+void halo_nav_home_now() {
+  const HaloView hidden = {0, 0, 1, 0};
+  if (over_on) over_forget();
+  over_drag = over_closing = false;
+  if (has_face) {
+    if (sheet.x > 0 || sheet.target > 0) main_seen = true;
+    sheet_drag = false;
+    halo_spring_set(sheet, 0), halo_spring_set(sheet_pull, 0);
+    face_arrived();  // открытое на главном — закрыть, главный — с начала
+  }
+  for (; depth > 0; depth--)
+    if (scr[depth].layout) scr[depth].layout(hidden);
+  view = V_HOME, back_drag = false, cmd_back = false, cmd_face = -1;
+  if (amb_k > 0) amb_morph = true;
+  halo_damage_all();
+}
+
 // Жест с главного на циферблат: 1 — свайп вниз от верхнего края, −1 — вверх от нижнего, 0 — не он. Какой — у
 // открытого на главном экрана или у самого главного (HaloScreen::home; 0 — вниз). Только от самого края: у списка
 // весь остальной экран — прокрутка
