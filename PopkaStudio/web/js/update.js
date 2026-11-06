@@ -100,9 +100,19 @@ function badge() {
   b.textContent = n > 9 ? '9+' : String(n);
   btn.title = `PopkaStudio ${info.newer[0].v} is out — what's new`;
 }
+const listeners = [];
+export const onUpdates = (fn) => listeners.push(fn);  // (About's version row)
+export const updateInfo = () => info;
 export function setUpdates(i) {
   info = i;
   badge();
+  for (const fn of listeners) fn(i);
+}
+// About → Check: GitHub now (studio.py: /api/update?now=1); its answer — the badge, About's row
+export async function checkNow() {
+  const i = await (await fetch('/api/update?now=1')).json();
+  if (!i.error) setUpdates(i);
+  return i;
 }
 
 // ---------- The window ----------
@@ -113,7 +123,7 @@ export function openUpdates(i = info) {
   const ov = document.createElement('div');
   ov.className = 'upd-ov';
   ov.innerHTML = `<section class="upd-win" role="dialog" aria-label="What's new" tabindex="-1">
-      <button class="about-x upd-x" aria-label="Close">${X}</button>
+      <button class="upd-x" aria-label="Close">${X}</button>
       <div class="upd-h"><b>What's new</b><span>${n} update${n > 1 ? 's' : ''} since your ${esc(i.version)}</span></div>
       <div class="upd-two"><div class="upd-vers"></div><div class="upd-notes"></div></div>
       <div class="upd-err" hidden></div>

@@ -723,38 +723,40 @@ body.sorting .layer:hover:not(.lifted):not(.sel) { background: none; }
 .app .card-head button, .app .bar button, .app .hdr-pop, .app .start-win { -webkit-app-region: no-drag; }
 .app.fullscreen .head-l { padding-left: 2px; }
 
-/* ---------- About (about.js): the heart at the top right; a window as the start window's, two steps ---------- */
+/* ---------- About (about.js; variant 4 of web/mockups/about2.html, 6 Nov 2026): the heart at the top right; a window
+   as the start window's — no × and no Close (Esc or a click beside closes it), tabs About · Credits at the top right, a
+   small watch and the name, the rows (the version's row tells the update's state, its button acts), a support card:
+   subscribe on YouTube (the red toned down — the user's word) ---------- */
 .heart-btn:hover:not(:disabled) { color: #ff5f86; }
 .heart-btn:hover:not(:disabled) svg { fill: #ff5f86; stroke: #ff5f86; }
 .about { z-index: 110; }
 .about-win .start-track { width: 200%; }
-.about-win .start-pane { width: 50%; }
+.about-win .start-pane { width: 50%; padding: 22px 30px 18px; }
 .about-win[data-step="2"] .start-track { transform: translateX(-50%); }
-.about-x {
-  position: absolute; top: 14px; right: 14px; z-index: 2; display: grid; place-items: center; width: 28px; height: 28px;
-  padding: 0; border: 0; border-radius: 8px; background: none; color: var(--dim);
+.ab-tabs { position: absolute; top: 22px; right: 30px; z-index: 2; display: inline-flex; gap: 2px; padding: 3px; border-radius: 9px; background: var(--panel-2); }
+.ab-tabs button, .ab-tabs button:hover:not(:disabled) {
+  height: 26px; padding: 0 14px; border: 0; border-radius: 7px; background: none; color: var(--dim); font-weight: 600;
 }
-.about-x:hover:not(:disabled) { background: var(--panel-2); color: var(--text); }
-.about-x svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
-.about-main { flex-direction: row; align-items: center; gap: 30px; padding: 30px 38px; }
+.ab-tabs button:hover:not(:disabled) { color: var(--text); }
+.ab-tabs button.on, .ab-tabs button.on:hover:not(:disabled) { background: var(--panel-3); color: var(--text); }
+.ab-head { display: flex; align-items: center; gap: 16px; margin-bottom: 10px; padding-right: 180px; }
 .ab-watch {
-  position: relative; flex: none; display: grid; place-items: center; width: 236px; height: 236px; border-radius: 50%;
-  background: #000; box-shadow: 0 0 0 9px #2a2b30, 0 0 0 10px #44454b, 0 30px 60px rgba(0, 0, 0, 0.6);
+  position: relative; flex: none; display: grid; place-items: center; width: 116px; height: 116px; border-radius: 50%;
+  background: #000; box-shadow: 0 0 0 6px #2a2b30, 0 0 0 7px #44454b, 0 18px 40px rgba(0, 0, 0, 0.55);
 }
 .about .ab-arc { position: absolute; inset: 0; width: 100%; height: 100%; stroke: none; }
-.about .ab-arc text { font-size: 11px; font-weight: 650; letter-spacing: 2.6px; fill: var(--dim); }
+.about .ab-arc text { font-size: 15px; font-weight: 650; letter-spacing: 3.4px; fill: var(--dim); }
 .ab-mid { display: flex; flex-direction: column; align-items: center; }
-.ab-heart svg { display: block; width: 62px; height: 62px; fill: #ff5f86; stroke: none; animation: ab-beat 1.1s ease-in-out infinite; }
+.ab-heart svg { display: block; width: 32px; height: 32px; fill: #ff5f86; stroke: none; animation: ab-beat 1.1s ease-in-out infinite; }
 @keyframes ab-beat { 0%, 100% { transform: scale(1); } 15% { transform: scale(1.16); } 30% { transform: scale(1); } 45% { transform: scale(1.1); } }
 @media (prefers-reduced-motion: reduce) { .ab-heart svg { animation: none; } }
-.ab-t { margin-top: 6px; font-size: 15px; font-weight: 650; color: #fff8ee; letter-spacing: 0.02em; }
-.ab-v { margin-top: 2px; min-height: 15px; font-size: 10.5px; color: var(--dim); letter-spacing: 0.12em; }
-.ab-info { flex: 1; min-width: 0; display: flex; flex-direction: column; align-self: stretch; padding-top: 6px; }
+.ab-t { margin-top: 3px; font-size: 10.5px; font-weight: 650; color: #fff8ee; letter-spacing: 0.02em; }
+.ab-v { min-height: 12px; font-size: 8.5px; color: var(--dim); letter-spacing: 0.12em; }
 .ab-name { font-size: 26px; font-weight: 700; letter-spacing: -0.01em; }
-.ab-tag { color: var(--dim); margin-bottom: 10px; }
+.ab-tag { color: var(--dim); }
 .ab-line { display: flex; align-items: center; gap: 8px; min-height: 40px; border-bottom: 1px solid var(--line); }
-.ab-line .k { flex: none; width: 92px; color: var(--faint); font-size: 11.5px; }
-.ab-line .v { font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ab-line .k { flex: none; width: 100px; color: var(--faint); font-size: 11.5px; }
+.ab-line .v { min-width: 0; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ab-line .v.dim { font-weight: 400; color: var(--dim); }
 .ab-line .claude { color: #d97757; }
 .ab-love svg { display: block; width: 13px; height: 13px; fill: #ff5f86; }
@@ -767,10 +769,43 @@ body.sorting .layer:hover:not(.lifted):not(.sel) { background: none; }
 .ab-link .mark.yt { width: 17px; height: 12px; }
 .ab-mail { color: #8fb6ff; text-decoration: none; font-weight: 550 !important; }
 .ab-mail:hover { text-decoration: underline; }
-.ab-thanks { margin-top: 12px; color: var(--dim); font-size: 12px; }
-.ab-foot { display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 10px; }
-.ab-foot .ghost { padding-left: 0; }
-.ab-foot .primary, .about-cred .start-foot .primary { justify-content: center; min-width: 96px; height: 32px; border-radius: 8px; }
+/* the version's row: the update's state (update.js: ok · checking · new · running · error) and its button */
+.ab-st { display: inline-flex; align-items: center; gap: 7px; min-width: 0; overflow: hidden; white-space: nowrap; }
+.ab-st b { font-weight: 650; }
+.ab-st .dim { color: var(--dim); font-weight: 400; overflow: hidden; text-overflow: ellipsis; }
+.ab-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--line-2); }
+.ab-st.ok .ab-dot { background: var(--ok); box-shadow: 0 0 6px rgba(92, 208, 138, 0.7); }
+.ab-st.new .ab-dot { background: var(--accent); box-shadow: 0 0 6px rgba(76, 141, 255, 0.8); }
+.ab-st.new b { color: #8fb6ff; }
+.ab-st.error { color: #ff9a9a; }
+.ab-st.error .ab-dot { background: #ff8a8a; }
+.ab-spin { flex: none; width: 12px; height: 12px; border: 2px solid var(--line-2); border-top-color: var(--dim); border-radius: 50%; animation: ab-spin 0.8s linear infinite; }
+@keyframes ab-spin { to { transform: rotate(360deg); } }
+.ab-bar { flex: none; width: 90px; height: 5px; border-radius: 3px; background: var(--panel-3); overflow: hidden; }
+.ab-bar i { display: block; height: 100%; background: var(--accent); transition: width 0.3s; }
+.ab-act, .ab-act:hover:not(:disabled) {
+  flex: none; margin-left: auto; height: 28px; padding: 0 12px; border: 0; border-radius: 7px; background: var(--panel-2); color: var(--text); font-weight: 600;
+}
+.ab-act:hover:not(:disabled) { background: var(--panel-3); }
+.ab-act.blue, .ab-act.blue:hover:not(:disabled) { background: var(--accent); color: #fff; }
+.ab-act.blue:hover:not(:disabled) { background: #6a9fff; }
+.ab-act[hidden] { display: none; }
+/* support: a card — subscribe on YouTube (a softer red than YouTube's own) */
+.ab-support { display: flex; align-items: center; gap: 12px; margin-top: 14px; padding: 11px 12px 11px 14px; border-radius: 12px;
+  background: linear-gradient(90deg, rgba(214, 64, 88, 0.10), rgba(255, 95, 134, 0.04)); border: 1px solid rgba(214, 72, 96, 0.22); }
+.ab-support > svg { flex: none; width: 28px; height: 20px; }
+.ab-support .tx { flex: 1; min-width: 0; }
+.ab-support .tx b { display: block; font-weight: 650; }
+.ab-support .tx span { color: var(--dim); font-size: 12px; }
+.ab-sub { flex: none; display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 14px; border-radius: 8px;
+  background: #c4384f; color: #fff; font-weight: 600; text-decoration: none; transition: background 0.15s; }
+.ab-sub:hover { background: #d4445c; }
+.ab-sub svg { width: 16px; height: 12px; }
+.ab-esc { margin-top: auto; padding-top: 6px; text-align: right; color: #4c4d54; font-size: 10.5px; }
+/* Credits */
+.about-cred { padding-top: 70px !important; }
+.ab-lic { margin-bottom: 16px; color: var(--dim); }
+.ab-lic b { color: var(--text); font-weight: 600; }
 .ab-credits { display: grid; grid-template-columns: auto 1fr auto; gap: 9px 18px; align-items: baseline; font-size: 12.5px; }
 .ab-credits b { font-weight: 600; }
 .ab-credits > :nth-child(3n + 2) { color: var(--dim); }
@@ -778,8 +813,6 @@ body.sorting .layer:hover:not(.lifted):not(.sel) { background: none; }
 .ab-credits a { color: inherit; text-decoration: none; }
 .ab-credits a:hover { color: var(--text); text-decoration: underline; }
 .ab-legal { margin-top: 16px; color: var(--faint); font-size: 11px; line-height: 1.5; }
-.about-cred .start-foot { margin-top: auto; }
-.about-cred .start-foot .ghost { justify-content: flex-start; padding-left: 0; }
 
 /* ---------- The Wi-Fi window (wifi.js): over the editor, blurred behind it, as the start window — the networks the
    board sees, a password under the picked one, Other network…, Save ---------- */
@@ -834,9 +867,6 @@ body.sorting .layer:hover:not(.lifted):not(.sel) { background: none; }
 
 /* ---------- Updates (update.js; variant 3 of web/mockups/updates.html): a blue number on the heart — how many versions
    are newer; "What's new" — the versions on the left (as a folder's categories), the picked one's notes on the right ---------- */
-.ab-foot { justify-content: flex-start; gap: 18px; }
-.ab-foot #about-ok { margin-left: auto; }
-.ab-foot #about-check:disabled { color: var(--dim); opacity: 1; }
 .heart-btn { overflow: visible; }
 .upd-badge {
   position: absolute; top: -1px; right: -2px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 8px;
@@ -908,3 +938,9 @@ body.sorting .layer:hover:not(.lifted):not(.sel) { background: none; }
 .upd-go.running:disabled { opacity: 1; }
 .upd-go.ok, .upd-go.ok:hover:not(:disabled) { background: #2c6b45; color: #d9ffe6; }
 .upd-foot [hidden] { display: none !important; }  /* (button.primary's display would show it) */
+.upd-x {
+  position: absolute; top: 14px; right: 14px; z-index: 2; display: grid; place-items: center; width: 28px; height: 28px;
+  padding: 0; border: 0; border-radius: 8px; background: none; color: var(--dim);
+}
+.upd-x:hover:not(:disabled) { background: var(--panel-2); color: var(--text); }
+.upd-x svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }

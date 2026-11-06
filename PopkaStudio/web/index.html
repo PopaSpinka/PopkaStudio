@@ -155,32 +155,35 @@
   </div>
 
   <!-- About (about.js): over the editor, blurred behind it, as the start window; two steps — who, then Credits -->
+  <!-- About (about.js; variant 4 of web/mockups/about2.html): no × and no Close — Esc or a click beside; tabs About ·
+       Credits; the version's row — the update's state and its button (update.js); support — subscribe on YouTube -->
   <div class="start about" id="about" aria-hidden="true">
     <section class="start-win about-win" id="about-win" data-step="1" role="dialog" aria-label="About PopkaStudio">
-      <button class="about-x" id="about-x" aria-label="Close"><svg viewBox="0 0 14 14" aria-hidden="true"><path d="M3 3l8 8M11 3l-8 8"/></svg></button>
+      <div class="ab-tabs" role="tablist"><button class="on" id="about-tab1" role="tab">About</button><button id="about-tab2" role="tab">Credits</button></div>
       <div class="start-track">
         <div class="start-pane about-main">
-          <div class="ab-watch">
-            <svg class="ab-arc" viewBox="0 0 250 250" aria-hidden="true"><defs><path id="ab-arc-path" d="M38 125a87 87 0 0 1 174 0"/></defs>
-              <text><textPath href="#ab-arc-path" startOffset="50%" text-anchor="middle">MADE WITH LOVE</textPath></text></svg>
-            <div class="ab-mid"><span class="ab-heart"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 13.6S2.4 10.3 2.4 6.3A2.9 2.9 0 0 1 8 4.9a2.9 2.9 0 0 1 5.6 1.4c0 4-5.6 7.3-5.6 7.3z"/></svg></span><span class="ab-t">PopkaStudio</span><span class="ab-v" id="about-ver"></span></div>
+          <div class="ab-head">
+            <div class="ab-watch">
+              <svg class="ab-arc" viewBox="0 0 250 250" aria-hidden="true"><defs><path id="ab-arc-path" d="M38 125a87 87 0 0 1 174 0"/></defs>
+                <text><textPath href="#ab-arc-path" startOffset="50%" text-anchor="middle">MADE WITH LOVE</textPath></text></svg>
+              <div class="ab-mid"><span class="ab-heart"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 13.6S2.4 10.3 2.4 6.3A2.9 2.9 0 0 1 8 4.9a2.9 2.9 0 0 1 5.6 1.4c0 4-5.6 7.3-5.6 7.3z"/></svg></span><span class="ab-t">PopkaStudio</span><span class="ab-v" id="about-ver"></span></div>
+            </div>
+            <div><div class="ab-name">PopkaStudio</div><div class="ab-tag">Watch screens for ESP32 boards</div></div>
           </div>
-          <div class="ab-info">
-            <div class="ab-name">PopkaStudio</div>
-            <div class="ab-tag">Watch screens for ESP32 boards</div>
-            <div class="ab-line"><span class="k">Made by</span><span class="v">PopaSpinka</span></div>
-            <div class="ab-line"><span class="k">Together with</span><span class="v claude">Claude Opus 5.5</span><span class="ab-love"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 13.6S2.4 10.3 2.4 6.3A2.9 2.9 0 0 1 8 4.9a2.9 2.9 0 0 1 5.6 1.4c0 4-5.6 7.3-5.6 7.3z"/></svg></span></div>
-            <div class="ab-line"><span class="k">Links</span>
+          <div class="ab-line"><span class="k">Made by</span><span class="v">PopaSpinka</span></div>
+          <div class="ab-line"><span class="k">Together with</span><span class="v claude">Claude Opus 5.5</span><span class="ab-love"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 13.6S2.4 10.3 2.4 6.3A2.9 2.9 0 0 1 8 4.9a2.9 2.9 0 0 1 5.6 1.4c0 4-5.6 7.3-5.6 7.3z"/></svg></span></div>
+          <div class="ab-line"><span class="k">Links</span>
               <a class="ab-link" href="https://github.com/PopaSpinka/PopkaStudio" target="_blank" rel="noopener"><svg class="mark" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</a>
               <a class="ab-link" href="https://www.youtube.com/@PopaSpinka" target="_blank" rel="noopener"><svg class="mark yt" viewBox="0 0 18 13" aria-hidden="true"><rect width="18" height="13" rx="3.6" fill="#ff0033"/><path d="M7.2 3.6v5.8L12 6.5z" fill="#fff"/></svg>YouTube</a></div>
-            <div class="ab-line"><span class="k">License</span><span class="v dim">Free for people · paid for business</span></div>
-            <div class="ab-line"><span class="k">Contact</span><a class="v ab-mail" href="mailto:lastmail.sk@gmail.com">lastmail.sk@gmail.com</a></div>
-            <div class="ab-thanks">Built together, line by line. Thank you, Claude.</div>
-            <div class="ab-foot"><button class="ghost" id="about-credits">Credits</button><button class="ghost" id="about-check">Check for updates</button><button class="primary" id="about-ok">Close</button></div>
-          </div>
+          <div class="ab-line"><span class="k">Version</span><span class="ab-st" id="about-st"></span><button class="ab-act" id="about-act" hidden></button></div>
+          <div class="ab-line"><span class="k">Contact</span><a class="v ab-mail" href="mailto:lastmail.sk@gmail.com">lastmail.sk@gmail.com</a></div>
+          <div class="ab-support"><svg viewBox="0 0 18 13" aria-hidden="true"><rect width="18" height="13" rx="3.6" fill="#c4384f"/><path d="M7.2 3.6v5.8L12 6.5z" fill="#fff"/></svg>
+            <span class="tx"><b>Like PopkaStudio?</b><span>Subscribe on YouTube — it's free and helps a lot</span></span>
+            <a class="ab-sub" href="https://www.youtube.com/@PopaSpinka?sub_confirmation=1" target="_blank" rel="noopener"><svg viewBox="0 0 18 13" aria-hidden="true"><rect width="18" height="13" rx="3.6" fill="#fff"/><path d="M7.2 3.6v5.8L12 6.5z" fill="#c4384f"/></svg>Subscribe</a></div>
+          <div class="ab-esc">Esc — close</div>
         </div>
         <div class="start-pane about-cred">
-          <div class="start-ttl">Credits</div>
+          <div class="ab-lic"><b>License</b> · free for people, paid for business (PolyForm Noncommercial 1.0.0 + a commercial license)</div>
           <div class="ab-credits">
             <b>Google Sans Flex</b><span>font</span><a href="https://openfontlicense.org" target="_blank" rel="noopener">SIL OFL 1.1</a>
             <b>Font Awesome Free</b><span>icons</span><a href="https://fontawesome.com/license/free" target="_blank" rel="noopener">CC BY 4.0</a>
@@ -193,10 +196,6 @@
           </div>
           <div class="ab-legal">PopkaStudio is an independent project, not affiliated with or endorsed by Google, Espressif or Waveshare.
             Wear OS and Android are trademarks of Google LLC; ESP32 is a trademark of Espressif Systems.</div>
-          <div class="start-foot">
-            <button class="ghost" id="about-back">Back</button><span class="start-dots"><i></i><i class="on"></i></span>
-            <button class="primary" id="about-ok2">Close</button>
-          </div>
         </div>
       </div>
     </section>

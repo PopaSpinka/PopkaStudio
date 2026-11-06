@@ -68,7 +68,8 @@ It opens **http://localhost:8466**.
 
 **Updates:** when a new version is out, a blue number appears on the heart at the top right — how many updates
 since yours. Click it to see what's new in each one, then **Update**: PopkaStudio updates itself and restarts, and you
-**Load** your project again. **About → Check for updates** checks right away. (Running `install.sh` again updates too.)
+**Load** your project again. The heart's window shows your version too, and its **Check** button checks right away.
+(Running `install.sh` again updates too.)
 
 Windows is not supported.
 
@@ -116,6 +117,9 @@ interfaces for them that run flawlessly at 60 fps and more.
 - Your own GIF or video clip as a pixel-art layer, in seconds.
 - More apps and widgets, more watch faces.
 - Even smoother motion and longer battery life.
+
+**Like PopkaStudio?** Subscribing to [the YouTube channel](https://www.youtube.com/@PopaSpinka?sub_confirmation=1) is
+free and helps a lot — there's a button for it in the heart's window too.
 
 **Board makers:** want your board in PopkaStudio and the Halo library, tuned for smooth 60+ fps? Write to
 **lastmail.sk@gmail.com**.
