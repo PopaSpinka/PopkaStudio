@@ -2,7 +2,7 @@
 
 **Design watch screens for ESP32 boards in your browser — and see them on the real watch in one click.**
 
-[Русская версия](README.ru.md) · [Video: how it started (YouTube)](https://www.youtube.com/watch?v=7rBIQl6EG08)
+[Русская версия](README.ru.md) · [Video: how it started (YouTube)](https://www.youtube.com/watch?v=NHNoKUa2cDg)
 
 ![PopkaStudio](docs/screenshots/editor.png)
 
