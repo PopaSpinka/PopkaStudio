@@ -2,7 +2,7 @@
 
 **Экраны часов для плат ESP32 — рисуешь в браузере, на настоящих часах — одной кнопкой.**
 
-[English](README.md) · [Видео: с чего всё началось (YouTube)](https://www.youtube.com/watch?v=7rBIQl6EG08)
+[English](README.md) · [Видео: с чего всё началось (YouTube)](https://www.youtube.com/watch?v=NHNoKUa2cDg)
 
 ![PopkaStudio](docs/screenshots/editor.png)
 
