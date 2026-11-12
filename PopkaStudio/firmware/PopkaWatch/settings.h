@@ -34,6 +34,13 @@
 #define HAS_RECORDER 0
 #endif
 
+// The Video app (video.h): only a rectangular board has it — in a firmware with it and in that board's page
+#if !defined(HALO_ROUND) && (defined(__EMSCRIPTEN__) || (defined(FN_VIDEO) && FN_VIDEO))
+#define HAS_VIDEO 1
+#else
+#define HAS_VIDEO 0
+#endif
+
 #define ST_CARD_HI 0x2E3034  // HaloWatch's CARD_HI (surfaceContainerHigh)
 // About and Power (device.h, included after this): what runs every frame, from loop(), at start; About wants the
 // microphones (the Recorder's too: the one who still wants them keeps them on)
@@ -43,14 +50,25 @@ static void dev_poll();
 static volatile bool dv_mic_want;
 static int pw_awake_level = 180;  // the panel awake (power.h): Display's slider, else HaloWatch's default (step 7)
 static int pw_boot_fn();          // what BOOT does (power.h): Display's hint
+#ifndef HALO_ROUND
+static const FaceLayer *dp_link;  // the Display layer laid out now: where its row About goes (settings_rect.h)
+#endif
 
 // ---------- Display ----------
 #if HAS_DISPLAY
+#ifdef HALO_ROUND
 #define DP_STEPS 8
 #define DP_DEFAULT 7  // = 180, the brightness before this screen existed
 // Panel brightness (command 0x51) for each step: roughly even steps for the eye (it sees brightness about as a
 // logarithm). The lowest must stay visible
 static const uint8_t DP_LEVEL[DP_STEPS + 1] = {24, 34, 48, 66, 90, 118, 150, 180, 255};
+#else
+#define DP_STEPS 20    // a backlight: 5 % a step (settings_rect.h)
+#define DP_DEFAULT 14  // 70 %
+// The level for the backlight's PWM: even for the eye, the lowest still visible
+static const uint8_t DP_LEVEL[DP_STEPS + 1] = {10, 11, 13, 15, 18, 22, 27, 33, 40, 48, 58, 69, 81, 95, 110, 127, 146, 167, 190, 221, 255};
+extern const HaloFont gl_r_n72, gl_r_t44, gl_r_t32, gl_r_ic36;
+#endif
 #define DP_W 410.0f  // the pill: 205 dp x 52 dp
 #define DP_H 104.0f
 #define DP_BTN 96.0f  // "−" and "+" zones
@@ -82,6 +100,7 @@ static uint8_t dp_level(float steps) {  // between the table's steps — linearl
   return (uint8_t)lroundf(DP_LEVEL[i] + (DP_LEVEL[i + 1] - DP_LEVEL[i]) * (s - i));
 }
 
+#ifdef HALO_ROUND
 static const char *dp_hint_text() {  // what BOOT does (the editor's Buttons): 1 — screen off, 2 — lock, 3 — Always On
   switch (pw_boot_fn()) {
     case 1: return "Press BOOT to turn the screen off";
@@ -98,6 +117,7 @@ static void display_build() {
   dp_mid_icon = halo_text_mid(gl_ic32, "");
   halo_ease_make(EASE_SHARP, 0, 0, 0, 1);
 }
+#endif
 
 static void dp_set(int v) {
   v = constrain(v, 0, DP_STEPS);
@@ -110,6 +130,7 @@ static void display_enter() {
   for (auto &p : dp_press) halo_spring_set(p.s, 0), p.going_down = false;
 }
 
+#ifdef HALO_ROUND
 static void display_update(float dt) {
   HaloFinger &f = halo_finger;
   const float x0 = CX - DP_W / 2, x1 = CX + DP_W / 2, bx = x0 + DP_BTN, bw = DP_W - 2 * DP_BTN;
@@ -172,6 +193,9 @@ static void display_draw() {
   halo_item_draw(dp_track), halo_item_draw(dp_fill);
   for (auto &d : dp_dot) halo_item_draw(d);
 }
+#else
+#include "settings_rect.h"  // this screen's own places: Settings, variant L3
+#endif
 
 // Every frame: the 150 ms catch-up — the brightness glides along it (power.h sends it to the panel)
 static void display_tick(float dt) {
@@ -460,9 +484,11 @@ static void battery_draw() {
 #endif
 
 // ---------- Music: HaloWatch's player and its music, one to one; the Recorder ----------
-#if HAS_MUSIC || HAS_RECORDER
+#if HAS_MUSIC || HAS_RECORDER || HAS_VIDEO
 #include "sound.h"   // one speaker for both: the recorder's playback first, else the music
-#include "volume.h"  // … and one volume: the player's volume screen, for both
+#endif
+#if HAS_MUSIC || HAS_RECORDER || HAS_SHADE
+#include "volume.h"  // … and one volume: the player's volume screen, for both (and the quick settings panel's slider)
 #endif
 #if HAS_MUSIC
 #include "music.h"   // the tracks in the flash's "ffat" partition, the IMA ADPCM decoder, the sound through Halo
@@ -472,6 +498,9 @@ static void battery_draw() {
 #include "recorder.h"  // the Recorder: the microphones, a dotted wave, play it back, forget it
 #endif
 #include "games.h"  // the Games: self-playing snakes (only the ones added)
+#if HAS_VIDEO
+#include "video.h"  // the Video app: tiles of the card's clips and a player
+#endif
 
 // ---------- Both: the layers in face.h's screens, flash, the frame ----------
 static bool st_has(const FaceScreen &S, uint8_t kind) {
@@ -482,6 +511,9 @@ static bool st_has(const FaceScreen &S, uint8_t kind) {
 
 // Before halo_begin: the saved brightness (the panel starts at it), the battery's history
 static void settings_load() {
+#if HAS_VIDEO && !defined(__EMSCRIPTEN__) && FN_WIFI
+  hf_tiles(2);  // (Wi-Fi, the card and the JPEG decoder leave the speaker's DMA buffers no room otherwise: measured, docs/p4-video.md)
+#endif
 #if HAS_DISPLAY
   dp_prefs.begin("popkawatch", false);
   dp_value = dp_saved = dp_seen = constrain((int)dp_prefs.getUChar("bright", DP_DEFAULT), 0, DP_STEPS);
@@ -518,6 +550,9 @@ static void settings_build() {  // the fonts' middles (face_build)
 #if HAS_GAMES
   games_build();
 #endif
+#if HAS_VIDEO
+  video_build();
+#endif
 #if HAS_BATTERY
   battery_build();
 #endif
@@ -548,7 +583,7 @@ static void settings_tick(float dt) {  // every frame, whatever is on screen
 #if HAS_BATTERY
   battery_tick();
 #endif
-#if HAS_MUSIC || HAS_RECORDER
+#if HAS_MUSIC || HAS_RECORDER || HAS_SHADE
   vol_tick(dt);  // the volume screen and the level at the edge (volume.h)
 #endif
 #if HAS_MUSIC
@@ -560,6 +595,9 @@ static void settings_tick(float dt) {  // every frame, whatever is on screen
 #if HAS_GAMES
   games_tick(dt);  // the game on screen plays
 #endif
+#if HAS_VIDEO
+  video_tick(dt);  // the player's clock and animations
+#endif
 }
 // Recording or playing back, a game on screen: not idle (power.h keeps Always On away)
 static bool settings_busy() {
@@ -569,6 +607,9 @@ static bool settings_busy() {
 #endif
 #if HAS_GAMES
   busy |= games_busy();
+#endif
+#if HAS_VIDEO
+  busy |= video_busy();
 #endif
   return busy;
 }
@@ -587,6 +628,9 @@ static void settings_enter(const FaceScreen &S) {
 #if HAS_RECORDER
   if (st_has(S, FL_RECORDER)) recorder_enter();
 #endif
+#if HAS_VIDEO
+  if (st_has(S, FL_VIDEO)) video_enter();
+#endif
 }
 static void settings_update(const FaceScreen &S, float dt) {
 #if HAS_DISPLAY
@@ -597,6 +641,9 @@ static void settings_update(const FaceScreen &S, float dt) {
 #endif
 #if HAS_RECORDER
   if (st_has(S, FL_RECORDER)) recorder_update(dt);
+#endif
+#if HAS_VIDEO
+  if (st_has(S, FL_VIDEO)) video_update(dt);
 #endif
 }
 static void settings_layout(FaceRun &R, uint8_t kind, const HaloView &v) {
@@ -612,11 +659,18 @@ static void settings_layout(FaceRun &R, uint8_t kind, const HaloView &v) {
 #if HAS_RECORDER
   if (kind == FL_RECORDER) recorder_layout(v);
 #endif
+#if HAS_VIDEO
+  if (kind == FL_VIDEO) video_layout(v);
+#endif
 #if HAS_GAMES
   if (fl_game(kind)) games_layout(kind, v);
 #endif
+#ifdef HALO_ROUND
   R.box[0] = R.box[1] = 7, R.box[2] = R.box[3] = W - 7;  // (the editor: the whole screen)
   R.ax = R.ay = CX;
+#else
+  R.box[0] = R.box[1] = 7, R.box[2] = W - 7, R.box[3] = HALO_H - 7, R.ax = CX, R.ay = CY;
+#endif
 }
 static void settings_draw(uint8_t kind) {
 #if HAS_DISPLAY
@@ -630,6 +684,9 @@ static void settings_draw(uint8_t kind) {
 #endif
 #if HAS_RECORDER
   if (kind == FL_RECORDER) recorder_draw();
+#endif
+#if HAS_VIDEO
+  if (kind == FL_VIDEO) video_draw();
 #endif
 #if HAS_GAMES
   if (fl_game(kind)) games_draw(kind);

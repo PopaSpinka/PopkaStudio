@@ -25,11 +25,7 @@
 #pragma GCC push_options
 #pragma GCC optimize("O3", "fast-math")
 
-#define HALO_W 466
-#define HALO_H 466
-#define HALO_ROWS 16                                // строк в пачке
-#define HALO_BANDS ((HALO_H + HALO_ROWS - 1) / HALO_ROWS)
-#define HALO_HOT IRAM_ATTR __attribute__((noinline))  // горячий код рисования — во внутренней памяти
+#include "halo_board.h"  // the screen and the hot-code attribute of the board being built
 
 // ---------- Запуск ----------
 struct HaloConfig {
@@ -176,7 +172,7 @@ struct HaloBand {
   int x0, x1;     // столбцы, которые рисует ЭТА задача (только их и трогать)
   int bx, w;      // первый столбец буфера и его ширина
 };
-extern __thread HaloBand hb;
+extern HALO_TLS HaloBand hb;
 static inline uint16_t *halo_row(int y) {
   return hb.buf + (y - hb.y) * hb.w - hb.bx;
 }
@@ -187,7 +183,7 @@ static inline bool halo_hits(float x0, float y0, float x1, float y1) {  // за�
 // ---------- Цвет: RGB565 в порядке дисплея (старший байт первым) ----------
 static inline uint16_t halo_565(uint32_t rgb) {
   const uint16_t c = ((rgb >> 8) & 0xF800) | ((rgb >> 5) & 0x07E0) | ((rgb >> 3) & 0x001F);
-  return __builtin_bswap16(c);
+  return HALO_PX(c);
 }
 // Цвет × яркость k (0..256) — «на чёрном» это и есть прозрачность
 static inline uint32_t halo_dim(uint32_t rgb, int k) {
@@ -195,13 +191,16 @@ static inline uint32_t halo_dim(uint32_t rgb, int k) {
 }
 // Смешать пиксель с цветом (r5, g6, b5 уже в 565) с прозрачностью a 0..256
 static inline void halo_blend(uint16_t *p, int r5, int g6, int b5, int a) {
-  const uint32_t v = __builtin_bswap16(*p);
+  const uint32_t v = HALO_PX(*p);
   int R = v >> 11, G = (v >> 5) & 63, B = v & 31;
   R += ((r5 - R) * a + 128) >> 8;
   G += ((g6 - G) * a + 128) >> 8;
   B += ((b5 - B) * a + 128) >> 8;
-  *p = __builtin_bswap16((R << 11) | (G << 5) | B);
+  *p = HALO_PX((R << 11) | (G << 5) | B);
 }
+#ifdef HALO_FAST_VEIL  // a board with its own loop for this: p[i] = p[i] * (256 - A) / 256 + color * A / 256 (the port's file)
+void halo_fast_veil(uint16_t *p, int n, uint16_t color, int A);
+#endif
 // Залить x0..x1 строки одним цветом — по два пикселя за запись
 static inline void halo_span(uint16_t *row, int x0, int x1, uint16_t c) {
   if (x0 > x1) return;
@@ -608,6 +607,12 @@ float halo_nav_pull();  // жест назад снизу (и на циферб�
 // С главного или с открытого на нём (стопка до 4 уровней); главный ещё доезжал к месту — сразу на место.
 // Назад (жест слева, halo_nav_back) — на уровень ниже
 void halo_nav_open(const HaloScreen &screen);
+#ifndef HALO_ROUND
+// Прямоугольный экран: открыть, вырастая из элемента (центр x, y, размер w×h, скругление r, цвет color) — как плитка
+// видео в плеер: окно цвета элемента растёт до всего экрана и чернеет, экран проявляется внутри, нижний гаснет. Без
+// перелёта. Назад — как всегда (жест слева)
+void halo_nav_open_from(const HaloScreen &screen, float x, float y, float w, float h, float r, uint32_t color);
+#endif
 void halo_nav_back();
 void halo_nav_back_zone(float x);  // свайп назад — если начат левее x (по умолчанию 60 px = 30 dp, как в Android 16)
 void halo_nav_update(float dt);    // в update после halo_finger_update

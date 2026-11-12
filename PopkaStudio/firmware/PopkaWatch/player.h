@@ -32,7 +32,17 @@
 #define PL_LIKE 0xFF8BCB
 #define PL_TITLE_Y 85.0f
 #define PL_ARTIST_Y 123.0f
+#ifdef HALO_ROUND
 #define PL_TITLE_W 311.0f
+#define PL_F_TITLE gl_title
+#define PL_F_ARTIST gl_t24
+#else
+#define PL_TITLE_W 466.0f    // (player_rect.h)
+#define PL_F_TITLE gl_r_t56
+#define PL_F_ARTIST gl_r_t32
+extern const HaloFont gl_r_t56, gl_r_t32, gl_r_n24, gl_r_ic36;  // assets: RECT_APP_FONTS in studio.py
+static void pr_build();
+#endif
 #define PL_SIDE_H 108.0f
 #define PL_SMALL_Y 367.0f
 #define PL_RING_HW 4.0f
@@ -427,6 +437,7 @@ static void pl_change_track(int dir) {
   mu_cmd = pl_cur;  // from its beginning; plays if playing
 }
 
+#ifdef HALO_ROUND
 // The row's cells (ButtonGroup): widths from the press springs
 static void pl_cells(float w[3], float x[3]) {
   w[0] = 153, w[1] = 160, w[2] = 153;
@@ -436,6 +447,7 @@ static void pl_cells(float w[3], float x[3]) {
   w[1] += 2 * gm, w[0] -= gm, w[2] -= gm;
   x[0] = w[0] / 2 + 10, x[1] = w[0] + w[1] / 2, x[2] = w[0] + w[1] + w[2] / 2 - 10;
 }
+#endif
 
 // ---------- Build, tick (every frame), update (the finger, only while the screen is up) ----------
 static void player_build() {
@@ -455,11 +467,14 @@ static void player_build() {
   }
   for (int i = 0; i < mu_n; i++) {
     pl_len[i] = fmaxf(0.1f, mu_tracks[i].samples / (float)mu_rate);
-    pl_tw[i] = halo_text_width(gl_title, mu_tracks[i].title), pl_aw[i] = halo_text_width(gl_t24, mu_tracks[i].artist);
+    pl_tw[i] = halo_text_width(PL_F_TITLE, mu_tracks[i].title), pl_aw[i] = halo_text_width(PL_F_ARTIST, mu_tracks[i].artist);
   }
-  pl_mid_t = halo_text_mid(gl_title, "Gymnopedie"), pl_mid_a = halo_text_mid(gl_t24, "Erik Satie");
+  pl_mid_t = halo_text_mid(PL_F_TITLE, "Gymnopedie"), pl_mid_a = halo_text_mid(PL_F_ARTIST, "Erik Satie");
   pl_mid_i = halo_text_mid(gl_ic24, "");
   vol_build();  // the speaker's volume (volume.h)
+#ifndef HALO_ROUND
+  pr_build();
+#endif
 }
 
 static void player_tick(float dt) {
@@ -492,6 +507,7 @@ static void player_tick(float dt) {
   }
 }
 
+#ifdef HALO_ROUND
 static void player_update(float dt) {
   HaloFinger &f = halo_finger;
   pl_active = true;
@@ -516,6 +532,7 @@ static void player_update(float dt) {
   if (pl_armed >= 0) pl_last = pl_armed;
   if (!f.down) pl_armed = pl_small_armed = -1;
 }
+#endif
 
 // ---------- Layout and drawing ----------
 static struct {
@@ -550,6 +567,7 @@ static void pl_ring_shape(ShapeK &k, bool ring, float w_pill, float h_pill, floa
   k.pw = w_pill / 2 * s, k.ph = h_pill / 2 * s, k.m = halo_clamp01(pl_center.s.x);
 }
 
+#ifdef HALO_ROUND
 static void player_enter() {
   pl_armed = pl_small_armed = -1;
   vol_enter();
@@ -627,6 +645,7 @@ static void player_layout(const HaloView &v) {
             halo_view_y(v, PL_ARTIST_Y + 22));
   if (pl_marquee_x > 0 || pl_change_t < 0.45f || pl_playing) halo_subpixel = true;
 }
+#endif
 
 // A title or an artist line, clipped to [xa, xb] (the marquee) — this task's half of the band narrowed meanwhile
 static void pl_text(const HaloFont &f, const char *s, float x, float top, float sc, uint32_t color, float xa, float xb) {
@@ -641,6 +660,7 @@ static void pl_fade_col(int x, float k, int y0, int y1) {  // the marquee's soft
   for (int y = max(y0, hb.y); y <= min(y1, hb.y + hb.rows - 1); y++) halo_blend(halo_row(y) + x, 0, 0, 0, (int)((1 - k) * 256));
 }
 
+#ifdef HALO_ROUND
 static void pl_texts(float alpha) {
   const HaloView &v = pl_v;
   if (!mu_n) {
@@ -691,5 +711,8 @@ static void player_draw() {
   }
   vol_draw();
 }
+#else
+#include "player_rect.h"  // this screen's own places: the update, the layout, the drawing
+#endif
 
 // No vertical gestures of its own: to the face — swipe up from the bottom edge (or down from the top), as everywhere

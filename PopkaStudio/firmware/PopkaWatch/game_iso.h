@@ -89,9 +89,18 @@ struct IsFace {
   bool eyes;
 };
 #define IS_FACES ((SN_MAXL + 8) * 5)
+#ifdef HALO_ROUND
 static IsFace *is_face;
 static int is_nface;
 static float is_eye[4][3];  // x, y, r of the eyes' whites and pupils
+#else
+static IsFace *is_face_v[2];   // [0] — its screen, [1] — its card in the gallery: what the view gives, kept per view
+static int is_nface_v[2];
+static float is_eye_v[2][4][3];
+#define is_face is_face_v[gm_slot]
+#define is_nface is_nface_v[gm_slot]
+#define is_eye is_eye_v[gm_slot]
+#endif
 // A quad of board points (cells, z) through the view; (sx, sy) — the snap to whole pixels
 static void is_quad(const float (*p)[3], float sx, float sy, uint32_t rgb) {
   if (!is_face || is_nface >= IS_FACES) return;
@@ -133,9 +142,18 @@ static void is_box_of(const IsItem &it, float &x0, float &y0, float &x1, float &
 }
 
 static int is_n;
+#ifdef HALO_ROUND
 static float (*is_tile)[8];  // the board's tiles this frame: 4 corners on screen (after the view)
 static int is_ntile;
 static float is_rim[2][24];
+#else
+static float (*is_tile_v[2])[8];
+static int is_ntile_v[2];
+static float is_rim_v[2][2][24];
+#define is_tile is_tile_v[gm_slot]
+#define is_ntile is_ntile_v[gm_slot]
+#define is_rim is_rim_v[gm_slot]
+#endif
 static void iso_layout() {
   if (!is_s) return;
   const Snake &S = *is_s;
@@ -206,11 +224,13 @@ static void iso_layout() {
 static void iso_draw() {
   if (!is_s) return;
   const Snake &S = *is_s;
+#ifdef HALO_ROUND
   // The sky: a gradient, row by row
   for (int r = hb.y; r < hb.y + hb.rows; r++) {
     const float t = halo_clamp01((r - gm_y(0)) / (466 * gm_v.s));
     halo_span(halo_row(r), hb.x0, hb.x1, halo_565(gm_col(gm_rgb_mix(0x0C1A2A, 0x05080D, t))));
   }
+#endif
   // The board: its rim (an ellipse), the tiles
   is_poly(is_rim[0], is_rim[1], 24, gm_col(0x1B2A1F));
   const uint32_t tile[2] = {gm_col(0x35533B), gm_col(0x2F4A35)};

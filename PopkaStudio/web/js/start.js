@@ -4,7 +4,8 @@
 // PopkaStudio — at the boards, the project's name — at the projects (opened right there, no slide). A project's circle
 // is its watch face: the picture the page makes a while after each save (thumbSoon), kept next to the project by
 // studio.py.
-import { state, on, openProject, closeProject, change, projectName, home, screens, newLayer, FACE_SCREEN } from './state.js';
+import { state, on, openProject, closeProject, change, projectName, home, screens, newLayer, FACE_SCREEN, saveAndRemember } from './state.js';
+import { BOARD, TW, TH } from './screen.js';
 import { engines } from './engine.js';
 import { preview } from './previews.js';
 import { justUpdated } from './update.js';
@@ -19,11 +20,24 @@ const ICON = {
   pen: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19h3.5L18.5 9 15 5.5 5 15.5zM13 7.5 16.5 11"/></svg>',
 };
 
-// The board's picture: its photo; without one, drawn — the round one: a metal ring with its two buttons (PWR above the
-// middle, BOOT below) round the screen, and on the screen HaloWatch's face drawn by the board's own code (previews.js);
-// one not ready — a screen
+// The board's picture: its photo; without one, drawn — black glass round its screen and a face on it (art: a picture
+// the board's code drew — since 11 Nov 2026 the user's own: the round one — Project 1's face, the rectangular one — test's home);
+// a round one without art — a metal ring with its two buttons (PWR above the middle, BOOT below) round the screen, and
+// on the screen HaloWatch's face drawn by the board's own code (previews.js); one not ready — a screen
 function picture(b, cls = '') {
   if (b.photo) return Object.assign(new Image(), { src: b.photo, alt: '', className: 'bphoto ' + cls, draggable: false });
+  if (b.drawn === 'rect') {  // a rectangular board: drawn, black glass round its screen
+    const el = document.createElement('div');
+    el.className = 'rectboard ' + cls;
+    el.append(Object.assign(new Image(), { src: b.art, alt: '', draggable: false }));
+    return el;
+  }
+  if (b.drawn === 'round' && b.art) {  // the round board, drawn as the rectangular one: black glass round its round screen
+    const el = document.createElement('div');
+    el.className = 'roundboard ' + cls;
+    el.append(Object.assign(new Image(), { src: b.art, alt: '', draggable: false }));
+    return el;
+  }
   if (b.drawn !== 'round') return Object.assign(document.createElement('div'), { className: 'drawn ' + cls });
   const el = document.createElement('div');
   el.className = 'rboard ' + cls;
@@ -81,7 +95,7 @@ function renderBoards() {
 // ---------- Step 2: its projects ----------
 function renderProjects() {
   const b = current();
-  if (b) $('start-board').replaceChildren(picture(b, 'mini'), names(b));
+  if (b) $('start-board').replaceChildren(picture(b, 'mini'), names(b)), ($('start-grid').dataset.shape = b.shape);
   const add = document.createElement('button');
   add.className = 'ptile new';
   add.innerHTML = `<span class="th plus">${ICON.plus}</span><span class="nm">New</span><span class="when">&nbsp;</span>`;
@@ -206,6 +220,12 @@ async function remove(p) {
 
 // fresh — a project just made: the editor opens it in Edit (its watch face in the middle), whatever mode was on
 async function pick(pid, fresh = false) {
+  const other_board = projects.find((p) => p.id === pid)?.board;
+  if (other_board && other_board !== BOARD.id) {  // the page serves one board: back for this project, for that board
+    await saveAndRemember(pid);
+    try { sessionStorage.setItem('popka.opening', fresh ? 'fresh' : 'open'); } catch (e) { /* the start window then */ }
+    return location.reload();
+  }
   await ready;  // (the editor still being built behind: the project it loads first, then this one)
   const other = pid !== state.pid;  // (asked before opening it: then state.pid is this one)
   if (other && !(await openProject(pid))) return refresh();
@@ -255,7 +275,10 @@ export function initStart(open, built) {
     if (e.key === 'Escape') step() === 3 ? go(2) : hideStart();
     if (e.key === 'Enter' && step() === 1 && !e.target.closest?.('button, .ptile')) go(2);
   });
-  if (justUpdated()) ready.then(() => (state.pid ? pick(state.pid) : showStart()));  // (back from an update: the same project)
+  let resumed = null;  // (reloaded for another board's project: straight into it)
+  try { resumed = sessionStorage.getItem('popka.opening'), sessionStorage.removeItem('popka.opening'); } catch (e) { /* no storage */ }
+  if (resumed) ready.then(async () => { await refresh(); return state.pid ? pick(state.pid, resumed === 'fresh') : showStart(); });
+  else if (justUpdated()) ready.then(() => (state.pid ? pick(state.pid) : showStart()));  // (back from an update: the same project)
   else showStart();
 }
 
@@ -268,10 +291,10 @@ export function thumbSoon(stage, ms = 2000, tries = 10) {
     if (t && t.engine.M && !t.engine.shown) t.engine.drawNow();  // (the face out of sight: its picture made now)
     if (!t || !t.engine.M || [...engines].some((e) => e.busy)) return tries > 0 && thumbSoon(stage, 1000, tries - 1);
     const c = document.createElement('canvas');
-    c.width = c.height = 280;
+    c.width = 280, c.height = Math.round((280 * TH) / TW);
     const g = c.getContext('2d');
     g.imageSmoothingQuality = 'high';
-    g.drawImage(t.canvas, 0, 0, 280, 280);
+    g.drawImage(t.canvas, 0, 0, c.width, c.height);
     c.toBlob((png) => {
       if (png && pid === state.pid && screens().length) fetch(`/api/thumb?p=${pid}`, { method: 'PUT', body: png }).catch(() => {});
     }, 'image/png');

@@ -16,6 +16,7 @@
 // port, kept with the board (the next time shown at once). A firmware not ours — "Save its firmware": a copy into
 // PopkaStudio/backups (only what it needs: ~11 KB/s over the S3's USB). The first Load onto other firmware can save it
 // first (a box in its question). A Load that couldn't reach the board's loader — the BOOT help: hold BOOT, plug in.
+import { BOARD } from './screen.js';
 import { state, emit } from './state.js';
 
 const $ = (id) => document.getElementById(id);
@@ -35,7 +36,7 @@ async function refresh() {
   try {
     const r = await (await fetch('/api/boards', { cache: 'no-store' })).json();
     const model = $('board-model');
-    if (!model.options.length) boards = r.boards.filter((b) => !b.soon), model.replaceChildren(...boards.map((b) => new Option(b.short || b.name, b.id)));
+    if (!model.options.length) boards = r.boards.filter((b) => b.id === BOARD.id), model.replaceChildren(...boards.map((b) => new Option(b.short || b.name, b.id)));
     const sel = $('board-port'), was = sel.value;
     const names = r.ports.map((p) => p.port).join();
     if (names !== ports.map((p) => p.port).join()) {
@@ -94,7 +95,7 @@ function mark() {
   if (now !== shown) shown = now, emit('board');  // (Live: locked or not)
   if (st.state === 'other' && st.mac && (offered[st.mac] ?? -1) < (current()?.since || 0) && phase !== 'running') offer(st.mac);
   if (phase === 'running') return;
-  $('flash').disabled = !ports.length;
+  $('flash').disabled = !ports.length || BOARD.load === false;
   if (phase === 'idle') $('flash').title = ports.length ? 'Load the watch onto the board' : 'Connect the board by USB';
 }
 
@@ -271,6 +272,7 @@ function toggle(pop) {
 }
 
 export function initBoard() {
+  if (BOARD.shape !== 'round') $('board-btn').querySelector('svg').innerHTML = '<rect x="2" y="4" width="12" height="8" rx="1.6"/>';
   $('flash').onclick = () => (phase !== 'running' ? loadNow() : null);
   $('board-btn').onclick = () => { toggle($('board-pop')); showCheck(); };
   $('check-btn').onclick = check;

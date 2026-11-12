@@ -255,12 +255,12 @@ void halo_finger_update() {
 
 static void finger_commands() {
   halo_command("tap", [](const char *a) {
-    float x = 233, y = 233;
+    float x = HALO_W / 2, y = HALO_H / 2;
     sscanf(a, "%f %f", &x, &y);
     syn_start(x, y, x, y, 0.08f);
   });
   halo_command("press", [](const char *a) {
-    float x = 233, y = 233, ms = 800;
+    float x = HALO_W / 2, y = HALO_H / 2, ms = 800;
     sscanf(a, "%f %f %f", &x, &y, &ms);
     syn_start(x, y, x, y, ms / 1000);
   });
@@ -272,7 +272,7 @@ static void finger_commands() {
   // Бросок: палец идёт с постоянной скоростью и отпускает на ходу — как настоящий свайп (у drag к концу палец
   // тормозит и отпускает почти без скорости). fling X Y СКОРОСТЬ_PX_С [ПУТЬ_PX] [up|down|left|right]
   halo_command("fling", [](const char *a) {
-    float x = 233, y = 233, v = 1000, len = 120;
+    float x = HALO_W / 2, y = HALO_H / 2, v = 1000, len = 120;
     char dir[8] = "down";
     if (sscanf(a, "%f %f %f %f %7s", &x, &y, &v, &len, dir) < 3) return (void)Serial.println("fling X Y px/s [путь] [up|down|left|right]");
     const float dx = !strcmp(dir, "left") ? -len : !strcmp(dir, "right") ? len : 0;
@@ -281,7 +281,7 @@ static void finger_commands() {
   });
   halo_command("swipe", [](const char *a) {
     const bool edge = strstr(a, "edge");
-    float x0 = 233, y0 = 233, x1 = 233, y1 = 233;
+    float x0 = HALO_W / 2, y0 = HALO_H / 2, x1 = HALO_W / 2, y1 = HALO_H / 2;
     if (strstr(a, "up")) y0 = edge ? 456 : 360, y1 = edge ? 200 : 110;
     else if (strstr(a, "down")) y0 = edge ? 10 : 110, y1 = edge ? 300 : 360;
     else if (strstr(a, "left")) x0 = edge ? 456 : 360, x1 = 110;
@@ -617,7 +617,7 @@ void halo_pager_update(HaloPager &p, float dt, bool enabled) {
   }
   if (!p.drag) halo_spring_run(p.off, K_PAGER, dt);
   // Точки: текущая — белая и чуть больше, остальные — серые; между страницами — плавно
-  const float gap = 14, x0 = 233 - (p.count - 1) * gap / 2;
+  const float gap = 14, x0 = HALO_W / 2 - (p.count - 1) * gap / 2;
   for (int i = 0; i < p.count; i++) {
     HaloItem &d = p.dots[i];
     const float near = halo_clamp01(1 - fabsf(p.off.x - i));

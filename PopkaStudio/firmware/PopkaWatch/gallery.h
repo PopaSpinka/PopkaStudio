@@ -50,6 +50,13 @@ static void press_update(Press &p, bool held, float dt, const HaloSpringK *k_dow
 }
 
 // A screen's list and what goes with it (HaloWatch's menu, tt_k, sc_*, eb_*)
+#ifndef HALO_ROUND
+struct RgCell {  // gallery_rect.h: a card's place on the page
+  int layer;
+  float x, y, w, h;
+  int game;       // the game this card opens and shows alive (its FL_SNK*; 0 — an ordinary card)
+};
+#endif
 struct GalRun {
   HaloList list;
   int8_t item[HALO_LIST_MAX];  // the layer of each item
@@ -60,6 +67,10 @@ struct GalRun {
   float tt_k = 1;              // the clock along the top edge: 1 — in place, 0 — scrolled away (ScrollAway)
   HaloSpring sc_pos, sc_vis;   // the scroll indicator: where (catches up in 500 ms), shown (fades 2 s after the list stops)
   uint32_t sc_idle_ms = 0;
+#ifndef HALO_ROUND
+  RgCell cell[HALO_LIST_MAX];  // the cards on the page; press[] — by the same number
+  int cells = 0;
+#endif
   HaloSpring eb_h;             // the button's height now, px
   uint8_t eb_mode = EB_GROWS;  // by the number of cards: EB_NONE, EB_STILL, EB_GROWS
   Press eb_press;
@@ -93,6 +104,10 @@ static void gl_text_base(HaloItem &it, const HaloFont &f, const char *s, float x
   it.x = x, it.y = y + (f.line / 2.0f - f.ascent) * sc, it.scale = sc, it.alpha = alpha;
 }
 
+#ifndef HALO_ROUND
+#include "gallery_rect.h"  // this screen's own places: gal_rebuild, gal_update, gal_layout
+#endif
+
 // A part of the gallery from scratch (at start; in the editor — after a change of its text)
 static void gal_layer_build(const FaceScreen &S, int i) {
   const FaceLayer &L = S.layers[i];
@@ -101,8 +116,12 @@ static void gal_layer_build(const FaceScreen &S, int i) {
   R.g = new HaloItem[5]();
   if (L.kind == FL_TITLE) R.mid = halo_text_mid(gl_title, gl_str(L.text));
   if (L.kind == FL_EDGE) R.mid = halo_text_mid(gl_t24, gl_str(L.text));
+#ifndef HALO_ROUND
+  rg_layer_build(S, i);
+#endif
 }
 
+#ifdef HALO_ROUND
 // The list of a screen from its layers (at start; in the editor — after every change): made anew when other layers
 // make it, kept as it is (where it was scrolled) when the same ones do. A screen with no part of the gallery has none
 static void gal_rebuild(FaceScreen &S) {
@@ -147,6 +166,7 @@ static void gal_rebuild(FaceScreen &S) {
   // still — full height (and nothing scrolls: the same); none — 0; growing — from the list's place (0 at its top)
   if (mode == EB_STILL || (mode == EB_GROWS && !n)) halo_spring_set(g->eb_h, EB_FULL);
 }
+#endif
 
 // The button's height for the list as it is now (its mode: gal_rebuild)
 static float gal_eb_height(const GalRun &g) {
@@ -178,6 +198,7 @@ static void gal_enter(FaceScreen &S) {
   g->eb_press.going_down = g->eb_armed = false;
 }
 
+#ifdef HALO_ROUND
 // Still and on top: the list, the presses, a tap (depth — where the screen is in lib/Halo's stack; -1 — over the face:
 // a tap there opens nothing)
 static void gal_update(FaceScreen &S, float dt, int depth) {
@@ -299,6 +320,7 @@ static void gal_layout(const FaceScreen &S, int i, float a, const HaloView &v) {
   }
   for (int j = 0; j < 5; j++) box_add(R.box, it[j]);
 }
+#endif
 
 static void gal_draw(const FaceScreen &S, int i) {
   if (S.layers[i].kind == FL_DEVCARD) return dc_draw(S, i);
@@ -306,6 +328,10 @@ static void gal_draw(const FaceScreen &S, int i) {
   if (!it) return;
   const int n = S.layers[i].kind == FL_CARD ? 5 : S.layers[i].kind == FL_SCROLL ? 3 : S.layers[i].kind == FL_EDGE ? 2 : 1;
   for (int j = 0; j < n; j++) halo_item_draw(it[j]);
+#ifndef HALO_ROUND
+  if (S.run[i].txt) halo_roll_draw(S.run[i].roll);  // (the live card: its temperature)
+  if (S.layers[i].kind == FL_CARD) rg_game_draw(S, i);  // (a game's card: the game, alive)
+#endif
 }
 
 // The clock along the top edge on a screen with a list (wxscreen.h: wx_layout_static): HaloWatch's gallery's — it goes

@@ -9,9 +9,10 @@
 // it when its transition is over) — and a screen with pages (the Weather screen's cities) one per page (studio_page). Try has one more, not pinned: it runs the sketch as the board does — the face, a tap
 // on a layer with a link, HaloWatch's transition, back with a swipe up from the bottom edge; the gallery (a swipe up on
 // the face), its cards, the Android 16 transition, back with a swipe from the left edge.
-import { state, KIND_INDEX, FX, KINDS, ICONS, TAPS, fnOf, timeOf, zoneShift, citiesOf, weatherOf } from './state.js';
+import { BOARD, TW, TH, ROUND, lacks } from './screen.js';
+import { state, KIND_INDEX, FX, KINDS, ICONS, TAPS, fnOf, timeOf, zoneShift, citiesOf, weatherOf, CLOCK_LOOKS, clockLook } from './state.js';
 
-const W = 466, PERIOD = 1000 / 60;
+const PERIOD = 1000 / 60;
 // Pictures put on the page since it opened (all copies): the overlay draws again only after one (a layer's box may have
 // moved) or a change of its own (stage.js: drawOverlay)
 export let paints = 0;
@@ -32,26 +33,42 @@ function fetchBlob(kind, key, body) {
 // (the face's pill, the big icon, the hourly pill's)
 const PILLS = new Set(['weather', 'hourly', 'steps']), WX_ICONS = new Set(['weather', 'wxicon', 'hourly']);
 const NO_FONT = new Set(['wxicon', 'dots', 'parrot', 'stchart', 'stepring', 'batring', 'dotclock']);
-export const fontKey = (l) => (NO_FONT.has(l.type) || KINDS[l.type].fixed ? null
+// A clock of sclock.h: font n of its look (studio.py SC_LOOKS), at its size
+const scKey = (l, n) => (clockLook(l)[4] > n ? `font${n + 1}|sclock|${l.look}|${l.scale}` : null);
+export const fontKey = (l) => (l.type === 'sclock' ? scKey(l, 0) : NO_FONT.has(l.type) || KINDS[l.type].fixed ? null
   : PILLS.has(l.type) ? `font|${l.type}|${l.scale}` : `font|${l.type}|${l.size}|${l.weight}|${l.width}`);
-const font2Key = (l) => (l.type === 'steps' ? `font2|steps|${l.scale}`  // the Steps pill's shoe, the info line's
-  : l.type === 'infoline' && l.format === 'icons' ? `font2|infoline|${l.size}` : null);
-const iconsKey = (l) => (WX_ICONS.has(l.type) || l.type === 'forecast' ? `icons|${l.type}|${l.scale}`
+const font2Key = (l) => (l.type === 'sclock' ? scKey(l, 1) : l.type === 'steps' ? `font2|steps|${l.scale}`  // the Steps pill's shoe, the info line's
+  : l.type === 'infoline' && l.format === 'icons' ? `font2|infoline|${l.size}`
+  : !ROUND && (l.type === 'weekarc' || l.type === 'forecast') ? `font2|${l.type}|${l.size}` : null);
+const iconsKey = (l) => ((WX_ICONS.has(l.type) && (ROUND || l.type !== 'hourly')) || l.type === 'forecast' ? `icons|${l.type}|${l.scale}`
   : l.type === 'infoline' && l.format === 'icons' ? `icons|infoline|${l.size}` : null);
 // What a layer's p2 and p3 are (studio.py writes the same into layers.h)
-const CURVE_I = ['weekday', 'shortdate', 'daymonth', 'weather', 'steps', 'datesteps', 'battery'], INFO_I = ['words', 'short', 'icons'];
+const CURVE_I = ['weekday', 'shortdate', 'daymonth', 'weather', 'steps', 'datesteps', 'battery', 'city'], INFO_I = ['words', 'short', 'icons'];
 const DEV_I = ['cpu', 'mem', 'bat', 'temp', 'snd', 'mot'];  // About (device.h: DV_CPU …)
-const P2 = { curve: (l) => CURVE_I.indexOf(l.what), stepring: (l) => l.radius, infoline: (l) => INFO_I.indexOf(l.format),
-  devcard: (l) => DEV_I.indexOf(l.what), device: (l) => DEV_I.indexOf(l.what) };
+const P2 = { curve: (l) => CURVE_I.indexOf(l.what), stepring: (l) => l.radius, infoline: (l) => INFO_I.indexOf(l.format), card: (l) => (l.live ? 1 : 0),
+  devcard: (l) => DEV_I.indexOf(l.what), device: (l) => DEV_I.indexOf(l.what),
+  shade: (l) => Math.max(0, ['full', 'dual', 'corner', 'strip', 'wear'].indexOf(l.look)),  // (shade_rect.h: its look; the round board's one — shade_round.h)
+  sclock: (l) => Math.max(0, CLOCK_LOOKS.findIndex(([k]) => k === l.look)) };  // (sclock.h: its look)
 const P3 = { curve: (l) => l.angle, weekarc: (l) => l.angle ?? 0, forecast: (l) => l.angle ?? 0 };
+
+// The network the board's Wi-Fi joins (studio.py: the one picked in the Wi-Fi window) — for the quick settings panel's
+// Wi-Fi tile; asked once, and again when Wi-Fi is switched on
+let wifiNet = '', wifiAsked = false;
+function askWifiNet() {
+  wifiAsked = true;
+  fetch('/api/wifi').then((r) => r.json()).then((j) => {
+    wifiNet = String(j.current || '').replace(/[^ -~]/g, '').slice(0, 32);
+    for (const e of engines) e.wf = null;  // (sent again with the next sync)
+  }).catch(() => {});
+}
 
 // The engine's code, compiled once for all copies
 let factory = null, wasmModule = null;
 async function loadCode() {
   if (!factory) {
     const v = Date.now();
-    factory = (await import(`../build/PopkaWatch.js?v=${v}`)).default;
-    wasmModule = await WebAssembly.compileStreaming(fetch(`build/PopkaWatch.wasm?v=${v}`));
+    factory = (await import(`../${BOARD.engine}/PopkaWatch.js?v=${v}`)).default;
+    wasmModule = await WebAssembly.compileStreaming(fetch(`${BOARD.engine}/PopkaWatch.wasm?v=${v}`));
   }
 }
 
@@ -108,7 +125,7 @@ export class Engine {
   paint(all = false) {
     paints++;
     const buf = this.M.HEAPU8.buffer;
-    if (this.imgOf !== buf) this.imgOf = buf, this.img = new ImageData(new Uint8ClampedArray(buf, this.rgba, W * W * 4), W, W);
+    if (this.imgOf !== buf) this.imgOf = buf, this.img = new ImageData(new Uint8ClampedArray(buf, this.rgba, TW * TH * 4), TW, TH);
     const d = new Int32Array(buf, this.dirty, 4);
     if (all) return this.ctx.putImageData(this.img, 0, 0);
     if (d[2] >= d[0]) this.ctx.putImageData(this.img, 0, 0, d[0], d[1], d[2] - d[0] + 1, d[3] - d[1] + 1);
@@ -240,33 +257,39 @@ export class Engine {
     const main = index.get(state.project?.main) ?? -1;  // the gallery
     const all = screens.map((s, si) => ({ n: s.name, l: s.layers.map((l) => {
       const mine = this.pin < 0 || this.pin === si;
-      const was = this.applied.get(l.id) || { font: -1, icons: -1, font2: -1 };
-      let font = -1, icons = -1, font2 = -1;
+      const was = this.applied.get(l.id) || { font: -1, icons: -1, font2: -1, font3: -1, font4: -1 };
+      let font = -1, icons = -1, font2 = -1, font3 = -1, font4 = -1;
       if (mine) {
         if (fontKey(l)) {
-          font = this.slot('font', fontKey(l), { type: l.type, size: l.size, weight: l.weight, width: l.width, scale: l.scale });
+          font = this.slot('font', fontKey(l), { type: l.type, size: l.size, weight: l.weight, width: l.width, scale: l.scale, look: l.look, board: BOARD.id });
           if (font === undefined) font = was.font;
         }
+        if (l.type === 'sclock') {  // (a clock's third and fourth fonts)
+          if (scKey(l, 2)) font3 = this.slot('font', scKey(l, 2), { type: l.type, scale: l.scale, look: l.look, part: 'font3', board: BOARD.id });
+          if (font3 === undefined) font3 = was.font3;
+          if (scKey(l, 3)) font4 = this.slot('font', scKey(l, 3), { type: l.type, scale: l.scale, look: l.look, part: 'font4', board: BOARD.id });
+          if (font4 === undefined) font4 = was.font4;
+        }
         if (iconsKey(l)) {
-          icons = this.slot('icons', iconsKey(l), { type: l.type, scale: l.scale, size: l.size, format: l.format });
+          icons = this.slot('icons', iconsKey(l), { type: l.type, scale: l.scale, size: l.size, format: l.format, board: BOARD.id });
           if (icons === undefined) icons = was.icons;
         }
         if (font2Key(l)) {
-          font2 = this.slot('font', font2Key(l), { type: l.type, scale: l.scale, size: l.size, format: l.format, part: 'icon' });
+          font2 = this.slot('font', font2Key(l), { type: l.type, scale: l.scale, size: l.size, format: l.format, look: l.look, part: 'icon', board: BOARD.id });
           if (font2 === undefined) font2 = was.font2;
         }
-        this.applied.set(l.id, { font, icons, font2 });
+        this.applied.set(l.id, { font, icons, font2, font3, font4 });
       }
       // Links (as studio.py writes them): from the face's layers and the gallery's cards and button; not to the face,
       // the gallery or the layer's own screen
-      let to = (si === 0 && !KINDS[l.type].fixed) || TAPS.has(l.type) ? (l.tap ? index.get(l.tap.to) ?? -1 : -1) : -1;
+      let to = (si === 0 && !KINDS[l.type].fixed) || TAPS.has(l.type) || l.type === 'display' ? (l.tap ? index.get(l.tap.to) ?? -1 : -1) : -1;
       if (to === 0 || to === main || to === si) to = -1;
       return {
         kind: KIND_INDEX[l.type], dx: Math.fround(l.dx), dy: Math.fround(l.dy), k: Math.fround(l.scale ?? 1),
         c: parseInt((l.color || '#000000').slice(1), 16), c2: parseInt((l.color2 || '#000000').slice(1), 16), sp: l.spacing ?? 0,
-        font, icons, font2, c3: parseInt((l.color3 || '#000000').slice(1), 16),
+        font, icons, font2, font3, font4, c3: parseInt((l.color3 || '#000000').slice(1), 16),
         tap: to > 0 ? to : -1, fx: FX[l.tap?.fx]?.index ?? 1, p: Math.fround(l.goal ?? l.count ?? l.radius ?? l.angle ?? l.gap ?? 0), hidden: !!l.hidden,
-        p2: Math.fround(P2[l.type] ? P2[l.type](l) : l.twinkle ?? SPARKLES[l.sparkles] ?? (l.type === 'steps' && l.pill === false ? 1 : 0)),
+        p2: Math.fround(P2[l.type] ? P2[l.type](l) : l.twinkle ?? SPARKLES[l.sparkles] ?? ((l.type === 'steps' || l.type === 'weather') && l.pill === false ? 1 : 0)),
         p3: Math.fround(P3[l.type] ? P3[l.type](l) : l.meteors ?? l.rainbow ?? 0),
         t: l.text ?? '', u: l.subtitle ?? '', i: l.icon && ICONS[l.icon] ? String.fromCodePoint(ICONS[l.icon]) : '',
       };
@@ -287,15 +310,23 @@ export class Engine {
       this.M._studio_weather(p);
       this.M._free(p);
     }
+    // The quick settings panel's Wi-Fi (shade_rect.h, shade_round.h): this project's Wi-Fi and its network, as its board shows it
+    const wifiOn = !!fnOf('wifi').on;
+    if (wifiOn && !wifiAsked) askWifiNet();
+    if (!wifiOn) wifiAsked = false;  // (switched on again: the network asked anew)
+    const wf = wifiOn ? `on ${wifiNet}` : 'off';
+    if (wf !== this.wf) this.wf = wf, this.command('shade wifi ' + wf);
     // The time (every copy: the clocks on the map too): 12 or 24 hours, the picked zone's wall clock
     const tm = timeOf(), clk = [tm.h24 ? 1 : 0, zoneShift(tm.zone)];
     if (clk.join() !== this.clk) this.clk = clk.join(), this.M._studio_clock(...clk);
-    // The Functions (power.h) — in Try's copy (a pinned one stands still): off — Always On never, a button nothing
-    if (this.pin < 0) {
+    // The Functions (power.h): off — Always On never, a button nothing. Every copy: a pinned one stands still (no
+    // power_tick there), but the quick settings panel shows Always On's state (shade_rect.h)
+    {
       const a = fnOf('aod'), b = fnOf('boot'), p = fnOf('pwr'), act = (f) => (!f.on ? 0 : { off: 1, lock: 2, aod: 3 }[f.act] ?? 1);
       const steps = state.project.screens.some((s) => s.layers.some((l) => l.type === 'steps'));  // (the sensor is the pedometer's)
-      const fn = [a.on ? 1 : 0, a.idle, a.bright, act(b), act(p), a.tap ? 1 : 0, a.raise && !steps ? 1 : 0, a.btn || !(a.tap || (a.raise && !steps)) ? 1 : 0, a.home ? 1 : 0,
-        a.shift === false ? 0 : 1];
+      const raise = a.raise && !steps && !lacks('raise');
+      const fn = [a.on ? 1 : 0, a.idle, a.bright, act(b), lacks('pwr') ? 0 : act(p), a.tap ? 1 : 0, raise ? 1 : 0, a.btn || !(a.tap || raise) ? 1 : 0, a.home ? 1 : 0,
+        a.shift === false || lacks('shift') ? 0 : 1];
       if (fn.join() !== this.fn) this.fn = fn.join(), this.M._studio_fn(...fn);
     }
   }

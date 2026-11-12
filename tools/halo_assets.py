@@ -8,6 +8,9 @@ halo.conf — по строке на ресурс (# — комментарий;
   font  ИМЯ  ФАЙЛ.ttf  РАЗМЕР_PX  НАБОР…       # набор: digits latin cyrillic punct, "свои буквы" или коды 0xF004
                                               # (значки Font Awesome шрифтом: ставятся по строке, как буквы)
                                               # переменный шрифт: @wght=500,ROND=100 — оси (opsz по умолчанию = кегль)
+                                              # запечь эффект в буквы: +glow=3:12 — свечение (два размытия, как
+                                              # у неона); +shadow=64:0.85 — длинная тень вниз-вправо на 64 px (яркость
+                                              # от буквы к концу тени падает со степенью 0,85); рисуется под буквами
   icon  ИМЯ  ФАЙЛ.ttf  РАЗМЕР_PX  0xКОД         # значок из шрифта (Font Awesome) → маска, красится при рисовании
   mask  ИМЯ  ФАЙЛ.png  [ШИРИНА]                 # одноцветный значок из картинки (берётся прозрачность)
   image ИМЯ  ФАЙЛ.png  [ШИРИНА]                 # цветная картинка
@@ -25,7 +28,7 @@ import sys
 import urllib.request
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FONTS = os.path.join(ROOT, "tools/fonts")
@@ -52,7 +55,9 @@ def pack4(a4):
     ext = []
     for row in a4:
         nz = np.nonzero(row)[0]
-        ext += [int(nz[0]), int(nz[-1])] if len(nz) else [1, 0]
+        # (a byte each: a mask wider than 256 — a huge digit, a glow — starts its scan by 254 at most and ends "at the end
+        # of the row", 255, as lib/Halo reads it)
+        ext += [min(int(nz[0]), 254), int(nz[-1]) if nz[-1] < 255 else 255] if len(nz) else [1, 0]
     return bits.flatten().tolist(), ext
 
 
@@ -91,7 +96,15 @@ KNOWN_FONTS = {
     "Montserrat-Medium.ttf": "https://raw.githubusercontent.com/JulietaUla/Montserrat/master/fonts/ttf/Montserrat-Medium.ttf",
     "Montserrat-SemiBold.ttf": "https://raw.githubusercontent.com/JulietaUla/Montserrat/master/fonts/ttf/Montserrat-SemiBold.ttf",
     "fa-solid-900.ttf": "https://raw.githubusercontent.com/FortAwesome/Font-Awesome/6.x/webfonts/fa-solid-900.ttf",
+    # PopkaStudio's clocks (Layers → Clock: Serif, Terminal), Google Fonts, OFL
+    "InstrumentSerif-Regular.ttf": "https://raw.githubusercontent.com/google/fonts/main/ofl/instrumentserif/InstrumentSerif-Regular.ttf",
+    "InstrumentSerif-Italic.ttf": "https://raw.githubusercontent.com/google/fonts/main/ofl/instrumentserif/InstrumentSerif-Italic.ttf",
+    "InstrumentSerif-OFL.txt": "https://raw.githubusercontent.com/google/fonts/main/ofl/instrumentserif/OFL.txt",
+    "JetBrainsMono.ttf": "https://raw.githubusercontent.com/google/fonts/main/ofl/jetbrainsmono/JetBrainsMono%5Bwght%5D.ttf",
+    "JetBrainsMono-OFL.txt": "https://raw.githubusercontent.com/google/fonts/main/ofl/jetbrainsmono/OFL.txt",
 }
+LICENSES = {"GoogleSansFlex.ttf": "GoogleSansFlex-OFL.txt", "InstrumentSerif-Regular.ttf": "InstrumentSerif-OFL.txt",
+            "InstrumentSerif-Italic.ttf": "InstrumentSerif-OFL.txt", "JetBrainsMono.ttf": "JetBrainsMono-OFL.txt"}
 
 
 def font_path(name):
@@ -100,8 +113,9 @@ def font_path(name):
         os.makedirs(FONTS, exist_ok=True)
         print(f"  downloading {name}")
         urllib.request.urlretrieve(KNOWN_FONTS[name], path)
-        if name == "GoogleSansFlex.ttf":
-            urllib.request.urlretrieve(KNOWN_FONTS["GoogleSansFlex-OFL.txt"], os.path.join(FONTS, "GoogleSansFlex-OFL.txt"))
+        lic = LICENSES.get(name)
+        if lic and not os.path.exists(os.path.join(FONTS, lic)):
+            urllib.request.urlretrieve(KNOWN_FONTS[lic], os.path.join(FONTS, lic))
     return path
 
 
@@ -127,7 +141,42 @@ def set_axes(font, size, spec):
     font.set_variation_by_axes(vals)
 
 
-def do_font(out, name, path, size, chars, preview, axes=""):
+def glow(a, sd1, sd2):
+    """Свечение буквы: два размытия (sd1 — тесное, sd2 — широкое), сложенные как слои SVG feMerge (широкое, тесное,
+    тесное — «поверх»). Поле вокруг — 3·sd2. → (маска, сдвиг поля)."""
+    pad = int(np.ceil(3 * sd2))
+    im = Image.fromarray(np.pad(a, pad))
+    b1 = np.asarray(im.filter(ImageFilter.GaussianBlur(sd1)), np.float32) / 255
+    b2 = np.asarray(im.filter(ImageFilter.GaussianBlur(sd2)), np.float32) / 255
+    g = 1 - (1 - b2) * (1 - b1) ** 2
+    return np.clip(np.round(g * 255), 0, 255).astype(np.uint8), pad
+
+
+def long_shadow(a, n, power):
+    """Длинная тень вниз-вправо: копии буквы со сдвигом d = 1…n по диагонали, ближняя поверх дальней; яркость копии —
+    1 − (d/n)^power. → маска того же левого верхнего угла, шире и выше на n."""
+    h, w = a.shape
+    src = a.astype(np.float32) / 255
+    acc = np.zeros((h + n, w + n), np.float32)
+    for d in range(1, n + 1):
+        sl = acc[d:d + h, d:d + w]
+        np.maximum(sl, src * (1 - (d / n) ** power), out=sl)
+    return np.clip(np.round(acc * 255), 0, 255).astype(np.uint8)
+
+
+BAYER4 = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]], np.float32) / 16 - 15 / 32
+
+
+def dither(a):
+    """Плавный спад (свечение, тень) в 16 уровней маски — узором 4×4, а не ступеньками (кольца на широком свечении)."""
+    h, w = a.shape
+    b = np.tile(BAYER4, ((h + 3) // 4, (w + 3) // 4))[:h, :w]
+    soft = (a > 0) & (a < 255)
+    out = a.astype(np.float32) + b * (255 / 15) * soft
+    return np.clip(np.round(out), 0, 255).astype(np.uint8)
+
+
+def do_font(out, name, path, size, chars, preview, axes="", fx=""):
     font = ImageFont.truetype(path, size)
     set_axes(font, size, axes)
     ascent, descent = font.getmetrics()
@@ -142,6 +191,15 @@ def do_font(out, name, path, size, chars, preview, axes=""):
             continue
         a, x0, y0 = render_glyph(font, ch)
         a, tx, ty = trim(a)
+        if fx.startswith("glow=") and a.any():
+            sd1, sd2 = (float(v) for v in fx[5:].split(":"))
+            a, pad = glow(a, sd1, sd2)
+            a, tx2, ty2 = trim(dither(a))
+            tx, ty = tx - pad + tx2, ty - pad + ty2
+        elif fx.startswith("shadow=") and a.any():
+            n, power = fx[7:].split(":")
+            a, tx2, ty2 = trim(dither(long_shadow(a, int(n), float(power))))
+            tx, ty = tx + tx2, ty + ty2
         a4 = q4(a)
         b, e = pack4(a4)
         adv = int(round(font.getlength(ch)))
@@ -212,7 +270,8 @@ def do_image(out, name, path, width, preview):
     g = np.clip(np.round(rgb[:, :, 1] * 63 / 255), 0, 63).astype(np.uint16)
     b = np.clip(np.round(rgb[:, :, 2] * 31 / 255), 0, 31).astype(np.uint16)
     px = (r << 11) | (g << 5) | b
-    px = ((px & 0xFF) << 8) | (px >> 8)  # порядок дисплея: старший байт первым
+    if not os.environ.get("HALO_PX_LE"):  # (плата, у которой кадр читается как есть, — HALO_PX_LE=1: порядок памяти)
+        px = ((px & 0xFF) << 8) | (px >> 8)  # порядок дисплея: старший байт первым
     a4 = q4(rgba[:, :, 3])
     px[a4 == 0] = 0
     bits, ext = pack4(a4)
@@ -234,13 +293,15 @@ def do_line(out, sketch, raw, preview):
         return None
     kind, name = p[0], p[1]
     if kind == "font":
-        chars, axes = "", ""
+        chars, axes, fx = "", "", ""
         for s in p[4:]:
             if s.startswith("@"):
                 axes = s[1:]
+            elif re.fullmatch(r"\+(glow|shadow)=[\d.:]+", s):
+                fx = s[1:]
             else:
                 chars += chr(int(s, 16)) if re.fullmatch(r"0x[0-9a-fA-F]+", s) else SETS.get(s, s)
-        return do_font(out, name, font_path(p[2]), int(p[3]), chars, preview, axes)
+        return do_font(out, name, font_path(p[2]), int(p[3]), chars, preview, axes, fx)
     if kind == "icon":
         return do_icon(out, name, font_path(p[2]), int(p[3]), int(p[4], 16), preview)
     if kind == "mask":

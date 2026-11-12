@@ -268,3 +268,25 @@ static void power_build() {  // after halo_begin: the motion sensor is on its I2
   halo_command("sleep", [](const char *) { pw_cmd_sleep = true; });
   halo_command("wake", [](const char *) { pw_cmd_wake = true; });
 }
+
+#if HAS_SHADE
+// The quick settings panel (shade_rect.h): Always On now, the Buttons' Lock and Screen off, Wi-Fi's "sync now"
+static bool shade_aod_is_on() {
+  return pw_aod_on;
+}
+static void shade_power(int what) {
+  pw_active_us = esp_timer_get_time();
+  if (what == SI_AOD) {
+    pw_aod_on = !pw_aod_on, LOG("aod: %s (panel)\n", pw_aod_on ? "on" : "off");
+  } else if (what == SI_LOCK) {  // as the button's Lock: Always On, the touch off; a long BOOT unlocks
+    pw_lock_set(true, 1);
+    if (pw_mode != PW_AOD) pw_aod_way = true, pw_fade(true);
+  } else if (what == SI_OFF) {
+    pw_fade(false);
+  } else if (what == SI_WIFI) {
+#if FN_WIFI && !defined(__EMSCRIPTEN__)
+    if (hclk_handle) xTaskNotifyGive(hclk_handle);  // (as the command ntp: the time and the weather now)
+#endif
+  }
+}
+#endif

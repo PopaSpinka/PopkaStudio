@@ -29,11 +29,26 @@
 // и содержимое ещё и чуть идёт за пальцем (четверть пути — пружиной обратно, когда отпустили). Фон у обоих чёрный,
 // поэтому ни круга под экраном, ни обрезки, ни перерисовки всего экрана не нужно: элементы сами сообщают, где
 // изменились, — на шину уходят только они.
+//
+// Круг — только у круглого экрана (HALO_ROUND). На прямоугольном страница в переходе — прямоугольник: под открытым —
+// чёрная плашка его размера со скруглёнными углами, а уменьшенный экран рисуется только внутри своей рамки.
 #include "halo_internal.h"
 
 #pragma GCC optimize("O3", "fast-math")
 
 #define CX (HALO_W / 2.0f)
+#define CY (HALO_H / 2.0f)
+
+// Чёрная фигура размера страницы (под страницей с видом v)
+#ifdef HALO_ROUND
+#define COVER_KIND HI_CIRCLE
+#define COVER_PUT(c, v) ((c).x = CX + (v).x, (c).y = CY + (v).y, (c).r = CX * (v).s)
+#else
+#define COVER_KIND HI_RRECT
+#define PAGE_RADIUS 28.0f
+#define COVER_PUT(c, v) \
+  ((c).x = CX + (v).x, (c).y = CY + (v).y, (c).w = HALO_W * (v).s, (c).h = HALO_H * (v).s, (c).r = PAGE_RADIUS * (v).s)
+#endif
 
 enum { V_HOME, V_TOP, V_OPEN, V_BACK };
 // Стопка экранов: scr[0] — главный, scr[1..depth] — открытые поверх него (из главного, из открытого — до NAV_MAX).
@@ -45,6 +60,29 @@ static int depth;
 static int view = V_HOME;
 static bool back_drag, clip, settle_frame;
 static volatile bool cmd_back;
+#ifndef HALO_ROUND
+// Экран вырастает из элемента (halo_nav_open_from): откуда (x0, y0, x1, y1), скругление и цвет; где окно сейчас
+static bool grow_on;
+static HaloSpring t_grow;
+static HaloSpringK K_GROW;
+static float grow_from[4], grow_r, grow_box[4];
+static uint32_t grow_c;
+// Открыть и назад — Material shared axis X (PopkaStudio, web/mockups/rect-transitions.html, вариант 6): по времени
+// и кривой Material standard, без пружин — короткое движение без хвоста. ax_t — время пути 0..1, ax_e0 — откуда
+// доигрывается назад после пальца
+#define AX_OPEN_S 0.30f
+#define AX_CLOSE_S 0.26f
+#define AX_RETURN_S 0.16f
+#define AX_SHIFT 30.0f
+static HaloEase E_AXIS;
+static float ax_t, ax_e0;
+// Циферблат ↔ главный (sheet) — та же ось, только вертикальная, чуть дольше и на 40 px: это смена главного экрана.
+// После пальца или по команде — по времени от того места, где отпустили (sh_x0), к цели sh_tgt
+#define SH_S 0.38f
+#define SH_SHIFT 40.0f
+static float sh_t, sh_x0, sh_tgt = 1;
+static bool sh_restart;
+#endif
 static float back_zone = 60;
 static HaloSpring t_slide, t_scale, t_fade, t_oscale, t_oslide, t_ofade, back_p;
 static HaloSpringK K_IN_SLIDE, K_IN_SCALE, K_IN_FADE, K_OUT_SCALE, K_OUT_SLIDE, K_OUT_FADE, K_DONE;
@@ -128,11 +166,36 @@ void halo_nav_begin(const HaloScreen &h) {
   K_OUT_SLIDE = halo_spring(halo_stiff(200), 0.8f);
   K_OUT_FADE = halo_spring(halo_stiff(1400), 1);
   K_DONE = halo_spring(halo_stiff(1500), 1);
-  cover.kind = HI_CIRCLE, cover.color = 0, cover.alpha = 0;
+#ifndef HALO_ROUND
+  K_GROW = halo_spring(0.36f, 1);  // (как растущая плитка видео: PopkaStudio, video.h)
+  halo_ease_make(E_AXIS, 0.2f, 0, 0, 1);  // Material standard
+#endif
+  cover.kind = COVER_KIND, cover.color = 0, cover.alpha = 0;
   halo_command("back", [](const char *) { cmd_back = true; });
 }
 
+// Открытый экран уже на месте для глаза: пружина сдвига ещё ~0,2 с доигрывает перелёт в 3–4 px (у круга — до 467 мс от
+// нажатия, хотя к ~270 мс экран на вид стоит). Касания ждать её не должны (PopkaStudio, 11 ноября 2026: нажатие сразу
+// после перехода пропадало) — с этого места палец уже экрану, а открыть следующий можно сразу (finish_open)
+static bool open_late() {
+#ifndef HALO_ROUND
+  return grow_on ? t_grow.x > 0.95f : ax_t > 0.8f;
+#else
+  return t_fade.x > 0.99f && fabsf(1 - t_slide.x) * (HALO_W / 2) < 4 && (1 - t_scale.x) * 0.2f * (HALO_W / 2) < 1;
+#endif
+}
+// Переход открытия — сразу в конец (оставшиеся пиксели незаметны: этот экран тут же сам уходит под новый или назад)
+static void finish_open() {
+  t_slide = t_scale = t_fade = t_oscale = t_oslide = t_ofade = {1, 0, 1};
+#ifndef HALO_ROUND
+  if (grow_on) halo_spring_set(t_grow, 1), grow_on = false;
+  ax_t = 1;
+#endif
+  view = V_TOP;
+}
+
 void halo_nav_open(const HaloScreen &s) {
+  if (view == V_OPEN && open_late()) finish_open();
   if ((view != V_HOME && view != V_TOP) || depth >= NAV_MAX) return;
   if (has_face && !sheet_drag && sheet.target == 1) halo_spring_set(sheet, 1);  // главный ещё доезжал — сразу на место
   HaloScreen &top = scr[++depth];
@@ -144,7 +207,20 @@ void halo_nav_open(const HaloScreen &s) {
   halo_finger.owner = owner;
   t_slide = t_scale = t_fade = t_oscale = t_oslide = t_ofade = {0, 0, 1};
   view = V_OPEN;
+#ifndef HALO_ROUND
+  grow_on = false, ax_t = 0;
+#endif
 }
+
+#ifndef HALO_ROUND
+void halo_nav_open_from(const HaloScreen &s, float x, float y, float w, float h, float r, uint32_t color) {
+  halo_nav_open(s);
+  if (view != V_OPEN || w < 1 || h < 1) return;
+  grow_on = true, grow_r = r, grow_c = color;
+  grow_from[0] = x - w / 2, grow_from[1] = y - h / 2, grow_from[2] = x + w / 2, grow_from[3] = y + h / 2;
+  halo_spring_set(t_grow, 0), t_grow.target = 1;
+}
+#endif
 
 void halo_nav_back() {
   cmd_back = true;
@@ -172,7 +248,7 @@ void halo_nav_face(const HaloScreen &f, float zone) {
   K_OVER_IN = halo_spring(0.45f, 0.9f);  // открыть: ~0,45 с, почти без перелёта
   K_OVER_OUT = halo_spring(0.38f, 1);    // закрыть (со скоростью пальца)
   K_PULL = halo_spring(0.3f, 1);
-  over_cover.kind = HI_CIRCLE, over_cover.color = 0, over_cover.alpha = 0;
+  over_cover.kind = COVER_KIND, over_cover.color = 0, over_cover.alpha = 0;
   if (face.enter) face.enter();
   halo_command("face", [](const char *a) { cmd_face = strstr(a, "off") ? 1 : 0; });
   halo_command("back", [](const char *) { cmd_back = true; });  // и без главного: закрыть экран поверх циферблата
@@ -267,7 +343,7 @@ static void over_views(HaloView &vf, HaloView &vo) {
       // циферблата. Циферблат — без масштаба: раньше он ещё и «наезжал» на элемент (до 1,35), но огромные цифры с
       // масштабом — самое дорогое в кадре: циферблат в 1,2 раза крупнее — кадры открытия по 16 мс на ядро и разрывы
       const float s = over_s + (1 - over_s) * q;
-      vo = {(over_x - CX) * (1 - q), (over_y - CX) * (1 - q) - lift, s, halo_clamp01(q * 3), true};
+      vo = {(over_x - CX) * (1 - q), (over_y - CY) * (1 - q) - lift, s, halo_clamp01(q * 3), true};
       vf = {0, 0, 1, halo_clamp01(1 - q / (over_closing ? 0.65f : 0.35f))};
       break;
     }
@@ -311,7 +387,7 @@ static void over_views(HaloView &vf, HaloView &vo) {
   if (over_fx == HALO_FX_ZOOM && vf.a > 0) {
     // карточка непрозрачна уже к 1/6 пути, пока она маленькая: полупрозрачный чёрный круг — это смешивание каждого
     // пикселя под ним (большой — 10 мс кадра), непрозрачный — заливка, а циферблат под ним и не рисуется
-    over_cover.x = CX + vo.x, over_cover.y = CX + vo.y, over_cover.r = CX * vo.s;
+    COVER_PUT(over_cover, vo);
     over_cover.alpha = over_closing ? vo.a : halo_clamp01(q * 6);
   }
   if (vf.a <= 0 || over_cover.alpha > 0) vo.over = false;
@@ -403,17 +479,39 @@ static bool sheet_update(float dt) {
     if (f.down && f.owner == &sheet_owner) {  // переход — за пальцем: путь 280 px, как жест назад у экрана поверх
       const float d = (sheet_y0 - f.y) * sheet_dir;  // px к главному
       sheet.x = halo_clamp01(sheet_g0 + d / OVER_TRAVEL), sheet.v = -f.vy * sheet_dir / OVER_TRAVEL;
+#ifndef HALO_ROUND
+      // (скорость — только жесту снизу, которому «потягивание» и нужно: при свайпе вверх к главному его пружина
+      // раскачивалась от скорости пальца, и экран перерисовывался целиком ещё ~0,4 с после конца перехода)
+      sheet_pull = {sheet_dir < 0 ? fmaxf(0, sheet_y0 - f.y) : 0, sheet_dir < 0 ? -f.vy : 0, 0};
+#else
       sheet_pull = {sheet_dir < 0 ? fmaxf(0, sheet_y0 - f.y) : 0, -f.vy, 0};
+#endif
     } else {  // отпустили: бросок быстрее 700 px/с — куда бросили, иначе — дальше трети пути от начала
       sheet_drag = false;
       const float u = -f.vy * sheet_dir;  // скорость к главному, px/с
       sheet.target = u > 700 ? 1 : u < -700 ? 0 : sheet_in ? (sheet.x > 0.33f ? 1 : 0) : (sheet.x < 0.67f ? 0 : 1);
+#ifndef HALO_ROUND
+      sh_restart = true;
+#endif
     }
   }
   if (!sheet_drag) {
+#ifndef HALO_ROUND
+    // Прямоугольник: остаток пути — по времени (своя доля SH_S) и кривой Material standard, без пружины и её хвоста
+    if (sh_restart || sheet.target != sh_tgt) sh_x0 = sheet.x, sh_t = 0, sh_tgt = sheet.target, sh_restart = false;
+    if (sheet.x != sheet.target) {
+      sh_t += dt / (SH_S * fmaxf(fabsf(sheet.target - sh_x0), 0.1f));
+      sheet.x = sh_t >= 1 ? sheet.target : sh_x0 + (sheet.target - sh_x0) * halo_ease(E_AXIS, sh_t);
+    }
+    sheet.v = 0;
+#else
     halo_spring_run(sheet, sheet.target > 0.5f ? K_OVER_IN : K_OVER_OUT, dt);  // те же, что у Fade
+#endif
     halo_spring_run(sheet_pull, K_PULL, dt);
   }
+  // К циферблату: последний пиксель пути (его сдвиг 70·x, масштаб — в четверти пикселя) не ждём — иначе циферблат
+  // брал палец только через ~0,55 с после свайпа, хотя к ~0,38 с на вид уже стоял
+  if (!sheet_drag && sheet.target == 0 && sheet.x > 0 && sheet.x < 0.015f) halo_spring_set(sheet, 0);
   if (sheet.x > 0) main_seen = true;
   const bool rest = !sheet_drag && sheet.x == sheet.target;
   if (rest && sheet.x == 0) {
@@ -421,6 +519,24 @@ static bool sheet_update(float dt) {
     if (face.update) face.update(dt);  // палец и пружины циферблата — только когда он на месте
   }
   return !sheet_drag && sheet.target == 1;
+}
+
+// Кадр верхнего экрана: жест назад от левого края — или его собственное обновление (может открыть ещё один поверх)
+static void top_frame(float dt) {
+  HaloFinger &f = halo_finger;
+  bool go = f.drag_start && f.horiz && f.x > f.x0 && f.x0 < back_zone && halo_finger_claim(&nav_owner);
+  if (cmd_back) cmd_back = false, go = true;
+  if (go) {
+    if (view == V_OPEN) finish_open();  // (открытие ещё доигрывало хвост)
+    back_drag = f.owner == &nav_owner && f.down;
+    back_p = {0, 0, back_drag ? 0.0f : 1.0f};
+    view = V_BACK;
+#ifndef HALO_ROUND
+    ax_t = 0, ax_e0 = 0;
+#endif
+    return;
+  }
+  if (scr[depth].update) scr[depth].update(dt);
 }
 
 void halo_nav_update(float dt) {
@@ -432,25 +548,52 @@ void halo_nav_update(float dt) {
       cmd_back = false;
       if (scr[0].update) scr[0].update(dt);  // может открыть экран (halo_nav_open) — тогда ниже уже V_OPEN
       break;
-    case V_TOP: {
-      bool go = f.drag_start && f.horiz && f.x > f.x0 && f.x0 < back_zone && halo_finger_claim(&nav_owner);
-      if (cmd_back) cmd_back = false, go = true;
-      if (go) {
-        back_drag = f.owner == &nav_owner && f.down;
-        back_p = {0, 0, back_drag ? 0.0f : 1.0f};
-        view = V_BACK;
-        break;
-      }
-      if (scr[depth].update) scr[depth].update(dt);  // может открыть ещё один поверх — тогда уже V_OPEN
+    case V_TOP:
+      top_frame(dt);  // может открыть ещё один поверх — тогда уже V_OPEN
       break;
-    }
     case V_OPEN:
+#ifndef HALO_ROUND
+      if (grow_on) {  // (последние полтора процента пути не стоят кадра с масштабом — сразу на месте, как плитка видео)
+        halo_spring_run(t_grow, K_GROW, dt);
+        if (t_grow.x > 0.985f) halo_spring_set(t_grow, 1), grow_on = false, view = V_TOP;
+      } else {
+        ax_t += dt / AX_OPEN_S;
+        if (ax_t >= 1) ax_t = 1, view = V_TOP;
+      }
+#else
       halo_spring_run(t_slide, K_IN_SLIDE, dt), halo_spring_run(t_scale, K_IN_SCALE, dt);
       halo_spring_run(t_fade, K_IN_FADE, dt), halo_spring_run(t_oscale, K_OUT_SCALE, dt);
       halo_spring_run(t_oslide, K_OUT_SLIDE, dt), halo_spring_run(t_ofade, K_OUT_FADE, dt);
       if (fabsf(t_slide.x - 1) < 0.002f && fabsf(t_slide.v) < 0.05f && fabsf(t_scale.x - 1) < 0.002f) view = V_TOP;
+#endif
+      // На месте для глаза — палец уже экрану (хвост пружины доигрывается тут же, вид не меняется). И в кадре, где
+      // переход кончился, — тоже: раньше в этот кадр экран не обновлялся, и нажатие или отпускание, пришедшееся на
+      // него, пропадало
+      if (view == V_TOP || open_late()) top_frame(dt);
       break;
     case V_BACK:
+#ifndef HALO_ROUND
+      // Прямоугольник: путь — по пальцу (280 px — весь, как у перехода к циферблату свайпом); отпустили — бросок
+      // быстрее 700 px/с туда, куда бросили, иначе дальше трети пути — назад. Дальше по времени: назад — остаток пути за
+      // свою долю AX_CLOSE_S, обратно — за AX_RETURN_S, по кривой Material standard
+      if (back_drag) {
+        if (f.down) {
+          back_p.x = halo_clamp01((f.x - f.x0) / OVER_TRAVEL);
+        } else {
+          back_drag = false;
+          back_p.target = f.vx > 700 ? 1 : f.vx < -700 ? 0 : back_p.x > 0.33f ? 1 : 0;
+          ax_t = 0, ax_e0 = back_p.x;
+        }
+      }
+      if (!back_drag) {
+        const bool go = back_p.target > 0.5f;
+        ax_t += dt / (go ? AX_CLOSE_S * fmaxf(1 - ax_e0, 0.1f) : AX_RETURN_S);
+        if (ax_t > 1) ax_t = 1;
+        const float k = halo_ease(E_AXIS, ax_t);
+        back_p.x = go ? ax_e0 + (1 - ax_e0) * k : ax_e0 * (1 - k), back_p.v = 0;
+        if (ax_t >= 1) back_p.x = back_p.target;
+      }
+#else
       if (back_drag) {
         if (f.down) {
           back_p.x = halo_clamp01((f.x - f.x0) / (HALO_W - f.x0)), back_p.v = 0;
@@ -461,12 +604,18 @@ void halo_nav_update(float dt) {
         }
       }
       if (!back_drag) halo_spring_run(back_p, K_DONE, dt);
-      if (!back_drag && fabsf(back_p.x - back_p.target) < 0.002f && fabsf(back_p.v) < 0.05f) {
+#endif
+      // Дошёл для глаза — готово: назад — нижний экран в 2 px от места (масштаб — в полпикселе), обратно — верхний в
+      // 2 px; пружина без перелёта, остаток незаметен. Раньше ждали 0,002 и покоя — ещё ~60 мс, и нажатие пропадало
+      if (!back_drag && fabsf(back_p.x - back_p.target) < (back_p.target > 0.5f ? 0.01f : 0.005f)) {
         if (back_p.target > 0.5f) {  // закрыли верхний: спрятать его, ниже — на уровень
           if (scr[depth].layout) scr[depth].layout({0, 0, 1, 0});
           depth--;
         }
         view = depth ? V_TOP : V_HOME;
+        // кадр, где переход кончился, — уже экрана, к которому вернулись (иначе касание в нём пропадало)
+        if (view == V_TOP) top_frame(dt);
+        else if (scr[0].update) cmd_back = false, scr[0].update(dt);
       }
       break;
   }
@@ -481,6 +630,49 @@ void halo_nav_update(float dt) {
     T.nx = p * HALO_W, T.ns = 1 - 0.2f * p, T.na = 1;
     T.ox = -(1 - p) * HALO_W / 2, T.os = 0.8f + 0.2f * p, T.oa = 0.5f + 0.5f * p;
   }
+#ifndef HALO_ROUND
+  if (view == V_OPEN && grow_on) {
+    // Элемент вырастает в экран (halo_nav_open_from) — как плитка видео в плеер. Окно (cover) идёт от прямоугольника
+    // элемента ко всему экрану, скругление — к 0. Сначала оно проявляется поверх элемента его же цветом (надпись и значок
+    // элемента растворяются), и за первую треть пути цвет уходит в чёрный. Нижний гаснет за первую пятую: пока окно
+    // мало, видно и то и другое — дальше рисовать его незачем. Экран внутри проявляется на чёрном (с 0,3 до 0,7 пути),
+    // уменьшенный так, чтобы заполнить окно с запасом; лишнее обрезано окном (grow_box). Своего размера он достигает,
+    // когда окно открыто на 85 %, и дальше окно только открывает его края: экран с масштабом стоит на 3 мс дороже
+    // (плеер Music на P4 — 15,7 мс против 12,7), и последние кадры пути опаздывали
+    const float q = halo_clamp01(t_grow.x), k = 1 - halo_clamp01(q / 0.3f);
+    const float x0 = grow_from[0] * (1 - q), y0 = grow_from[1] * (1 - q);
+    const float x1 = grow_from[2] + (HALO_W - grow_from[2]) * q, y1 = grow_from[3] + (HALO_H - grow_from[3]) * q;
+    const float r = grow_r * (1 - q), in = r * 0.3f;  // (на 0,3 радиуса внутрь: в скруглённые углы экран не вылезает)
+    grow_box[0] = x0 + in, grow_box[1] = y0 + in, grow_box[2] = x1 - in, grow_box[3] = y1 - in;
+    v_home = {0, 0, 1, halo_clamp01(1 - q / 0.2f)};
+    // (его середина — от середины окна к середине экрана: в своём размере он стоит, где останется)
+    const float fill = fmaxf((x1 - x0) / HALO_W, (y1 - y0) / HALO_H), sc = fminf(1, fill / 0.85f), mv = (1 - sc) / fmaxf(1 - fill, 1e-3f);
+    v_top = {((x0 + x1) / 2 - CX) * mv, ((y0 + y1) / 2 - CY) * mv, sc, halo_clamp01((q - 0.3f) / 0.4f)};
+    if (fabsf(v_top.s - 1) < 0.006f) v_top = {0, 0, 1, v_top.a};
+    clip = true;
+    cover.x = (x0 + x1) / 2, cover.y = (y0 + y1) / 2, cover.w = x1 - x0, cover.h = y1 - y0, cover.r = r, cover.scale = 1;
+    cover.color = (uint32_t)((grow_c >> 16 & 255) * k) << 16 | (uint32_t)((grow_c >> 8 & 255) * k) << 8 | (uint32_t)((grow_c & 255) * k);
+    cover.alpha = halo_clamp01(q / 0.12f), cover.on_black = false;
+    hide_under = cover.alpha >= 0.999f;
+    halo_damage_all();
+    settle_frame = true;
+  } else if (view == V_OPEN || view == V_BACK) {
+    // Material shared axis X (вариант 6 из web/mockups/rect-transitions.html). Открыть: нижний за первые 35 % пути
+    // уходит влево на 30 px и гаснет, потом открытый приходит справа с 30 px и проявляется. Назад — зеркально: верхний
+    // уходит вправо и гаснет, нижний приходит слева. Без масштаба, вместе их не видно: ни чёрной плашки, ни перерисовки
+    // всего экрана — элементы сами сообщают, где изменились. (До того были: fade through как у свайпа к циферблату —
+    // экраны с содержимым наверху съезжали вниз, переход читался «сверху вниз»; рост из карточки и въезд с отскоком —
+    // длинные движения на большом экране)
+    const bool op = view == V_OPEN;
+    const float e = op ? halo_ease(E_AXIS, ax_t) : halo_clamp01(back_p.x);
+    const float a = halo_clamp01(e / 0.35f), b = halo_clamp01((e - 0.35f) / 0.65f);
+    if (op) v_home = {-AX_SHIFT * a, 0, 1, 1 - a}, v_top = {AX_SHIFT * (1 - b), 0, 1, b};
+    else v_top = {AX_SHIFT * a, 0, 1, 1 - a}, v_home = {-AX_SHIFT * (1 - b), 0, 1, b};
+    cover.alpha = 0, hide_under = false;
+    halo_subpixel = true;  // (30 px за 0,3 с — медленно: буквы на доли пикселя, иначе дрожат)
+    settle_frame = true;
+  } else
+#endif
   if (view == V_OPEN || view == V_BACK) {
     v_home = {T.ox, 0, T.os, T.oa};
     v_top = {T.nx, 0, T.ns, T.na, true};
@@ -510,6 +702,17 @@ void halo_nav_update(float dt) {
     } else if (p >= 0.9995f) {
       v_face = hidden, v_home.y += oy, v_top.y += oy;
     } else {
+#ifndef HALO_ROUND
+      // Прямоугольник — Material shared axis Y (как открыть и назад, только вертикально): тот, от кого уходим, за
+      // первые 35 % пути уходит на 40 px по ходу пальца и гаснет, потом тот, к кому идём, приходит с той стороны и
+      // проявляется. Без масштаба (уменьшаясь к середине, экраны с содержимым наверху съезжали вниз) и без пружины
+      const float e = sheet_in ? p : 1 - p, a = halo_clamp01(e / 0.35f), b = halo_clamp01((e - 0.35f) / 0.65f);
+      const float out = 1 - a, in = b, dy_out = SH_SHIFT * a, dy_in = SH_SHIFT * (1 - b);
+      // (sheet_dir 1: к главному — вверх, к циферблату — вниз; −1 — наоборот)
+      const float yf = sheet_in ? -sheet_dir * dy_out : -sheet_dir * dy_in, ym = sheet_in ? sheet_dir * dy_in : sheet_dir * dy_out;
+      v_face = {0, yf, 1, sheet_in ? out : in};
+      for (HaloView *v : {&v_home, &v_top}) v->y += ym, v->a *= sheet_in ? in : out, v->over = false;
+#else
       const float kf = halo_clamp01(1 - p / 0.5f), km = halo_clamp01((p - 0.5f) / 0.5f);  // видно циферблат / главный
       float sf = sheet_in ? 0.92f + 0.08f * kf : 1 + 0.08f * (1 - kf);
       float sm = sheet_in ? 1 + 0.08f * (1 - km) : 0.92f + 0.08f * km;
@@ -517,6 +720,7 @@ void halo_nav_update(float dt) {
       if (fabsf(sm - 1) < 0.006f) sm = 1;
       v_face = {0, -sheet_dir * p * T, sf, kf};
       for (HaloView *v : {&v_home, &v_top}) v->y += oy, v->s *= sm, v->a *= km, v->over = false;
+#endif
     }
     if (p != sheet.target || sheet_drag || sheet_pull.x != 0) halo_subpixel = true, settle_frame = true;
     if (over_on) {  // экран поверх циферблата (галерея в это время внизу)
@@ -543,9 +747,13 @@ void halo_nav_update(float dt) {
       if (in > 0) v_face = amb_v, v_face.a *= in;
     }
     if (amb_k < 1) halo_subpixel = true;
-    if (over_on) over_cover.x = CX + v_over.x, over_cover.y = CX + v_over.y, over_cover.r = CX * v_over.s;
+    if (over_on) COVER_PUT(over_cover, v_over);
   }
-  if (clip) cover.x = CX + v_top.x, cover.y = CX + v_top.y, cover.r = CX * v_top.s;  // круги — по итоговым видам
+#ifndef HALO_ROUND
+  if (clip && !(view == V_OPEN && grow_on)) COVER_PUT(cover, v_top);  // (растущее окно поставлено выше)
+#else
+  if (clip) COVER_PUT(cover, v_top);  // круги — по итоговым видам
+#endif
   if (has_face && face.layout) face.layout(v_face);
   // v_home — нижнему из двух верхних (на главном — самому главному), v_top — верхнему
   if (depth == 0) {
@@ -560,6 +768,7 @@ void halo_nav_update(float dt) {
   halo_item_commit(cover);
 }
 
+#ifdef HALO_ROUND
 // Пачка целиком под кругом (cx, cy, r): обе её крайние строки внутри него по всей ширине круга экрана
 static bool band_under(float cx, float cy, float r) {
   for (int k = 0; k < 2; k++) {
@@ -617,3 +826,70 @@ void halo_nav_draw() {
   if (depth && scr[depth].draw) scr[depth].draw();
   if (clip) hu_item_clip(0, 0, 0);
 }
+
+#else  // прямоугольный экран
+
+// Только внутри прямоугольника x0, y0 — x1, y1
+static void box_draw(void (*draw)(), float x0, float y0, float x1, float y1) {
+  if (!draw) return;
+  const HaloBand band = hb;
+  const int ax = max(band.x0, halo_floor(x0 + 0.5f)), bx = min(band.x1, halo_floor(x1 - 0.5f));
+  const int ay = max(band.y, halo_floor(y0 + 0.5f)), by = min(band.y + band.rows - 1, halo_floor(y1 - 0.5f));
+  if (ax > bx || ay > by) return;
+  hb.buf = band.buf + (ay - band.y) * band.w, hb.y = ay, hb.rows = by - ay + 1;
+  hb.x0 = ax, hb.x1 = bx;
+  draw();
+  hb = band;
+}
+
+// Экран с видом v — только внутри своей рамки: всё, что он рисует за её краем (в покое этого не видно — край экрана),
+// при уменьшении вылезло бы наружу (карточки ленты за её концом)
+static void page_draw(void (*draw)(), const HaloView &v) {
+  const float cx = CX + v.x, cy = CY + v.y, hw = CX * v.s, hh = CY * v.s;
+  box_draw(draw, cx - hw, cy - hh, cx + hw, cy + hh);
+}
+
+// Строки пачки целиком в высоте чёрной плашки c: дальняя от её середины строка внутри
+static bool band_in_cover(const HaloItem &c) {
+  return fmaxf(fabsf(hb.y + 0.5f - c.y), fabsf(hb.y + hb.rows - 0.5f - c.y)) < c.h / 2;
+}
+
+void halo_nav_draw() {
+  const int x0 = hb.x0, x1 = hb.x1;
+  if (has_face && face.draw) {
+    // Под непрозрачной карточкой экрана (Zoom) циферблат — только левее и правее того, что она закрывает во всех строках
+    const float hc = over_cover.shown && over_cover.alpha >= 0.999f && band_in_cover(over_cover)
+                         ? over_cover.w / 2 - over_cover.r : -1;
+    const int c0 = (int)(over_cover.x - hc) + 1, c1 = (int)(over_cover.x + hc) - 1;
+    if (hc > 2 && c0 < c1) {
+      if (c0 > x0) hb.x1 = min(x1, c0 - 1), face.draw(), halo_item_draw(over_cover);
+      if (c1 < x1) hb.x0 = max(x0, c1 + 1), hb.x1 = x1, face.draw(), halo_item_draw(over_cover);
+      hb.x0 = x0, hb.x1 = x1;
+    } else {
+      face.draw();
+      halo_item_draw(over_cover);
+    }
+  }
+  if (over_on && over.draw) over.draw();  // экран поверх циферблата
+  // Под непрозрачным открытым экраном нижний не виден: в строках плашки — только левее неё (растущей из элемента — и
+  // правее: она не у края)
+  const bool grow = view == V_OPEN && grow_on;
+  const HaloScreen &lo = scr[depth ? depth - 1 : 0];
+  auto lower = [&]() {
+    if (hb.x0 > hb.x1) return;
+    if (clip) page_draw(lo.draw, v_home);
+    else if (lo.draw) lo.draw();
+  };
+  if (hide_under && band_in_cover(cover)) {
+    hb.x1 = min(x1, (int)(cover.x - cover.w / 2 + cover.r) + 1), lower();
+    if (grow) hb.x0 = max(x0, (int)(cover.x + cover.w / 2 - cover.r) - 1), hb.x1 = x1, lower();
+  } else {
+    lower();
+  }
+  hb.x0 = x0, hb.x1 = x1;
+  halo_item_draw(cover);
+  if (depth && grow) box_draw(scr[depth].draw, grow_box[0], grow_box[1], grow_box[2], grow_box[3]);
+  else if (depth && clip) page_draw(scr[depth].draw, v_top);
+  else if (depth && scr[depth].draw) scr[depth].draw();
+}
+#endif

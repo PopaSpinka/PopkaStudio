@@ -28,9 +28,15 @@
 #define RC_SURF 0x1B1C1F   // the card
 #define RC_TEXT 0xFFF8EE
 #define RC_DIM 0x9E9E9E
+#ifdef HALO_ROUND
 #define RC_N 37     // columns
 #define RC_P 9      // their pitch (and the rows')
 #define RC_ROWS 7   // rows from the middle, it included
+#else
+#define RC_N 63     // (recorder_rect.h: variant R4)
+#define RC_P 15
+#define RC_ROWS 3
+#endif
 #define RC_X0 (CX - (RC_N - 1) * RC_P / 2)
 #define RC_XR (RC_X0 + (RC_N - 1) * RC_P)
 #define RC_Y 222.0f
@@ -85,7 +91,11 @@ static char rc_time_s[8];
 static float rc_mid_title, rc_mid_time, rc_mid_ic, rc_time_w;
 static HaloView rc_v;
 static uint8_t RC_GA[RC_ROWS][RC_ROWS];  // a ghost dot's brightness (0..16): [span − 1][k]
+#ifdef HALO_ROUND
 static const uint8_t RC_BA[RC_ROWS] = {16, 15, 15, 14, 13, 13, 12};  // a bright dot's, by the row from the middle
+#else
+static const uint8_t RC_BA[RC_ROWS] = {16, 15, 14};
+#endif
 static uint16_t rc_pal[2][17], rc_palc[2][17];  // white and grey on the card by brightness: the dot, its corners
 
 static uint32_t rc_mix(uint32_t a, uint32_t b, float t) {
@@ -298,19 +308,28 @@ static void rc_action(int i, float held) {  // held — s since the finger touch
 static bool rc_busy() { return rc_state == RC_REC || rc_state == RC_PLAY; }
 
 // ---------- The frame ----------
+#ifndef HALO_ROUND
+static void rr_build();
+#endif
 static void recorder_build() {
   K_RC = halo_spring(HALO_M3X_FAST);
   rc_lv = (uint8_t(*)[4])heap_caps_malloc(RC_MAX_SLICES * 4, MALLOC_CAP_SPIRAM);
   vol_build();  // the speaker's volume (volume.h)
+#ifdef HALO_ROUND
   rc_mid_title = halo_text_mid(gl_t24, "Recorder"), rc_mid_time = halo_text_mid(gl_n44, "0");
   rc_mid_ic = halo_text_mid(gl_rc32, RC_PLAY_S);
+#else
+  rr_build();
+#endif
   for (int span = 1; span <= RC_ROWS; span++)
     for (int k = 0; k < RC_ROWS; k++) RC_GA[span - 1][k] = (uint8_t)lroundf(5.4f * (1 - 0.55f * k / span));
+#ifdef HALO_ROUND
   for (int c = 0; c < 2; c++)
     for (int a = 0; a <= 16; a++) {
       const uint32_t col = c ? RC_OFF : RC_TEXT;
       rc_pal[c][a] = halo_565(rc_mix(RC_SURF, col, a / 16.0f)), rc_palc[c][a] = halo_565(rc_mix(RC_SURF, col, a * 0.45f / 16));
     }
+#endif
 #ifndef __EMSCRIPTEN__
   snd_voice = rc_fill;
 #endif
@@ -392,6 +411,7 @@ static void recorder_enter() {
   rc_armed = -1, rc_mic_want = true, rc_seen = halo_ms();  // (the microphones warm before Record is tapped)
   vol_enter();
 }
+#ifdef HALO_ROUND
 static void recorder_update(float dt) {
   HaloFinger &f = halo_finger;
   rc_seen = halo_ms(), rc_active = true, rc_mic_want = true;
@@ -407,6 +427,7 @@ static void recorder_update(float dt) {
   if (f.tap && rc_armed >= 0) rc_action(rc_armed, (halo_ms() - f.t0) / 1000.0f);
   if (!f.down) rc_armed = -1;
 }
+#endif
 
 // ---------- Layout and drawing ----------
 struct RcCol {
@@ -419,6 +440,7 @@ static uint32_t rc_dmg_h;
 static float rc_dmg_r[4];
 static char rc_time_was[8];
 
+#ifdef HALO_ROUND
 static void recorder_layout(const HaloView &view) {
   rc_fa = vol_layout(view);  // the volume screen over it (volume.h): this screen fades through
   HaloView v = view;
@@ -540,3 +562,6 @@ static void recorder_draw() {
   }
   vol_draw();
 }
+#else
+#include "recorder_rect.h"  // this screen's own places: the update, the layout, the wave
+#endif

@@ -31,11 +31,24 @@
 #include "snake.h"
 
 // ---------- What every game uses ----------
-static HaloView gm_v;  // this frame's view of the screen being laid out / drawn
+#ifdef HALO_ROUND
+#define GM_TLS
+#else
+#define GM_TLS HALO_TLS  // (a rectangle draws several games in a frame, each core its own part)
+#endif
+static GM_TLS HaloView gm_v;  // this frame's view of the screen being laid out / drawn
+#ifndef HALO_ROUND
+static GM_TLS float gm_rest_s = 1;  // the view's scale when the game stands still
+static GM_TLS int gm_k, gm_slot;    // the game in hand; 0 — its own screen, 1 — its card in the gallery
+#endif
 static float gm_dt = 1 / 60.0f;
 static inline float gm_x(float x) { return halo_view_x(gm_v, x); }
 static inline float gm_y(float y) { return halo_view_y(gm_v, y); }
+#ifdef HALO_ROUND
 static inline bool gm_rest() { return gm_v.s == 1 && gm_v.a >= 0.999f; }
+#else
+static inline bool gm_rest() { return gm_v.s == gm_rest_s && gm_v.a >= 0.999f; }
+#endif
 static inline uint32_t gm_mix(uint32_t h, int32_t v) { return (h ^ (uint32_t)v) * 16777619u; }
 static uint32_t gm_rgb_mix(uint32_t a, uint32_t b, float t) {
   t = halo_clamp01(t);
@@ -68,9 +81,18 @@ struct GmPart {
   uint32_t color;
 };
 #define GM_PARTS 160
+#ifdef HALO_ROUND
 static GmPart *gm_parts;
 static int gm_np;
 static GmBox gm_parts_box;
+#else
+static GmPart *gm_pool[3];  // one pool a game: they run side by side in the gallery's cards
+static int gm_pool_n[3];
+static GmBox gm_pool_box[3];
+#define gm_parts gm_pool[gm_k]
+#define gm_np gm_pool_n[gm_k]
+#define gm_parts_box gm_pool_box[gm_k]
+#endif
 static void gm_burst(float x, float y, int n, float v, float life, const uint32_t *colors, int nc, float size = 2.4f,
                      float g = 0, float drag = 2.5f) {
   if (!gm_parts) return;
@@ -149,10 +171,30 @@ static void gm_make_rrect(HaloMask &m, int MW, float size, float r) {
 
 // The game shown in this frame (games_tick runs only that one), and the view it was laid out with (for its draw)
 static uint32_t gm_seen[FL_SNKISO - FL_SNKDOTS + 1];
+#ifdef HALO_ROUND
 static HaloView gm_views[FL_SNKISO - FL_SNKDOTS + 1];
+#else
+static HaloView gm_views[FL_SNKISO - FL_SNKDOTS + 1][2];  // its screen, its card
+static uint32_t gm_full[FL_SNKISO - FL_SNKDOTS + 1];     // (the screen itself seen: only that keeps Always On away)
+#endif
+
+#ifndef HALO_ROUND
+// Where the worlds stand on this screen (their middle — at this y — and their scale): full size, and in a card of the gallery
+#define GM_SPACE_CY 512.0f  // Comet: the hole, at (CX, CX) as on the watch
+#define GM_SPACE_S 1.4f
+#define GM_SPACE_MINI 0.7f
+#define GM_ISO_CY 250.0f    // Voxel Snake: the board's middle on the watch
+#define GM_ISO_S 1.5f
+#define GM_ISO_Y 310.0f     // … and on this screen
+#define GM_ISO_MINI 0.78f
+#endif
 
 #if HAS_SNKDOTS
+#ifdef HALO_ROUND
 #include "game_dots.h"
+#else
+#include "game_dots_rect.h"
+#endif
 #endif
 #if HAS_SNKSPACE
 #include "game_space.h"
@@ -166,12 +208,21 @@ static inline bool fl_game(uint8_t k) { return k >= FL_SNKDOTS && k <= FL_SNKISO
 // A game on screen (laid out in the last 0.3 s): the watch is busy — no Always On while it plays (settings_busy)
 static bool games_busy() {
   const uint32_t now = halo_ms();
+#ifdef HALO_ROUND
   for (uint32_t t : gm_seen)
+#else
+  for (uint32_t t : gm_full)
+#endif
     if (t && now - t < 300) return true;
   return false;
 }
 static void games_build() {
+#ifdef HALO_ROUND
   gm_parts = (GmPart *)heap_caps_malloc(GM_PARTS * sizeof(GmPart), MALLOC_CAP_SPIRAM);
+#else
+  for (gm_k = 0; gm_k < 3; gm_k++) gm_parts = (GmPart *)heap_caps_malloc(GM_PARTS * sizeof(GmPart), MALLOC_CAP_SPIRAM);
+  gm_k = 0;
+#endif
 #if HAS_SNKDOTS
   dots_build();
 #endif
@@ -191,9 +242,15 @@ static void games_tick(float dt) {  // every frame: the game on screen moves
   if (on(0)) dots_tick(dt);
 #endif
 #if HAS_SNKSPACE
+#ifndef HALO_ROUND
+  gm_k = FL_SNKSPACE - FL_SNKDOTS;
+#endif
   if (on(FL_SNKSPACE - FL_SNKDOTS)) space_tick(dt);
 #endif
 #if HAS_SNKISO
+#ifndef HALO_ROUND
+  gm_k = FL_SNKISO - FL_SNKDOTS;
+#endif
   if (on(FL_SNKISO - FL_SNKDOTS)) iso_tick(dt);
 #endif
 }
@@ -205,6 +262,7 @@ static void gm_view_damage(const HaloView &a, const HaloView &b) {
   for (const HaloView *v : {&a, &b})
     if (v->a > 0.004f) halo_damage_f(halo_view_x(*v, 0) - 2, halo_view_y(*v, 0) - 2, halo_view_x(*v, HALO_W) + 2, halo_view_y(*v, HALO_H) + 2);
 }
+#ifdef HALO_ROUND
 static void games_layout(uint8_t kind, const HaloView &v) {
   const int k = kind - FL_SNKDOTS;
   const HaloView was = gm_views[k];
@@ -235,4 +293,121 @@ static void games_draw(uint8_t kind) {
   if (kind == FL_SNKISO) iso_draw();
 #endif
 }
+#else
+// A rectangle. Comet and Voxel Snake keep the watch's numbers: a base view places their world on this screen (the view's
+// scale and shift are all that changes, so the look is the watch's), Dot Snake has a grid of its own (game_dots_rect.h).
+static HaloView gm_base(uint8_t kind) {
+  HaloView b;
+  if (kind == FL_SNKSPACE) b.s = GM_SPACE_S, b.y = HALO_H / 2.0f - HALO_H / 2.0f - (GM_SPACE_CY - HALO_H / 2.0f) * GM_SPACE_S;
+  if (kind == FL_SNKISO) b.s = GM_ISO_S, b.y = GM_ISO_Y - HALO_H / 2.0f - (GM_ISO_CY - HALO_H / 2.0f) * GM_ISO_S;
+  return b;
+}
+static HaloView gm_compose(const HaloView &v, const HaloView &b) {  // b first, then v
+  HaloView c = v;
+  c.s = v.s * b.s, c.x = v.x + b.x * v.s, c.y = v.y + b.y * v.s;
+  return c;
+}
+static void gm_select(int k, int slot, const HaloView &v, float rest_s) {
+  gm_k = k, gm_slot = slot, gm_v = v, gm_rest_s = rest_s;
+}
+static void games_layout(uint8_t kind, const HaloView &v) {
+  const int k = kind - FL_SNKDOTS;
+  const HaloView was = gm_views[k][0];
+  if (v.x != was.x || v.y != was.y || v.s != was.s || v.a != was.a) gm_view_damage(was, v);
+  gm_views[k][0] = v;
+  if (v.a <= 0.004f) return;
+  gm_seen[k] = gm_full[k] = halo_ms();
+  const HaloView b = gm_base(kind);
+  gm_select(k, 0, gm_compose(v, b), b.s);
+#if HAS_SNKDOTS
+  if (kind == FL_SNKDOTS) dots_layout();
+#endif
+#if HAS_SNKSPACE
+  if (kind == FL_SNKSPACE) space_layout();
+#endif
+#if HAS_SNKISO
+  if (kind == FL_SNKISO) iso_layout();
+#endif
+}
+static void games_draw(uint8_t kind) {
+  const int k = kind - FL_SNKDOTS;
+  if (gm_views[k][0].a <= 0.004f) return;
+  const HaloView b = gm_base(kind);
+  gm_select(k, 0, gm_compose(gm_views[k][0], b), b.s);
+#if HAS_SNKDOTS
+  if (kind == FL_SNKDOTS) dots_draw();
+#endif
+#if HAS_SNKSPACE
+  if (kind == FL_SNKSPACE) space_draw();
+#endif
+#if HAS_SNKISO
+  if (kind == FL_SNKISO) iso_draw();
+#endif
+}
+
+// ---------- A game alive in its card (variant K1): the gallery's page view, the part of the card it shows ----------
+static struct {
+  float x0, y0, x1, y1, sx, sy;
+} gm_mini_at[FL_SNKISO - FL_SNKDOTS + 1];
+static GmBox gm_mini_box[FL_SNKISO - FL_SNKDOTS + 1];
+static void games_mini_layout(uint8_t kind, const HaloView &page, float x, float y, float w, float h, float a) {
+  const int k = kind - FL_SNKDOTS;
+  HaloView v = page;
+  v.a *= a;
+  gm_select(k, 1, page, -1);  // (gm_mark goes through the page's view; -1 — this is never "at rest" for gm_rest)
+  gm_mark(gm_mini_box[k], x, y, a > 0.004f ? x + w : x - 1, y + h, 1);
+  gm_mini_at[k] = {halo_view_x(page, x), halo_view_y(page, y), halo_view_x(page, x + w), halo_view_y(page, y + h), x + w / 2, y + h / 2};
+  if (a <= 0.004f) return gm_views[k][1].a = 0, void();
+  gm_seen[k] = halo_ms();
+  if (kind == FL_SNKDOTS) {
+#if HAS_SNKDOTS
+    gm_views[k][1] = v, dots_mini_layout(v, x, y);
+#endif
+    return;
+  }
+  // The world's middle in the middle of the part shown, at the scale that fits; the whole part is redrawn: it all moves
+  const float cy = kind == FL_SNKSPACE ? GM_SPACE_CY : GM_ISO_CY, S = kind == FL_SNKSPACE ? GM_SPACE_MINI : GM_ISO_MINI;
+  HaloView m = v;
+  m.s = v.s * S;
+  m.x = halo_view_x(page, x + w / 2) - HALO_W / 2.0f;
+  m.y = halo_view_y(page, y + h / 2) - HALO_H / 2.0f - (cy - HALO_H / 2.0f) * m.s;
+  gm_views[k][1] = m;
+  gm_select(k, 1, m, -1);
+  halo_damage_f(gm_mini_at[k].x0, gm_mini_at[k].y0, gm_mini_at[k].x1, gm_mini_at[k].y1);
+#if HAS_SNKSPACE
+  if (kind == FL_SNKSPACE) space_layout();
+#endif
+#if HAS_SNKISO
+  if (kind == FL_SNKISO) iso_layout();
+#endif
+}
+static void games_mini_draw(uint8_t kind) {
+  const int k = kind - FL_SNKDOTS;
+  if (gm_views[k][1].a <= 0.004f) return;
+  const auto &q = gm_mini_at[k];
+  if (!halo_hits(q.x0, q.y0, q.x1, q.y1)) return;
+  const HaloBand band = hb;
+  const int ax = max(band.x0, halo_floor(q.x0 + 0.5f)), bx = min(band.x1, halo_floor(q.x1 - 0.5f));
+  const int ay = max(band.y, halo_floor(q.y0 + 0.5f)), by = min(band.y + band.rows - 1, halo_floor(q.y1 - 0.5f));
+  if (ax > bx || ay > by) return;
+  hb.buf = band.buf + (ay - band.y) * band.w, hb.y = ay, hb.rows = by - ay + 1, hb.x0 = ax, hb.x1 = bx;
+  for (int r = ay; r <= by; r++) halo_span(halo_row(r), ax, bx, 0);  // the scene's black (the card under it is grey)
+  gm_select(k, 1, gm_views[k][1], -1);
+#if HAS_SNKDOTS
+  if (kind == FL_SNKDOTS) dots_mini_draw(gm_views[k][1], gm_mini_at[k].sx - dt_mini.w / 2, gm_mini_at[k].sy - dt_mini.h / 2);
+#endif
+#if HAS_SNKSPACE
+  if (kind == FL_SNKSPACE) space_draw();
+#endif
+#if HAS_SNKISO
+  if (kind == FL_SNKISO) iso_draw();
+#endif
+  hb = band;
+}
+#endif
+#endif
+
+#if !HAS_GAMES && !defined(HALO_ROUND)  // (the gallery calls them whatever the project has)
+static void games_mini_layout(uint8_t, const HaloView &, float, float, float, float, float) {}
+static void games_mini_draw(uint8_t) {}
 #endif

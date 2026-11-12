@@ -16,12 +16,13 @@
 // of 255), tap, raise, btn (what wakes it), home (out of it on the watch face)}, boot: {on, act}, pwr: {on, act}}; act —
 // 'off' (the screen off) or 'lock' (Always On, locked).
 // Anything that changes the project goes through change(): it keeps the undo history and saves (to studio.py).
+import { BOARD, TW, TH, ROUND, allowed } from './screen.js';
 
 // HaloWatch's look of each kind (studio.py: DEFAULTS — the same numbers); group — where the Elements rail has it
 export const KINDS = {
   date: { group: 'face', name: 'Date line', sub: 'Weekday, day, month', size: 41, weight: 700, width: 100, spacing: 0, color: '#C2C3CB' },
   clock: { group: 'face', name: 'Big clock', sub: 'Hours and minutes, 12 h', size: 148, weight: 580, width: 106, spacing: -1, color: '#F8F7F9' },
-  weather: { group: 'face', name: 'Weather pill', sub: 'Pill: icon and temperature', scale: 1, spacing: 0, color: '#2D2F2F', color2: '#F8F7F9' },
+  weather: { group: 'face', name: 'Weather pill', sub: 'Pill: icon and temperature', scale: 1, spacing: 0, color: '#2D2F2F', color2: '#F8F7F9', pill: true },
   // Not on HaloWatch (PopkaStudio's): today's steps — the motion chip counts them; in the firmware only with this layer
   // Not on HaloWatch (projects/Orbit's): a starry background — twinkling stars, a meteor now and then; the bottom layer
   stars: { group: 'face', fixed: true, round: true, name: 'Stars', sub: 'A starry background: twinkling, meteors (Orbit\'s)', scale: 1, count: 90, twinkle: 1, meteors: 6, color: '#C8DCFF' },
@@ -39,6 +40,7 @@ export const KINDS = {
   battery: { group: 'section', fixed: true, round: true, name: 'Battery', sub: 'The level along the edge and how long it lasts' },
   music: { group: 'section', fixed: true, round: true, name: 'Music', sub: 'HaloWatch\'s Music: the player, real music from the flash' },
   recorder: { group: 'section', fixed: true, round: true, name: 'Recorder', sub: 'Record with the microphones, play it back, forget it' },
+  video: { group: 'section', fixed: true, round: true, name: 'Video', sub: 'Tiles of the clips on the microSD card and a player' },
   snkdots: { group: 'section', fixed: true, round: true, game: true, name: 'Dot Snake', sub: 'A self-playing snake on a matrix of dots' },
   snkspace: { group: 'section', fixed: true, round: true, game: true, name: 'Comet', sub: 'A self-playing comet snake in space: a black hole, asteroids' },
   snkiso: { group: 'section', fixed: true, round: true, game: true, name: 'Voxel Snake', sub: 'A self-playing snake of cubes on an isometric board' },
@@ -70,10 +72,42 @@ export const KINDS = {
   devcard: { group: 'gallery', fixed: true, name: 'Live card', sub: 'A card with a live value and a small chart: the processor, the memory, the battery, …', what: 'cpu', text: 'Processor', icon: 'chip', color: '#A8C7FA', color2: '#1B1B1F' },
   device: { group: 'section', fixed: true, round: true, name: 'Device screen', sub: 'A live card\'s own screen: a big number, a chart, two arcs at the edge', what: 'cpu', color: '#A8C7FA' },
   charge: { group: 'section', fixed: true, round: true, name: 'Power', sub: 'The charge along the edge, the voltages of USB and the system, the power chip' },
+  // The quick settings panel of the home (App → Shade): a rectangle's (shade_rect.h, web/mockups/rect-quick.html), the
+  // round board's (shade_round.h: Wear OS 6, web/mockups/round-quick3.html variant 23) — pulled down on the home:
+  // brightness, switches; its look (SHADE_LOOKS) and accent (round: Wear's Lavender theme, as in Google's own video)
+  shade: { group: 'shade', fixed: true, name: 'Quick settings', sub: 'Pull down on the home: brightness, volume, switches', look: ROUND ? 'wear' : 'full',
+    color: ROUND ? '#CE97FD' : '#A8C7FA' },
+  // PopkaStudio's clocks of sixteen looks (sclock.h; web/mockups/clocks.html): the look (CLOCK_LOOKS), its size and colors
+  sclock: { group: 'clock', name: 'Clock', sub: 'A clock in one of sixteen looks', look: 'hairline', scale: 1, color: '#FFF8EE', color2: '#FF8A80', color3: '#5E5F64' },
 };
+// The panel's looks (studio.py SHADE_LOOKS — the same names): a rectangle's — shade_rect.h SH_*, rect-quick.html's
+// variants 1, 3, 7, 8; the round board's — one, Wear OS 6 (shade_round.h)
+// (names of our own: no Google names in the editor — docs/publishing.md; the keys stay, projects keep their looks)
+export const SHADE_LOOKS = ROUND ? [['wear', 'Pills']] : [['full', 'Full sheet'], ['dual', 'Two cards'], ['corner', 'Corner card'], ['strip', 'Strip']];
+// The clocks' looks (sclock.h SC_*; studio.py SC_LOOKS — the same order): the name, its three colors and what each is
+// called (null — the look has no such color), how many fonts it has
+export const CLOCK_LOOKS = [
+  ['hairline', 'Hairline', ['#FFF8EE', '#FF8A80', '#5E5F64'], ['Digits', 'Dots', null], 1],
+  ['tall', 'Tall', ['#FFF8EE', '#FF8A80', '#5E5F64'], ['Digits', 'Colon', null], 1],
+  ['sport', 'Sport', ['#FFF8EE', '#FF8A80', '#3D2522'], ['Digits', 'Accent', 'Streaks'], 2],
+  ['serif', 'Serif', ['#FFF8EE', '#FF8A80', '#9E9E9E'], ['Digits', 'Colon', 'a.m.'], 3],
+  ['terminal', 'Terminal', ['#FFB547', '#7D5D33', '#5E5F64'], ['Text', 'Prompt', null], 4],
+  ['lcd', 'LCD', ['#FF4D42', '#2A0F0D', '#5E5F64'], ['Lit', 'Dark', null], 1],
+  ['neon', 'Neon', ['#FF3FC2', '#2EDCFF', '#5E5F64'], ['Hours', 'Minutes', null], 2],
+  ['sunset', 'Sunset', ['#FFE7A0', '#FF8A80', '#B98CFF'], ['Top', 'Middle', 'Bottom'], 1],
+  ['shadow', 'Long shadow', ['#FFF8EE', '#FF8A80', '#5C302B'], ['Digits', 'Colon', 'Shadow'], 2],
+  ['liquid', 'Liquid', ['#D6E6FF', '#4F7FE0', '#1B2430'], ['Water', 'Deep water', 'Empty'], 1],
+  ['flip', 'Flip', ['#FFF8EE', '#313434', '#5E5F64'], ['Digits', 'Cards', null], 1],
+  ['comet', 'Comet', ['#FFF8EE', '#FF8A80', '#3A3B40'], ['Digits', 'Comet', 'Dots'], 1],
+  ['stack', 'Stack', ['#FFF8EE', '#FF8A80', '#5E5F64'], ['Hours', 'Minutes', null], 1],
+  ['poster', 'Poster', ['#FFF8EE', '#FF8A80', '#5E5F64'], ['Hours', 'Minutes', null], 1],
+  ['hands', 'Hands', ['#FFF8EE', '#FF8A80', '#4A4B50'], ['Hands', 'Second hand', 'Dots'], 0],
+  ['bezel', 'Bezel', ['#FFF8EE', '#FF8A80', '#9E9E9E'], ['Hour', 'Marker', 'Scale'], 3],
+];
+export const clockLook = (l) => CLOCK_LOOKS.find(([k]) => k === l.look) || CLOCK_LOOKS[0];
 // What a live card or a device screen shows (device.h: DV_CPU …)
 export const DEVS = [['cpu', 'Processor'], ['mem', 'Memory'], ['bat', 'Battery'], ['temp', 'Temperature'], ['snd', 'Sound'], ['mot', 'Motion']];
-export const KIND_INDEX = { date: 0, clock: 1, weather: 2, arc: 3, city: 4, wxicon: 5, wxtemp: 6, wxhilo: 7, hourly: 8, dots: 9, title: 10, card: 11, edge: 12, scroll: 13, steps: 14, stars: 15, feels: 17, display: 18, battery: 19, stnum: 20, stcap: 21, stfoot: 22, stchart: 23, curve: 24, stepring: 25, weekarc: 26, infoline: 27, forecast: 28, dateframe: 29, dotclock: 30, music: 31, recorder: 32, snkdots: 33, snkspace: 34, snkiso: 35, batring: 36, parrot: 37, devcard: 38, device: 39, charge: 40 };
+export const KIND_INDEX = { date: 0, clock: 1, weather: 2, arc: 3, city: 4, wxicon: 5, wxtemp: 6, wxhilo: 7, hourly: 8, dots: 9, title: 10, card: 11, edge: 12, scroll: 13, steps: 14, stars: 15, feels: 17, display: 18, battery: 19, stnum: 20, stcap: 21, stfoot: 22, stchart: 23, curve: 24, stepring: 25, weekarc: 26, infoline: 27, forecast: 28, dateframe: 29, dotclock: 30, music: 31, recorder: 32, snkdots: 33, snkspace: 34, snkiso: 35, batring: 36, parrot: 37, devcard: 38, device: 39, charge: 40, video: 41, shade: 42, sclock: 43 };
 // The pixel art layers (pixelart.h): what is around the picture, its trail
 export const PIXEL_ART = ['parrot'];
 export const CURVES = [['weekday', 'Weekday'], ['shortdate', 'Day and date'], ['daymonth', 'Date'], ['weather', 'Weather'], ['steps', 'Steps'], ['datesteps', 'Date and steps'], ['battery', 'Battery']];
@@ -98,16 +132,42 @@ export const FACE_PRESETS = {
   pDotClock: { name: 'Dot clock', icon: 'dotclock', parts: [['dotclock', {}]] },
   pInfoIcons: { name: 'Weather & steps, icons', icon: 'infoline', parts: [['infoline', { name: 'Weather & steps, icons', format: 'icons', size: 20, weight: 700, color: '#FFF8EE', dy: -32 }]] },
 };
+// The clocks of sixteen looks: a piece each (Layers → Clock)
+for (const [look, name, [color, color2, color3]] of CLOCK_LOOKS)
+  FACE_PRESETS['pc' + look[0].toUpperCase() + look.slice(1)] = { name, icon: 'clock', parts: [['sclock', { name, look, color, color2, color3 }]] };
+// A rectangle draws curved lines straight (D1): the same pieces, called what they are there
+if (!ROUND) {
+  KINDS.curve.name = 'Text line';
+  for (const p of Object.values(FACE_PRESETS)) {
+    if (p.icon !== 'curve') continue;
+    p.name = p.name.replace('Curved d', 'D').replace('Curved w', 'W') + ' line';
+    p.parts[0][1].name = p.name;
+  }
+  CURVES.push(['city', 'City']);
+  // (the board counts no steps: the info line is the weather's)
+  FACE_PRESETS.pInfoWords.name = 'Weather in words', FACE_PRESETS.pInfoWords.parts[0][1].name = 'Weather in words';
+  FACE_PRESETS.pInfoShort.name = 'Weather, short', FACE_PRESETS.pInfoShort.parts[0][1].name = 'Weather, short';
+  FACE_PRESETS.pInfoIcons.name = 'Weather with icons', FACE_PRESETS.pInfoIcons.parts[0][1].name = 'Weather with icons';
+  delete FACE_PRESETS.pInfoIcons.parts[0][1].dy, delete FACE_PRESETS.pInfoIcons.parts[0][1].weight;
+  delete FACE_PRESETS.pInfoIcons.parts[0][1].color;
+  KINDS.infoline.sub = 'The weather in a line';
+}
 // A whole face from the mockups: "Four sides" — the clock in the middle, the weekday, the date, the weather and the
 // steps along the four sides (mockup 2)
-export const FOUR_SIDES = [
+export const FOUR_SIDES = ROUND ? [
   ['clock', { size: 116, weight: 560, width: 96, dy: 13 }],
   ['curve', { name: 'Curved weekday', what: 'weekday', radius: 200, size: 20, spacing: 4 }],
   ['curve', { name: 'Curved day & month', what: 'daymonth', angle: 180, radius: 200, size: 20, spacing: 4 }],
   ['curve', { name: 'Curved weather', what: 'weather', angle: -90, radius: 200, size: 20, color: BLUE }],
   ['curve', { name: 'Curved steps', what: 'steps', angle: 90, radius: 200, size: 20, color: CORAL }],
+] : [  // (variant Q1: straight at the top and the bottom, turned along the sides; the city where the watch has the steps)
+  ['clock', { own: true, size: 205 }],
+  ['curve', { own: true, name: 'Weekday line', what: 'weekday', size: 34, spacing: 6, color: '#C9CACF' }],
+  ['curve', { own: true, name: 'Date line', what: 'daymonth', angle: 180, size: 34, spacing: 6, color: '#C9CACF' }],
+  ['curve', { own: true, name: 'Weather line', what: 'weather', angle: -100, size: 34, spacing: 6, color: BLUE }],
+  ['curve', { own: true, name: 'City line', what: 'city', angle: 100, size: 34, spacing: 6, color: CORAL }],
 ];
-export const LOOK = ['size', 'weight', 'width', 'scale', 'spacing', 'radius', 'color', 'color2', 'color3', 'goal', 'count', 'twinkle', 'meteors', 'angle', 'sparkles', 'rainbow', 'pill', 'what', 'format', 'gap'];  // what a layer copies from its kind
+export const LOOK = ['size', 'weight', 'width', 'scale', 'spacing', 'radius', 'color', 'color2', 'color3', 'goal', 'count', 'twinkle', 'meteors', 'angle', 'sparkles', 'rainbow', 'pill', 'what', 'format', 'gap', 'look'];  // what a layer copies from its kind
 export const TEXTS = ['text', 'subtitle', 'icon'];  // and its text (a new layer only: "HaloWatch look" keeps it)
 // The gallery: a screen with any of these is a list, in the order of its layers (gallery.h); a tap on these opens
 export const LISTED = new Set(['title', 'card', 'devcard']);
@@ -129,10 +189,10 @@ export const PAGED = new Set(['city', 'wxicon', 'wxtemp', 'wxhilo', 'hourly', 'f
 // HaloWatch's watch face: its parts bottom to top, as studio.py's default project has them
 export const FACE_SCREEN = ['date', 'clock', 'weather'];
 // HaloWatch's Weather screen: its parts bottom to top, as weather.h draws them
-export const WEATHER_SCREEN = ['arc', 'city', 'wxicon', 'wxtemp', 'wxhilo', 'hourly', 'feels', 'dots'];
+export const WEATHER_SCREEN = ['arc', 'city', 'wxicon', 'wxtemp', 'wxhilo', 'hourly', 'feels', 'dots'].filter((t) => allowed('layers', t));
 // A new gallery: the title, one card, the button at the bottom edge and the clock along the top edge (bottom to top,
 // as HaloWatch's menu_draw draws them); more cards — the apps' (App: each adds its card)
-export const GALLERY_SCREEN = ['title', 'card', 'edge', 'arc'];
+export const GALLERY_SCREEN = ROUND ? ['title', 'card', 'edge', 'arc'] : ['title', 'card', 'scroll', 'arc'];
 // lib/Halo's transitions for a screen opened over the face (halo_nav_face_open); HaloWatch's pill — Fade
 export const FX = {
   fade: { name: 'Fade', index: 1, sub: 'as on HaloWatch: the face fades out, the screen grows from 0.92 and fades in' },
@@ -196,10 +256,9 @@ export function setFn(id, values, opts) {
   }, opts);
 }
 
-export const TILE = 466;  // a screen on the map, map units (board pixels)
 export const GAP = 260;   // between screens on the map
 export let PAGES = 1;                 // the pages of a screen with the Weather screen's parts: one a city (emit keeps it)
-export const PAGE_STEP = TILE + GAP;  // on the map its pages stand in a row, as far apart as screens
+export const PAGE_STEP = TW + GAP;  // on the map its pages stand in a row, as far apart as screens
 export const STEP_PAGES = ['Today', 'This week'];  // the Steps screen's pages (stepscreen.h)
 export const MAX_SCREENS = 24;        // what the engine has room for (studio.py: MAX_SCREENS)
 // A screen that pages sideways: the Weather screen (a city a page) or the Steps screen (today, the week)
@@ -210,7 +269,7 @@ export const stepsPaged = (s) => !!s && s.layers.some((l) => STEPS_PARTS.has(l.t
 export const paged = (s) => weatherPaged(s) || stepsPaged(s);
 export const pagesOf = (s) => (weatherPaged(s) ? PAGES : stepsPaged(s) ? STEP_PAGES.length : 1);
 export const pageName = (s, k) => (weatherPaged(s) ? citiesOf()[k]?.name : stepsPaged(s) ? STEP_PAGES[k] : '') || `Page ${k + 1}`;
-export const span = (s) => (paged(s) ? TILE + (pagesOf(s) - 1) * PAGE_STEP : TILE);  // how wide a screen is on the map
+export const span = (s) => (paged(s) ? TW + (pagesOf(s) - 1) * PAGE_STEP : TW);  // how wide a screen is on the map
 
 // sel: {type: 'layer' | 'screen' | 'link' | 'main' | 'fn', id} — a layer, a screen, a link (by its layer), the swipe up
 // to the gallery, a function (its key in FUNCTIONS); screen — the screen the Layers panel and the Elements work on
@@ -418,20 +477,32 @@ export function newLayer(type, at, screen = activeScreen()) {
     const acc = q && q[STEP_ACCENT[q.type]];
     if (acc && STEP_ACCENT[type]) layer[STEP_ACCENT[type]] = acc;
   }
+  if (at?.own) {  // (a piece made for this very screen: its own sizes win)
+    const { own, ...mine } = at;
+    return Object.assign(layer, BOARD.looks?.[type], mine);
+  }
   if (at) Object.assign(layer, at);
+  Object.assign(layer, BOARD.looks?.[type]);  // (this screen's sizes win over a piece's watch-sized ones)
+  if (!at || !('dx' in at)) Object.assign(layer, BOARD.places?.[type]);  // (where it stands when not dropped somewhere)
   return layer;
+}
+// Some widgets take room the big clock has (a rectangle: its passport's `moves`, as on the mockups): adding one moves the
+// clock of that screen — if it is still where it stands by default. Returns what to do inside the change, one undo step
+export function roomFor(type, s) {
+  const m = BOARD.moves?.[type], c = m && s.layers.find((l) => l.type === 'clock');
+  return c && !c.dx && !c.dy && !c.hidden && c.size === BOARD.looks?.clock?.size ? () => Object.assign(c, m) : () => {};
 }
 
 // A new screen to the right of the others on the map: empty, HaloWatch's watch face or Weather screen (all their
 // parts at their places) or a new gallery (GALLERY_SCREEN) — under the face, as it comes from below it on the board
 export function newScreen(kind = 'empty', { card = true } = {}) {
-  const right = Math.max(...screens().map((s) => s.x + TILE));
+  const right = Math.max(...screens().map((s) => s.x + TW));
   const n = screens().length;
   const named = { face: 'Watch face', foursides: 'Four sides', weather: 'Weather', gallery: 'Gallery' }[kind];
   const name = named ? (screens().some((s) => s.name === named) ? `${named} ${n}` : named) : `Screen ${n}`;
   const s = { id: nextId(named ? kind : 'screen'), name, x: right + GAP, y: home().y, layers: [] };
   if (kind === 'gallery') {
-    const below = Math.max(...screens().filter((q) => Math.abs(q.x - home().x) < TILE).map((q) => q.y + TILE));
+    const below = Math.max(...screens().filter((q) => Math.abs(q.x - home().x) < TW).map((q) => q.y + TH));
     s.x = home().x, s.y = below + GAP;
   }
   const parts = ({ face: FACE_SCREEN, weather: WEATHER_SCREEN, gallery: GALLERY_SCREEN }[kind] || []).filter((t) => card || t !== 'card');
@@ -517,6 +588,7 @@ export const SECTIONS = {
   battery: { text: 'Battery', subtitle: 'level and time left', icon: 'bolt', color: '#A4F9B5' },
   music: { text: 'Music', subtitle: 'piano classics', icon: 'music', color: '#F6B5EA' },
   recorder: { text: 'Recorder', subtitle: 'record and play back', icon: 'mic', color: '#F28B82' },
+  video: { text: 'Video', subtitle: 'clips from the card', icon: 'play', color: '#8FB6FF' },
   snkdots: { text: 'Dot Snake', subtitle: 'LED matrix', icon: 'gamepad', color: '#FFF8EE' },
   snkspace: { text: 'Comet', subtitle: 'snake in space', icon: 'gamepad', color: '#8ECBFF' },
   snkiso: { text: 'Voxel Snake', subtitle: 'isometric 3D', icon: 'gamepad', color: '#B8FF6A' },
@@ -532,6 +604,12 @@ export const SECTIONS = {
   charge: { text: 'Power', subtitle: 'charge and voltages', icon: 'bolt', color: '#6DD58C', tile: 'Power',
     sub: 'Power: the charge along the edge, the voltages of USB and the system, the power chip' },
 };
+// A rectangle (variants L3 and A3, web/mockups/rect-apps.html): Settings is one tablet-like screen with the Display section
+// and a row that opens About; About is one screen with everything on it
+if (!ROUND) {
+  Object.assign(SECTIONS.display, { text: 'Settings', subtitle: 'display and about', icon: 'gear', tile: 'Settings', sub: 'The screen\'s brightness and a row that opens About' });
+  Object.assign(SECTIONS.about, { subtitle: 'this board, live', sub: 'About this board: the processor, the memory, the temperature, the sound' });
+}
 // About's cards (device.h), top to bottom: what each shows, its label, icon and accent
 export const ABOUT_CARDS = [
   { what: 'cpu', text: 'Processor', icon: 'chip', color: '#A8C7FA' },
@@ -545,14 +623,16 @@ export const ABOUT_CARDS = [
 const POWER_SCREEN = [['arc', { radius: 200 }], 'charge'];
 // What a section's screen is made of: the Steps and Weather screens — their parts; the others — the one layer
 // (a part may be [type, look]); About's — the look of its gallery, for its tile
-export const sectionParts = (kind) => ({ stepscreen: STEPS_SCREEN, wxscreen: WEATHER_SCREEN, charge: POWER_SCREEN,
+const RECT_PARTS = { display: ['display', 'arc'], music: ['music', 'arc'], recorder: ['recorder', 'arc'],
+  about: [['device', { what: 'cpu', color: '#8AD6F0' }], 'arc'] };
+export const sectionParts = (kind) => (!ROUND && RECT_PARTS[kind]) || ({ stepscreen: STEPS_SCREEN, wxscreen: WEATHER_SCREEN, charge: POWER_SCREEN,
   about: [['title', { text: 'About' }], ...ABOUT_CARDS.slice(0, 3).map((c) => ['devcard', { ...c }]), 'arc'] }[kind] || [kind]);
 const partOf = (t) => (Array.isArray(t) ? t : [t, null]);
 export const sectionPart = partOf;
 // Settings as on a phone: Battery and Display go into General — the gallery behind the card "General" (all settings);
 // Display one deeper: General › Display › Brightness (its slider's screen). The looks — as the user made them by hand
 // (5 Nov 2026: Project 1)
-export const SECTION_PATH = { battery: ['General'], display: ['General', 'Display'], charge: ['General'], about: ['General'] };
+export const SECTION_PATH = ROUND ? { battery: ['General'], display: ['General', 'Display'], charge: ['General'], about: ['General'] } : {};
 const SUB_GALLERIES = {
   General: { text: 'General', subtitle: 'all settings', icon: 'gear', color: '#A8C7FA' },
   Display: { text: 'Display', subtitle: 'brightness', icon: 'tv', color: '#A4A7F9' },
@@ -603,8 +683,10 @@ export function gamesGallery(g, key = null) {
   }, { structure: true, key });
   return s;
 }
+// A rectangle's gallery opens with the weather, big and live (variant G6: gallery_rect.h); the title stays above it
+const firstCard = (g) => listed(g).filter((l) => l.type === 'title').length;
 export function addSection(g, kind, key = null) {
-  const d = SECTIONS[kind];
+  const d = SECTIONS[kind], live = !ROUND && kind === 'wxscreen';
   // (Power made by About already: the new card opens that one)
   const own = kind === 'charge' && screens().find((s) => s.layers.some((l) => l.type === 'charge'));
   if (!own && screens().length >= MAX_SCREENS) return null;
@@ -623,10 +705,16 @@ export function addSection(g, kind, key = null) {
     for (const [type, look] of sectionParts(kind).map(partOf)) scr.layers.push(newLayer(type, look, scr));
     p.screens.push(scr);
     card.tap = { to: scr.id, fx: 'a16' };
+    if (live) card.live = true;
+    if (!ROUND && kind === 'display') {  // (its row About: the project's About, if it has one)
+      const about = p.screens.find((q) => q.layers.some((l) => l.type === 'device'));
+      if (about) scr.layers[0].tap = { to: about.id, fx: 'a16' };
+    }
+    if (!ROUND && kind === 'about') for (const q of p.screens) for (const l of q.layers) if (l.type === 'display' && !l.tap) l.tap = { to: scr.id, fx: 'a16' };
     // (Weather: as on HaloWatch, the face's first weather pill that opens nothing yet opens it too)
     const pill = kind === 'wxscreen' && p.screens[0].layers.find((l) => l.type === 'weather' && !l.tap);
     if (pill) pill.tap = { to: scr.id, fx: 'fade' };
-    g.layers.splice(listIndex(g, listed(g).length), 0, card);
+    g.layers.splice(listIndex(g, live ? firstCard(g) : listed(g).length), 0, card);
   }, { structure: true, key });
   return card;
 }
@@ -729,11 +817,11 @@ function dropPlaceholders(p) {
 // A free place for a new screen next to screen `from`: to its right, a row at a time — level with it, then below and
 // above; the next column further right
 function freeSpot(from, all) {
-  const m = GAP / 2, busy = (x, y) => all.some((q) => x < q.x + span(q) + m && x + TILE + m > q.x && y < q.y + TILE + m && y + TILE + m > q.y);
-  const step = TILE + GAP;
+  const m = GAP / 2, busy = (x, y) => all.some((q) => x < q.x + span(q) + m && x + TW + m > q.x && y < q.y + TH + m && y + TH + m > q.y);
+  const step = TW + GAP, rowStep = TH + GAP;
   for (let c = 0; c < 12; c++) {
     for (const r of [0, 1, -1, 2, -2, 3]) {
-      const x = from.x + span(from) + GAP + c * step, y = from.y + r * step;
+      const x = from.x + span(from) + GAP + c * step, y = from.y + r * rowStep;
       if (!busy(x, y)) return [x, y];
     }
   }
@@ -752,7 +840,7 @@ function fixSelection() {
   const s = state.sel;
   if (!s) return;
   const ok = s.type === 'layer' || s.type === 'link' ? layerById(s.id) && (s.type !== 'link' || layerById(s.id).tap)
-    : s.type === 'main' ? mainScreen() : s.type === 'fn' ? FUNCTIONS[s.id] : screenById(s.id);
+    : s.type === 'main' ? mainScreen() : s.type === 'fn' ? FUNCTIONS[s.id] || s.id === 'buttons' : screenById(s.id);
   if (!ok) state.sel = null;
 }
 
@@ -898,11 +986,18 @@ export async function openProject(pid) {
   return true;
 }
 
+// The last change saved now, and this project remembered for the page's next start (opening a project of another board
+// reloads the page for that board)
+export async function saveAndRemember(pid) {
+  if (saveTimer) await saveNow();
+  try { localStorage.setItem('popka.project', pid); } catch (e) { /* not kept */ }
+}
+
 // The open project's name (the start window renames it here, so the next save keeps it)
 export const projectName = () => state.project.name || state.pid.replace(/-/g, ' ').replace(/^./, (c) => c.toUpperCase());
 
 export async function resetToDefault() {
-  const r = await fetch('/api/default', { cache: 'no-store' });
+  const r = await fetch(`/api/default?board=${BOARD.id}`, { cache: 'no-store' });
   const fresh = await r.json();
   change((p) => { p.screens = fresh.screens; }, { structure: true });
   state.screen = home().id;

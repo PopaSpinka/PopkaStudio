@@ -85,8 +85,18 @@ enum : uint8_t {
   FL_PARROT,                           // pixel art: Popka, the parrot (pixelart.h)
   FL_DEVCARD,                          // About: a gallery card with a live value and picture (device.h)
   FL_DEVICE,                           // About: a card's own screen — the processor, the memory, … (device.h)
-  FL_CHARGE                            // Power: the charge, the voltages, the power chip (device.h)
+  FL_CHARGE,                           // Power: the charge, the voltages, the power chip (device.h)
+  FL_VIDEO,                            // the Video app: tiles and a player, a rectangular board's (settings.h, video.h)
+  FL_SHADE,                            // the quick settings panel of the home (shade_rect.h, shade_round.h)
+  FL_SCLOCK                            // a clock in one of sixteen looks (sclock.h)
 };
+// The clocks of sixteen looks (sclock.h): in a firmware with one of them (FN_SCLOCK, config.h: a bit a look), always
+// in the editor's page
+#if defined(__EMSCRIPTEN__) || (defined(FN_SCLOCK) && FN_SCLOCK)
+#define HAS_SCLOCK 1
+#else
+#define HAS_SCLOCK 0
+#endif
 static inline bool fl_pixels(uint8_t k) {  // pixel art drawn cell by cell (pixelart.h)
   return k == FL_PARROT
       ;
@@ -127,12 +137,19 @@ struct FaceLayer {
   const HaloFont *font2;          // steps: the shoe
   float p2, p3;                   // stars: twinkling, meteors a minute (how many — p, brightness — k); pixel art: what
                                   // is around it (p2), its trail (p3; the turn — p, the size — k); steps: p2 1 — no pill
+#if HAS_SCLOCK
+  const HaloFont *font3, *font4;  // a clock of sclock.h: its third and fourth fonts (its look — p2)
+#endif
 };
 // A layer of the Weather screen on one page of its pager (the dots: on the first one)
 struct WxRun {
   HaloRoll *roll;  // the temperature
   HaloItem it[WX_MAX + 2];  // the city, the icon: [0]; the high/low: [0], [1]; the hourly pill: [0], icons [1..3], times
                            // [4..6]; the page dots: one a city, the worm, the pulled one
+#ifndef HALO_ROUND
+  HaloMask chart;           // the hourly layer on a rectangle: the temperature line, baked (wxscreen_rect.h)
+  uint32_t chart_sig;       // the numbers it shows (0 — none yet)
+#endif
 };
 // What a layer has while running: its letters (the weather: the temperature's) and the pill
 struct FaceRun {
@@ -149,7 +166,13 @@ struct FaceRun {
                            // (stars: the stars and the meteor)
   struct StarRun *stars;   // stars: where each one is, how it twinkles (stars.h)
   char *txt;               // the widgets: their texts (widgets.h)
+#ifndef HALO_ROUND
+  uint32_t sig;            // the forecast's line: the numbers it shows (0 — none yet; widgets_rect.h)
+#endif
   struct DvRun *dv;        // About's card and screens, Power: their items, chart, words (device.h)
+#if HAS_SCLOCK
+  struct ScRun *sc;        // a clock of sclock.h: its other rolls, items, what it draws itself
+#endif
 };
 struct GalRun;  // gallery.h
 struct FaceScreen {
@@ -183,6 +206,16 @@ template <int N> static FaceRun (&face_runs())[N] {
 #endif
   return *(FaceRun(*)[N])p;
 }
+#if !defined(HALO_ROUND) && !defined(__EMSCRIPTEN__)
+// A rectangle's board: PSRAM joins the heap only in initArduino(), after the constructors — layers_alloc() (layers.h,
+// from setup()) makes these then
+static FaceRun *face_alloc(int n) {
+  FaceRun *p = (FaceRun *)heap_caps_calloc(n, sizeof(FaceRun), MALLOC_CAP_SPIRAM);
+  if (!p) p = (FaceRun *)calloc(n, sizeof(FaceRun));
+  for (int i = 0; i < n; i++) new (p + i) FaceRun();
+  return p;
+}
+#endif
 #include "layers.h"  // screens[SCREEN_N]: 0 — the watch face, then the screens it opens
 // Steps — only in a firmware with a Steps layer (FN_STEPS, written by the editor), always in the editor's page
 #if defined(__EMSCRIPTEN__) || (defined(FN_STEPS) && FN_STEPS)
@@ -203,6 +236,13 @@ template <int N> static FaceRun (&face_runs())[N] {
 #ifndef HAS_PIXELS
 #define HAS_PIXELS HAS_PARROT
 #endif
+// The quick settings panel (a rectangle's shade_rect.h, the round board's shade_round.h): in a firmware with it and in
+// the board's page
+#if defined(__EMSCRIPTEN__) || (defined(FN_SHADE) && FN_SHADE)
+#define HAS_SHADE 1
+#else
+#define HAS_SHADE 0
+#endif
 
 static FaceScreen *face_scr = screens;  // (the editor's page swaps in its own: engine/studio_api.h)
 static int face_scr_n = SCREEN_N;
@@ -210,6 +250,7 @@ static int face_over = -1;  // the screen open over the face now
 #define NAV_LEVELS 5        // the gallery and up to 4 screens over it (lib/Halo: NAV_MAX)
 static int nav_scr[NAV_LEVELS] = {MAIN_SCREEN, -1, -1, -1, -1};  // the screen on each level (0 — the gallery); -1 — a stub
 
+#ifdef HALO_ROUND
 // HaloWatch's place of each kind: the date and the clock are centered on the screen by their middle (the clock — by
 // its colon), the pill — by its center
 static float face_base_x(const FaceLayer &) {
@@ -218,6 +259,19 @@ static float face_base_x(const FaceLayer &) {
 static float face_base_y(const FaceLayer &L) {
   return L.kind == FL_DATE ? FACE_DATE_Y : L.kind == FL_CLOCK ? FACE_TIME_Y : PILL_Y;  // (steps — where the pill is)
 }
+#else
+// A rectangle's place of each kind (variant S2 of web/mockups/rect-screens.html): a status line along the top — the date
+// from the left edge, the weather up to the right one — and the clock in the middle
+#define RH_MARGIN 36.0f
+#define RH_LINE_Y 47.0f   // the middle of the status line
+#define RH_CLOCK_Y 282.0f
+static float face_base_x(const FaceLayer &L) {
+  return L.kind == FL_DATE ? RH_MARGIN : L.kind == FL_WEATHER ? W - RH_MARGIN : CX;
+}
+static float face_base_y(const FaceLayer &L) {
+  return L.kind == FL_CLOCK ? RH_CLOCK_Y : RH_LINE_Y;
+}
+#endif
 
 static HaloSpring fc_icon_t;  // icon change: 0 -> 1
 static HaloSpringK K_ICON;
@@ -272,8 +326,20 @@ static int screen_pages(const FaceScreen &S);  // (how many pages it swipes thro
 #include "device.h"    // About (live cards and their screens) and Power
 #include "stepscreen.h"  // the Steps screen
 #include "widgets.h"     // the face's widgets
+#if HAS_SCLOCK
+#include "sclock.h"      // the clocks of sixteen looks
+#endif
 #include "stars.h"     // the starry background
 #include "pixelart.h"  // pixel art
+#if HAS_SHADE  // (shade_rect.h or shade_round.h, at the end of this file)
+static int shade_index(const FaceScreen &S);
+static HaloView shade_under(int s, const FaceScreen &S, const HaloView &v);
+static void shade_layout(int s, const FaceScreen &S, int i, const HaloView &v);
+static float shade_top_fade(int s, const FaceScreen &S, int i);
+static void shade_draw();
+static bool shade_cut_under();
+static void shade_layer_build();
+#endif
 
 // Every roll of this kind on every screen gets the text s
 static void face_set_all(uint8_t kind, const char *s, bool animate) {
@@ -294,6 +360,11 @@ static void face_weather_show(bool animate = true) {
   fc_kind = d.kind;
   wx_deg(fc_temp, sizeof(fc_temp), d.now);
   face_set_all(FL_WEATHER, fc_temp, animate);
+#ifndef HALO_ROUND
+  for (int k = 0; k < face_scr_n; k++)  // (the gallery's live card)
+    for (int i = 0; i < face_scr[k].n; i++)
+      if (face_scr[k].run[i].txt && face_scr[k].layers[i].kind == FL_CARD) halo_roll_set(face_scr[k].run[i].roll, fc_temp, animate);
+#endif
   wx_fill(animate);  // page 0 of the Weather screen: the same weather (its temperature rolls too)
 }
 // A fictional day of HaloWatch's (wx N, demo); -1 — the real weather again
@@ -329,7 +400,11 @@ static void face_demo() {
 // now, in place, without rolling
 // HaloWatch's sections and the games: one of a kind, a screen of its own (settings.h, games.h)
 static inline bool fl_section(uint8_t k) {
-  return k == FL_DISPLAY || k == FL_BATTERY || k == FL_MUSIC || k == FL_RECORDER || (k >= FL_SNKDOTS && k <= FL_SNKISO);
+  return k == FL_DISPLAY || k == FL_BATTERY || k == FL_MUSIC || k == FL_RECORDER || (k >= FL_SNKDOTS && k <= FL_SNKISO)
+#ifndef HALO_ROUND
+         || k == FL_VIDEO  // (a rectangle's only: the round board's code stays as it was)
+#endif
+      ;
 }
 static void face_layer_build(const FaceScreen &S, int i) {
   const FaceLayer &L = S.layers[i];
@@ -340,11 +415,17 @@ static void face_layer_build(const FaceScreen &S, int i) {
 #endif
   free(R.txt);
   dv_run_free(R);
+#if HAS_SCLOCK
+  sc_layer_free(R);
+#endif
   // Afresh in its own place: no copy on the stack (it is ~4.8 KB; Live rebuilds a layer in the frame task — 6 KB)
   R.~FaceRun();
   new (&R) FaceRun();
   R.box[0] = R.box[1] = 0, R.box[2] = R.box[3] = -1;
   R.ax = R.ay = NAN;  // not drawn yet
+#if HAS_SHADE
+  if (L.kind == FL_SHADE) return;  // (its items: shade_rect.h, one panel)
+#endif
   if (fl_gallery(L.kind)) return gal_layer_build(S, i);
   if (fl_wx(L.kind)) return wx_layer_build(S, i);
   if (fl_section(L.kind)) return;  // (settings.h: one of a kind)
@@ -353,6 +434,9 @@ static void face_layer_build(const FaceScreen &S, int i) {
   if (fl_steps(L.kind)) return ss_layer_build(S, i);
 #endif
   if (fl_widget(L.kind)) return wg_layer_build(S, i);
+#if HAS_SCLOCK
+  if (L.kind == FL_SCLOCK) return sc_layer_build(S, i);
+#endif
 #if HAS_STARS
   if (L.kind == FL_STARS) return stars_layer_build(S, i);
 #endif
@@ -371,7 +455,11 @@ static void face_layer_build(const FaceScreen &S, int i) {
     halo_roll_init(R.roll, *L.font, "0123456789", 1, L.spacing);
     halo_roll_set(R.roll, fc_time, false);
   } else if (L.kind == FL_DATE) {
+#ifdef HALO_ROUND
     halo_roll_init(R.roll, *L.font, "HOT0123", 1, L.spacing);
+#else
+    halo_roll_init(R.roll, *L.font, "HOT0123", 0, L.spacing);  // (from the left edge of the status line)
+#endif
     if (*fc_date) halo_roll_set(R.roll, fc_date, false);
   } else {
     R.roll.rise = 15 * FACE_SCALE * L.k;  // the temperature rolls inside the pill (its letters are drawn with the pill's colors)
@@ -388,6 +476,9 @@ static void face_layer_build(const FaceScreen &S, int i) {
 // the change needs it: another kind or font, its size k, the spacing, p (a radius, the stars' count), a curved line's
 // angle; moving it, its colors and the rest are laid out by the next frame as they are
 static bool face_layer_rebuild(const FaceLayer &was, const FaceLayer &L) {
+#if HAS_SCLOCK
+  if (L.kind == FL_SCLOCK && (was.p2 != L.p2 || was.font3 != L.font3 || was.font4 != L.font4)) return true;
+#endif
   return was.kind != L.kind || was.font != L.font || was.font2 != L.font2 || was.spacing != L.spacing ||
          was.k != L.k || was.p != L.p || (L.kind == FL_CURVE && was.p3 != L.p3);
 }
@@ -399,6 +490,9 @@ static void face_build() {
   halo_spring_set(fc_icon_t, 1);
   settings_build();
   ss_build();
+#if HAS_SHADE
+  shade_layer_build();
+#endif
   for (int k = 0; k < face_scr_n; k++)
     for (int i = 0; i < face_scr[k].n; i++) face_layer_build(face_scr[k], i);
   gal_build();
@@ -432,7 +526,11 @@ static void face_tick(float dt) {
     }
     if (t.tm_yday != fc_yday) {  // "THU, 29 OCT" — the mockup's format
       fc_yday = t.tm_yday;
+#ifdef HALO_ROUND
       snprintf(fc_date, sizeof(fc_date), "%s, %d %s", WEEKDAY[t.tm_wday], t.tm_mday, MONTH[t.tm_mon]);
+#else
+      snprintf(fc_date, sizeof(fc_date), "%s, %s %d", WEEKDAY[t.tm_wday], MONTH[t.tm_mon], t.tm_mday);
+#endif
       face_set_all(FL_DATE, fc_date, !fc_still);
     }
   }
@@ -440,6 +538,9 @@ static void face_tick(float dt) {
     for (int i = 0; i < face_scr[k].n; i++) halo_roll_update(face_scr[k].run[i].roll, dt);
   wx_tick(dt);
   wg_tick();
+#if HAS_SCLOCK
+  sc_tick(dt);
+#endif
   halo_spring_run(fc_icon_t, K_ICON, dt);
   if (fc_icon_t.x == 1 && fc_icon_t.v == 0) fc_kind_old = -1;
 }
@@ -464,13 +565,21 @@ static bool face_over_others(const FaceScreen &S, int i) {
 
 // Screen s through the view v (a = 0 — hidden): every layer, bottom to top; the Weather screen's parts — on every page
 // of the screen's pager
+#if HAS_SHADE
+static void screen_layout(int s, const HaloView &v_in) {
+#else
 static void screen_layout(int s, const HaloView &v) {
+#endif
   if (s < 0 || s >= face_scr_n) return;
   FaceScreen &S = face_scr[s];
+#if HAS_SHADE
+  const HaloView v = shade_under(s, S, v_in);  // (the rest under the panel: dimmed)
+  const HaloView &v_all = v;
+#endif
   if (!S.n) {  // empty (not the face): its name in the middle, as the stub of a card without a link
     if (s == 0 || !S.name) return;
     if (!S.name_ok) S.name_mid = halo_text_mid(gl_title, gl_str(S.name)), S.name_ok = true;
-    gl_text_mid(S.name_it, gl_title, gl_str(S.name), S.name_mid, CX, CX, 1, GL_TEXT, 1, &halo_black);
+    gl_text_mid(S.name_it, gl_title, gl_str(S.name), S.name_mid, CX, CY, 1, GL_TEXT, 1, &halo_black);
     S.name_it.on_black = true;
     halo_view_commit(S.name_it, v);
     return;
@@ -484,11 +593,21 @@ static void screen_layout(int s, const HaloView &v) {
   for (int i = 0; i < S.n; i++) {
     const FaceLayer &L = S.layers[i];
     FaceRun &R = S.run[i];
+#if HAS_SHADE
+    HaloView v = v_all;  // (the strip: the status line under it goes first)
+    v.a *= shade_top_fade(s, S, i);
+#endif
     if (fl_gallery(L.kind)) {
       gal_layout(S, i, L.hidden ? 0 : 1, v);
       continue;
     }
+#if HAS_SHADE
+    if (L.kind == FL_SHADE) continue;  // (last, over everything: below)
+#endif
     if (fl_section(L.kind)) {
+#ifndef HALO_ROUND
+      if (L.kind == FL_DISPLAY) dp_link = &L;
+#endif
       if (!L.hidden) settings_layout(R, L.kind, v);
       continue;
     }
@@ -506,6 +625,12 @@ static void screen_layout(int s, const HaloView &v) {
       wg_layout(S, i, L.hidden ? 0 : 1, v);
       continue;
     }
+#if HAS_SCLOCK
+    if (L.kind == FL_SCLOCK) {
+      sc_layout(S, i, L.hidden ? 0 : 1, v);
+      continue;
+    }
+#endif
 #if HAS_STARS
     if (L.kind == FL_STARS) {
       stars_layout(S, i, L.hidden ? 0 : 1, v);
@@ -561,10 +686,19 @@ static void screen_layout(int s, const HaloView &v) {
       halo_roll_layout(R.roll, x, y, L.color, a, over ? nullptr : &halo_black, v);
     } else {
       // The pill: as wide as its text right now (it follows the temperature's width spring)
+#ifdef HALO_ROUND
       const float k = L.k, w = pill_width(R), left = x - w / 2;
       HaloItem &p = R.pill;
       p.kind = HI_RRECT, p.x = x, p.y = y, p.w = w, p.h = PILL_H * k, p.r = PILL_H * k / 2;
       p.color = L.color, p.on_black = !over, p.scale = 1, p.alpha = a;
+#else
+      // (its right end at x; without the pill — p2 — the text's right end there)
+      const bool bare = L.p2 > 0.5f;
+      const float k = L.k, w = bare ? R.pen + halo_roll_width(R.roll) : pill_width(R), left = x - w;
+      HaloItem &p = R.pill;
+      p.kind = HI_RRECT, p.x = left + w / 2, p.y = y, p.w = w, p.h = PILL_H * k, p.r = PILL_H * k / 2;
+      p.color = L.color, p.on_black = !over, p.scale = 1, p.alpha = bare ? 0 : a;
+#endif
       halo_view_commit(p, v);
       // The icon: the new one grows from 0.5 with an overshoot and rises a little, the old one shrinks, rises and fades
       // out quickly (gone by a third of the way: two half-transparent icons on top of each other look muddy)
@@ -578,13 +712,21 @@ static void screen_layout(int s, const HaloView &v) {
       out.x = ix, out.y = iy - t * FACE_ICON_RISE * k, out.scale = 1 - 0.5f * t;
       out.alpha = out.image ? a * halo_clamp01(1 - t * 3) : 0;
       halo_view_commit(out, v), halo_view_commit(in, v);
+#ifdef HALO_ROUND
       halo_roll_layout(R.roll, left + R.pen, y + (PILL_TEMP_Y - PILL_Y) * k, L.color2, a, &R.pill, v);
+#else
+      halo_roll_layout(R.roll, left + R.pen, y + (PILL_TEMP_Y - PILL_Y) * k, L.color2, a, bare ? (over ? nullptr : &halo_black) : &R.pill, v);
+#endif
     }
     // Where the layer is now (for overlaps; the editor draws its frame by it)
     R.box[0] = R.box[1] = 0, R.box[2] = R.box[3] = -1;
     box_add(R.box, R.pill);
     for (int c = 0; c < R.roll.n; c++) box_add(R.box, R.roll.c[c].in), box_add(R.box, R.roll.c[c].out);
   }
+#if HAS_SHADE
+  const int sh = shade_index(S);
+  if (sh >= 0) shade_layout(s, S, sh, v_in);  // the quick settings panel: over everything, the screen's own view
+#endif
 }
 
 // Bottom to top; the Weather screen's paged parts — page by page, as HaloWatch draws its pages (at the place of the
@@ -596,11 +738,21 @@ static void screen_draw(int s) {
     if (s > 0 && S.name) halo_item_draw(S.name_it);
     return;
   }
+#if HAS_SHADE
+  const bool shade = shade_index(S) >= 0;
+  const HaloBand band = hb;
+  const bool seen = !shade || shade_cut_under();  // (the rows a panel covers whole: not drawn; false — the band is all under it)
+#else
+  const bool seen = true;
+#endif
   bool paged = false;
-  for (int i = 0; i < S.n; i++) {
+  for (int i = 0; seen && i < S.n; i++) {
     const FaceLayer &L = S.layers[i];
     const FaceRun &R = S.run[i];
     if (L.kind == FL_EDGE) continue;  // (the button at the bottom edge — over the list, after everything)
+#if HAS_SHADE
+    if (L.kind == FL_SHADE) continue;
+#endif
     if (L.kind == FL_STARS) {
 #if HAS_STARS
       stars_draw(S, i);
@@ -621,6 +773,10 @@ static void screen_draw(int s) {
 #endif
     } else if (fl_widget(L.kind)) {
       wg_draw(S, i);
+#if HAS_SCLOCK
+    } else if (L.kind == FL_SCLOCK) {
+      sc_draw(S, i);
+#endif
     } else if (fl_paged(L.kind)) {
       if (paged) continue;
       paged = true;
@@ -641,8 +797,12 @@ static void screen_draw(int s) {
       halo_roll_draw(R.roll);
     }
   }
-  for (int i = 0; i < S.n; i++)
+  for (int i = 0; seen && i < S.n; i++)
     if (S.layers[i].kind == FL_EDGE) gal_draw(S, i);
+#if HAS_SHADE
+  hb = band;
+  if (shade) shade_draw();
+#endif
 }
 
 static bool screen_paged(const FaceScreen &S) {
@@ -687,6 +847,9 @@ static void screen_update(int s, float dt, int depth) {
   if (screen_paged(S) || screen_pages(S) > 1) wx_pager_update(S, dt, screen_pages(S));
   gal_update(S, dt, depth);
   settings_update(S, dt);
+#ifndef HALO_ROUND
+  dv_rect_update(S, dt);
+#endif
 }
 
 // The screen open right over the face (a layer of the face with a link)
@@ -709,10 +872,18 @@ static const HaloScreen OVER = {over_enter, over_update, over_layout, over_draw}
 static bool layer_rect(const FaceScreen &S, int i, float &x, float &y, float &w, float &h) {
   const FaceLayer &L = S.layers[i];
   const FaceRun &R = S.run[i];
+#ifdef HALO_ROUND
   if (L.kind == FL_WEATHER) {
     x = face_base_x(L) + L.dx, y = face_base_y(L) + L.dy, w = pill_width(R), h = PILL_H * L.k;
     return true;
   }
+#else
+  if (L.kind == FL_WEATHER) {
+    w = L.p2 > 0.5f ? R.pen + halo_roll_width(R.roll) : pill_width(R), h = PILL_H * L.k;
+    x = face_base_x(L) + L.dx - w / 2, y = face_base_y(L) + L.dy;
+    return true;
+  }
+#endif
 #if HAS_STEPS
   if (L.kind == FL_STEPS) {
     x = face_base_x(L) + L.dx, y = face_base_y(L) + L.dy, w = steps_width(L, R), h = PILL_H * L.k;
@@ -761,7 +932,7 @@ static void level_update(int d, float dt) {
 }
 static void level_layout(int d, const HaloView &v) {
   if (nav_scr[d] >= 0) return screen_layout(nav_scr[d], v);
-  gl_text_mid(stub_it[d], gl_title, gl_str(nav_stub[d]), stub_mid[d], CX, CX, 1, GL_TEXT, 1, &halo_black);
+  gl_text_mid(stub_it[d], gl_title, gl_str(nav_stub[d]), stub_mid[d], CX, CY, 1, GL_TEXT, 1, &halo_black);
   stub_it[d].on_black = true;
   halo_view_commit(stub_it[d], v);
 }
@@ -803,6 +974,15 @@ static void gallery_tick() {
     if (to >= 0 && nav_scr[k] == to) return;
   nav_scr[d + 1] = to, nav_stub[d + 1] = L->text;
   // The gesture to the face from it: one that pages — up from the bottom edge (as Weather), others — both (as Settings)
+  // (on a rectangle lib/Halo opens it with Material's shared axis X: halo_nav.cpp)
   halo_nav_open(level(d + 1, to >= 0 && (screen_paged(face_scr[to]) || screen_pages(face_scr[to]) > 1) ? HALO_HOME_UP
                                                                                                     : HALO_HOME_BOTH));
 }
+
+#if HAS_SHADE
+#ifdef HALO_ROUND
+#include "shade_round.h"  // the quick settings panel of the round board's home (App → Shade: Wear OS 6)
+#else
+#include "shade_rect.h"  // the quick settings panel of a rectangle's home (App → Shade)
+#endif
+#endif

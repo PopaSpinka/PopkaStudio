@@ -38,7 +38,11 @@ enum : uint8_t { DV_CPU, DV_MEM, DV_BAT, DV_TEMP, DV_SND, DV_MOT, DV_N };  // wh
 #define DV_GREEN 0x6DD58C
 #define DV_LIL 0xD0BCFF    // the spectrum's quiet end
 #define DV_PSRAM 0xFFB3AB  // PSRAM: the mockups' coral
+#ifdef HALO_ROUND
 #define DV_ITEMS 48
+#else
+#define DV_ITEMS 66
+#endif
 
 static inline int dv_what(const FaceLayer &L) {
   return constrain((int)L.p2, 0, DV_N - 1);
@@ -62,7 +66,11 @@ static void dv_text(HaloItem &it, const HaloFont &f, const char *s, float mid, f
 
 // ---------- A chart: a mask baked anew when a sample comes ----------
 #define DV_HN 128     // samples kept: the load and the memory every 250 ms (32 s), the temperature every 2 s (4 min)
+#ifdef HALO_ROUND
 #define DV_COLS 52    // a chart is baked this many columns a frame (into the other buffer): no frame pays for all of it
+#else
+#define DV_COLS 40    // (a tall chart: its columns cost more)
+#endif
 struct DvChart {
   HaloMask m[2];
   int cur = -1;           // the mask shown (-1 — none yet)
@@ -143,7 +151,11 @@ static void dv_bake_step(DvChart &c, int cols) {
       if (v4 <= 0) continue;
       bits[y * stride + x / 2] |= (x & 1) ? v4 : v4 << 4;
       if (ext[2 * y] > ext[2 * y + 1]) ext[2 * y] = min(x, 255);
+#ifdef HALO_ROUND
       ext[2 * y + 1] = min(x, 254);
+#else
+      ext[2 * y + 1] = min(x, 255);  // (255 — to the end of the row: a chart here is wider than a byte)
+#endif
     }
   }
   c.x = x1;
@@ -167,6 +179,10 @@ struct DvRun {
   uint32_t enter_ms, text_at, lab_at[2];
   uint8_t tone;  // Power: the state's color — 0 dim, 1 green, 2 red
   uint8_t used;  // items laid out last frame (the rest stay hidden: not committed again)
+#ifndef HALO_ROUND
+  char row[4][16];   // the values in the list at the right (device_rect.h)
+  uint32_t row_at;
+#endif
 };
 // Commit items [0, n) (and hide the ones the last frame had beyond n); box — where they were drawn (or null)
 static void dv_commit(DvRun &d, int n, const HaloView &v, float *box) {
@@ -763,6 +779,7 @@ static void dv_texts(DvRun &d, int what, float &fl, float &fr) {
   strncpy(d.lab_s[0], l0, sizeof(d.lab_s[0]) - 1), strncpy(d.lab_s[1], l1, sizeof(d.lab_s[1]) - 1);
 }
 
+#ifdef HALO_ROUND
 static void dv_detail_layout(const FaceLayer &L, DvRun &d, const HaloView &v) {
   HaloItem *it = d.it;
   const int what = dv_what(L);
@@ -833,6 +850,9 @@ static void dv_detail_layout(const FaceLayer &L, DvRun &d, const HaloView &v) {
   }
   dv_commit(d, n, v, nullptr);
 }
+#else
+#include "device_rect.h"  // this screen's own About (variant A3): the big card and the list
+#endif
 #endif
 
 #if HAS_CHARGE
@@ -900,8 +920,12 @@ static void ch_layout(DvRun &d, const HaloView &v) {
 static void dv_layout(const FaceScreen &S, int i, const HaloView &v) {
   const FaceLayer &L = S.layers[i];
   FaceRun &R = S.run[i];
+#ifdef HALO_ROUND
   R.box[0] = R.box[1] = 7, R.box[2] = R.box[3] = W - 7;  // (the editor: the whole screen)
   R.ax = R.ay = CX;
+#else
+  R.box[0] = R.box[1] = 7, R.box[2] = W - 7, R.box[3] = HALO_H - 7, R.ax = CX, R.ay = CY;
+#endif
   if (!R.dv) return;
 #if HAS_CHARGE
   if (L.kind == FL_CHARGE) return ch_layout(*R.dv, v);
@@ -921,6 +945,10 @@ static void dv_enter(const FaceScreen &S) {  // opened: the arcs and the percent
     if ((S.layers[i].kind == FL_DEVICE || S.layers[i].kind == FL_CHARGE) && S.run[i].dv)
       S.run[i].dv->enter_ms = halo_ms(), S.run[i].dv->text_at = 0;
 }
+
+#if !defined(HALO_ROUND) && !HAS_ABOUT
+static void dv_rect_update(const FaceScreen &, float) {}
+#endif
 
 static void dev_build() {
   dv_mid_t20 = halo_text_mid(gl_t20, "Processor");

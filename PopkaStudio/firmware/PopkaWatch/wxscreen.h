@@ -37,6 +37,12 @@ static const float WX_COL[WX_HOURS] = {147.8f, 233.3f, 317.65f};
 static char wx_now_s[WX_MAX][8], wx_hi_s[WX_MAX][8], wx_lo_s[WX_MAX][8], wx_feels_s[WX_MAX][20];
 static char wx_hour[WX_HOURS][8];  // "7AM" ... — the same on every page
 static char wx_time[8] = "--:--";  // the clock along the top edge: "12:59" (12 hours, no leading zero)
+#ifndef HALO_ROUND
+#define RW_LABELS 5   // the chart's captions: now and every two hours after it
+#define RW_POINTS 9   // the chart's hours: now and the next eight
+static char wx_word_s[WX_MAX][16], wx_hl_s[WX_MAX][20];  // "Partly cloudy", "H 24° L 16°"
+static char rw_label[RW_LABELS][8];                       // "Now", "2 PM" ...
+#endif
 static HaloSpringK K_PAGER;
 
 // Strings of all pages; hours — this one and the next two: "7AM"
@@ -48,6 +54,10 @@ static void wx_fill(bool animate = false) {
     wx_num(wx_lo_s[p], sizeof(wx_lo_s[p]), d.lo);
     if (d.feels == WX_NONE) snprintf(wx_feels_s[p], sizeof(wx_feels_s[p]), "Feels like --°");
     else snprintf(wx_feels_s[p], sizeof(wx_feels_s[p]), "Feels like %d°", d.feels);
+#ifndef HALO_ROUND
+    snprintf(wx_word_s[p], sizeof(wx_word_s[p]), "%s", RW_WORD[d.kind & 3]);
+    snprintf(wx_hl_s[p], sizeof(wx_hl_s[p]), "H %s° L %s°", wx_hi_s[p], wx_lo_s[p]);
+#endif
   }
   for (int k = 0; k < face_scr_n; k++)
     for (int i = 0; i < face_scr[k].n; i++) {
@@ -67,6 +77,14 @@ static void wx_fill(bool animate = false) {
     if (fc_h24) snprintf(wx_hour[i], sizeof(wx_hour[i]), "%02d:00", hh);
     else snprintf(wx_hour[i], sizeof(wx_hour[i]), "%d%s", hh % 12 ? hh % 12 : 12, hh < 12 ? "AM" : "PM");
   }
+#ifndef HALO_ROUND
+  strcpy(rw_label[0], "Now");
+  for (int i = 1; i < RW_LABELS; i++) {
+    const int hh = (h + 2 * i) % 24;
+    if (fc_h24) snprintf(rw_label[i], sizeof(rw_label[i]), "%02d:00", hh);
+    else snprintf(rw_label[i], sizeof(rw_label[i]), "%d %s", hh % 12 ? hh % 12 : 12, hh < 12 ? "AM" : "PM");
+  }
+#endif
 }
 
 // ---------- HaloWatch's helpers, as they are ----------
@@ -129,7 +147,9 @@ static void wx_layer_build(const FaceScreen &S, int i) {
   switch (L.kind) {
     case FL_ARC:
       R.mid = halo_text_mid(*L.font, "0123456789");
+#ifdef HALO_ROUND
       halo_text_arc(R.arc, *L.font, wx_time, R.mid, L.p, 0, false, L.spacing, &R.tx, &R.ty);
+#endif
       break;
     case FL_CITY:
       R.mid = halo_text_mid(*L.font, "San Francisco");
@@ -158,13 +178,21 @@ static void wx_layer_build(const FaceScreen &S, int i) {
 
 static void wx_layer_free(FaceRun &R) {
   if (R.pg) {
-    for (int p = 0; p < WX_MAX; p++) delete R.pg[p].roll;
+    for (int p = 0; p < WX_MAX; p++) {
+      delete R.pg[p].roll;
+#ifndef HALO_ROUND
+      free((void *)R.pg[p].chart.bits), free((void *)R.pg[p].chart.ext);
+#endif
+    }
     delete[] R.pg;
   }
   free((void *)R.arc.bits), free((void *)R.arc.ext);
   delete[] R.g;
 }
 
+#ifndef HALO_ROUND
+static void rw_chart_tick();  // wxscreen_rect.h: a chart whose numbers changed — baked again
+#endif
 // Every frame: the clock along the top edge (a new minute — baked along the arc again), the temperatures' rolls
 static int wx_clock_h = -1, wx_clock_m = -1;  // the minute baked along the arc (-1: bake again)
 static void wx_tick(float dt) {
@@ -183,7 +211,11 @@ static void wx_tick(float dt) {
         for (int i = 0; i < face_scr[k].n; i++) {
           const FaceLayer &L = face_scr[k].layers[i];
           FaceRun &R = face_scr[k].run[i];
+#ifdef HALO_ROUND
           if (L.kind == FL_ARC && L.font) halo_text_arc(R.arc, *L.font, wx_time, R.mid, L.p, 0, false, L.spacing, &R.tx, &R.ty);
+#else
+          (void)L, (void)R;
+#endif
         }
     }
   }
@@ -191,6 +223,9 @@ static void wx_tick(float dt) {
     for (int i = 0; i < face_scr[k].n; i++)
       if (face_scr[k].layers[i].kind == FL_WXTEMP && face_scr[k].run[i].pg)
         for (int p = 0; p < wx_pages; p++) halo_roll_update(*face_scr[k].run[i].pg[p].roll, dt);
+#ifndef HALO_ROUND
+  rw_chart_tick();
+#endif
 }
 
 // The row "icon — temperature — high/low" on a page: by the screen's first temperature (HaloWatch's rules: the
@@ -224,7 +259,7 @@ struct WxPageView {
   float cx, s, k;
   HaloView pv;
   float X(float x) const { return cx + (x - CX) * s; }
-  float Y(float y) const { return CX + (y - CX) * s; }
+  float Y(float y) const { return CY + (y - CY) * s; }
 };
 static WxPageView wx_page(float pg, int i, const HaloView &v) {
   const float off = i - pg, f = halo_clamp01(fabsf(off)), s = 1 - 0.45f * f;
@@ -233,6 +268,7 @@ static WxPageView wx_page(float pg, int i, const HaloView &v) {
   return {cx, s, k, {v.x + (cx - CX) * v.s, v.y, s * v.s, v.a, v.over}};
 }
 
+#ifdef HALO_ROUND
 // A paged layer on one page (a — 0: hidden)
 static void wx_layout_page(const FaceScreen &S, int i, int page, const WxPageView &P, float a, const HaloView &v) {
   const FaceLayer &L = S.layers[i];
@@ -301,7 +337,9 @@ static void wx_layout_page(const FaceScreen &S, int i, int page, const WxPageVie
     }
   }
 }
+#endif
 
+#ifdef HALO_ROUND
 // Layers of the screen that do not page: the clock along the top edge, the page dots. HaloWatch's expressions as they
 // are; the layer's (dx, dy) goes through the view (the same numbers: with dx = dy = 0 the view is the screen's own —
 // written into the expressions instead, -ffast-math may round them another way)
@@ -357,7 +395,9 @@ static void wx_layout_static(const FaceScreen &S, int i, float a, const HaloView
   halo_view_commit(pull, v);
   R.ax = CX + L.dx, R.ay = CX + R_ + L.dy;
 }
+#endif
 
+#ifdef HALO_ROUND
 static void wx_draw_page(const FaceScreen &S, int i, int page) {
   const FaceRun &R = S.run[i];
   if (!R.pg) return;
@@ -377,6 +417,7 @@ static void wx_draw_page(const FaceScreen &S, int i, int page) {
       halo_item_draw(w.it[0]);
   }
 }
+#endif
 
 static void wx_draw_static(const FaceScreen &S, int i) {
   const FaceRun &R = S.run[i];
@@ -385,6 +426,9 @@ static void wx_draw_static(const FaceScreen &S, int i) {
     for (int d = 0; d < WX_MAX + 2; d++) halo_item_draw(R.pg[0].it[d]);
 }
 
+#ifndef HALO_ROUND
+#include "wxscreen_rect.h"  // this screen's own places: wx_layout_page, wx_layout_static, wx_draw_page, wx_place
+#else
 // Where a paged layer is (its anchor, page `page`) and what it covers: for the editor's frame and for overlaps
 static void wx_place(const FaceScreen &S, int i, int page, float *box, float &ax, float &ay) {
   const FaceLayer &L = S.layers[i];
@@ -407,6 +451,7 @@ static void wx_place(const FaceScreen &S, int i, int page, float *box, float &ax
     for (const HaloItem &it : w.it) box_add(box, it);
   }
 }
+#endif
 
 // The pager of a screen with paged layers — only while the screen is open and still (as HaloWatch's weather_update):
 // sideways, not from the left edge; past 10 % or a flick faster than 400 px/s — to the neighbour

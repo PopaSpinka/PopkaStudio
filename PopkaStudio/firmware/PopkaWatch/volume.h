@@ -65,6 +65,7 @@ static void vol_tick(float dt) {
   halo_spring_run(vol_show, vol_show.target > 0.5f ? K_EFFECT_FAST : K_EFFECT_SLOW, dt);
 }
 
+#ifdef HALO_ROUND
 static bool vol_update(float dt) {
   HaloFinger &f = halo_finger;
   vol_active = true;
@@ -108,6 +109,52 @@ static float vol_layout(const HaloView &v) {
   halo_view_commit(vol_ic, v);
   return f_own;
 }
+#else
+// The rectangle: the same screen laid out across — "−" at the left, "+" at the right, the speaker between them and the
+// level as a bar under it
+#define VOL_BTN_DX 240.0f
+#define VOL_BAR_Y (CY + 150)
+#define VOL_BAR_W 480.0f
+static bool vol_update(float dt) {
+  HaloFinger &f = halo_finger;
+  vol_active = true;
+  if (!vol_screen_up()) return false;
+  if (f.pressed) vol_armed = fabsf(f.y0 - CY) < 80 && fabsf(f.x0 - (CX + VOL_BTN_DX)) < 110 ? 0 : fabsf(f.y0 - CY) < 80 && fabsf(f.x0 - (CX - VOL_BTN_DX)) < 110 ? 1 : -1;
+  if (f.dragging) vol_armed = -1;
+  if (f.tap) {
+    if (vol_armed >= 0) vol_set(vol_level + (vol_armed ? -1 : 1)), vol_idle_in = 3;
+    else vol_screen.target = 0;
+  }
+  if ((vol_idle_in -= dt) < 0) vol_screen.target = 0;
+  if (!f.down) vol_armed = -1;
+  return true;
+}
+
+static float vol_layout(const HaloView &v) {
+  const float vs = halo_clamp01(vol_screen.x);
+  const float f_own = halo_clamp01(1 - vs / 0.4f), f_vol = halo_clamp01((vs - 0.4f) / 0.6f);  // fade through
+  const float sc = 0.92f + 0.08f * f_vol, lvl = halo_clamp01(vol_lvl);
+  for (int i = 0; i < 2; i++) {  // the level: the track, then (drawn over it) what is filled
+    HaloItem &it = vol_arc[i];
+    const float w = i ? fmaxf(14, VOL_BAR_W * lvl) : VOL_BAR_W;
+    it.kind = HI_RRECT, it.x = CX - VOL_BAR_W / 2 + w / 2, it.y = VOL_BAR_Y, it.w = w, it.h = 14, it.r = 7, it.scale = 1;
+    it.color = i ? VOL_FILL : VOL_TRACK, it.alpha = f_vol, it.on_black = !i, it.on = nullptr;
+    halo_view_commit(it, v);
+  }
+  for (int i = 0; i < 2; i++) {
+    const float p = halo_clamp01(vol_btn[i].s.x), mx = CX + (i ? -VOL_BTN_DX : VOL_BTN_DX) * sc;
+    HaloItem &b = vol_b[i];
+    b.kind = HI_RRECT, b.x = mx, b.y = CY, b.w = 200 * sc, b.h = 140 * sc, b.r = (70 + (28 - 70) * p) * sc, b.scale = 1;
+    b.color = VOL_BTN, b.alpha = f_vol, b.on_black = true, b.on = nullptr;
+    halo_view_commit(b, v);
+    gl_text_mid(vol_b_ic[i], gl_ic24, i ? VOL_MINUS : VOL_PLUS, vol_mid_i, mx, CY, 1.8f * sc, VOL_PRIMARY, f_vol, nullptr);
+    halo_view_commit(vol_b_ic[i], v);
+  }
+  gl_text_mid(vol_ic, gl_ic24, VOL_SPEAKER, vol_mid_i, CX, CY, 3 * sc, VOL_ON_SURFACE, f_vol, nullptr);
+  halo_view_commit(vol_ic, v);
+  return f_own;
+}
+#endif
 static void vol_draw() {
   for (auto &it : vol_arc) halo_item_draw(it);
   for (int i = 0; i < 2; i++) halo_item_draw(vol_b[i]), halo_item_draw(vol_b_ic[i]);

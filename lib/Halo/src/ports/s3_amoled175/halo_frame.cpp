@@ -30,7 +30,9 @@
 //     один проход, новый ждёт следующего TE (проход тот же, что был бы вслед, — ничего не теряется).
 // Замер HaloWatch (лента, бросок): было 10 смен способа на 80 кадров — 6 кадров дважды, 6 ни разу, шаг движения
 // гулял до 14 мс (tools/trace.py: «кадры на экране»).
-#include "halo_internal.h"
+#include <sdkconfig.h>
+#if CONFIG_IDF_TARGET_ESP32S3  // this board's port: other boards build their own
+#include "halo_s3.h"
 #include "halo_spans.h"
 #include <esp_timer.h>
 
@@ -742,3 +744,5 @@ void halo_loop() {
   }
   delay(5);
 }
+
+#endif  // CONFIG_IDF_TARGET_ESP32S3

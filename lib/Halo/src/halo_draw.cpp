@@ -41,7 +41,7 @@ static inline Paint paint(uint32_t rgb, float alpha) {
   Paint P;
   P.r16 = lv5(rgb >> 16 & 255), P.g16 = lv6(rgb >> 8 & 255), P.b16 = lv5(rgb & 255);
   P.r5 = (P.r16 + 8) >> 4, P.g6 = (P.g16 + 8) >> 4, P.b5 = (P.b16 + 8) >> 4;
-  P.c = __builtin_bswap16((P.r5 << 11) | (P.g6 << 5) | P.b5);
+  P.c = HALO_PX((P.r5 << 11) | (P.g6 << 5) | P.b5);
   P.A = (int)(halo_clamp01(alpha) * 256 + 0.5f), P.lut = nullptr;
   P.dith = ((P.r16 | P.g16 | P.b16) & 15) != 0;
   P.a5 = (P.A + 4) >> 3;
@@ -59,7 +59,7 @@ static inline void dith_span(uint16_t *row, int y, int x0, int x1, const Paint &
   const uint8_t *t = BAYER[y & 3];
   uint16_t col[4];
   for (int i = 0; i < 4; i++)
-    col[i] = __builtin_bswap16(min(31, (P.r16 + t[i]) >> 4) << 11 | min(63, (P.g16 + t[i]) >> 4) << 5 |
+    col[i] = HALO_PX(min(31, (P.r16 + t[i]) >> 4) << 11 | min(63, (P.g16 + t[i]) >> 4) << 5 |
                                min(31, (P.b16 + t[i]) >> 4));
   int x = x0;
   if ((uintptr_t)(row + x) & 2) row[x] = col[x & 3], x++;
@@ -82,6 +82,10 @@ static inline void fill(uint16_t *row, int y, int x0, int x1, const Paint &P) {
     else halo_span(row, x0, x1, P.c);
     return;
   }
+#ifdef HALO_FAST_VEIL
+  if (x0 <= x1) halo_fast_veil(row + x0, x1 - x0 + 1, P.c, P.A);
+  return;
+#endif
   const uint32_t na = 32 - P.a5;
   const uint8_t *t = BAYER[y & 3];
   uint32_t fb[4];
@@ -89,18 +93,18 @@ static inline void fill(uint16_t *row, int y, int x0, int x1, const Paint &P) {
   if (!P.fa) {  // чёрный поверх (затемнение под экраном в переходе): чёрное остаётся чёрным — его не трогаем
     for (int x = x0; x <= x1; x++) {
       if (!row[x]) continue;
-      uint32_t d = __builtin_bswap16(row[x]);
+      uint32_t d = HALO_PX(row[x]);
       d = (d | d << 16) & 0x07E0F81F;
       d = ((d * na + fb[x & 3]) >> 5) & 0x07E0F81F;
-      row[x] = __builtin_bswap16((uint16_t)(d | d >> 16));
+      row[x] = HALO_PX((uint16_t)(d | d >> 16));
     }
     return;
   }
   for (int x = x0; x <= x1; x++) {
-    uint32_t d = __builtin_bswap16(row[x]);
+    uint32_t d = HALO_PX(row[x]);
     d = (d | d << 16) & 0x07E0F81F;
     d = ((d * na + fb[x & 3]) >> 5) & 0x07E0F81F;
-    row[x] = __builtin_bswap16((uint16_t)(d | d >> 16));
+    row[x] = HALO_PX((uint16_t)(d | d >> 16));
   }
 }
 
@@ -431,10 +435,10 @@ void HALO_HOT halo_arc(float cx, float cy, float r, float hw, float a0, float a1
 // яркость — 32 ступени, вместо урезания — порог узора 4×4 (средний цвет точный). Край круга — с долей покрытия:
 // за ним может быть соседний слой
 static inline uint16_t fade_px(uint16_t c, uint32_t k5, uint32_t bias) {
-  uint32_t d = __builtin_bswap16(c);
+  uint32_t d = HALO_PX(c);
   d = (d | d << 16) & 0x07E0F81F;
   d = ((d * k5 + bias) >> 5) & 0x07E0F81F;
-  return __builtin_bswap16((uint16_t)(d | d >> 16));
+  return HALO_PX((uint16_t)(d | d >> 16));
 }
 
 void HALO_HOT halo_fade_circle(float cx, float cy, float r, float k) {
@@ -522,7 +526,7 @@ static void make_lut(uint16_t lut[16], const Paint &P, uint32_t bg) {
     const int a = (v * 17 * P.A) >> 8;  // 0..256
     const int r = br + (((P.r5 - br) * a + 128) >> 8), g = bgr + (((P.g6 - bgr) * a + 128) >> 8);
     const int b = bb + (((P.b5 - bb) * a + 128) >> 8);
-    lut[v] = __builtin_bswap16((r << 11) | (g << 5) | b);
+    lut[v] = HALO_PX((r << 11) | (g << 5) | b);
   }
 }
 
@@ -795,11 +799,11 @@ bool halo_text_arc(HaloMask &m, const HaloFont &f, const char *s, float mid, flo
 // Пиксель дисплея (старший байт первым) ↔ «разложенный» RGB565: B — биты 0..4, R — 11..15, G — 21..26; между
 // полями — запас, чтобы умножать все три канала на вес до 32 одним умножением
 static inline uint32_t spread565(uint16_t px) {
-  const uint32_t c = __builtin_bswap16(px);
+  const uint32_t c = HALO_PX(px);
   return (c | (c << 16)) & 0x07E0F81F;
 }
 static inline uint16_t pack565(uint32_t c) {
-  return __builtin_bswap16((uint16_t)(c | (c >> 16)));
+  return HALO_PX((uint16_t)(c | (c >> 16)));
 }
 // Как img_put, но цвет уже разложен, а прозрачность целиком — A5 0..32
 static inline void img_put5(uint16_t *p, uint32_t s, int a, int A5) {
@@ -817,11 +821,11 @@ static inline void img_put(uint16_t *p, uint16_t src, int a, int A) {  // a — 
     return;
   }
   const int k = (a * 17 * A) >> 8;  // насколько закрываем фон, 0..256
-  const uint32_t d = __builtin_bswap16(*p), s = __builtin_bswap16(src);
+  const uint32_t d = HALO_PX(*p), s = HALO_PX(src);
   const int R = ((d >> 11) * (256 - k) + (s >> 11) * A) >> 8;
   const int G = (((d >> 5) & 63) * (256 - k) + ((s >> 5) & 63) * A) >> 8;
   const int B = ((d & 31) * (256 - k) + (s & 31) * A) >> 8;
-  *p = __builtin_bswap16((min(R, 31) << 11) | (min(G, 63) << 5) | min(B, 31));
+  *p = HALO_PX((min(R, 31) << 11) | (min(G, 63) << 5) | min(B, 31));
 }
 
 void HALO_HOT halo_image(const HaloImage &im, float x, float y, float alpha, float scale) {

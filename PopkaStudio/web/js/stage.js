@@ -23,12 +23,13 @@
 // the anchor to the screen's center lines and to HaloWatch's place.
 import {
   state, screens, screenById, layerById, screenOf, selected, select, change, beginGesture, emit, newLayer, links,
-  activeScreen, mainScreen, KINDS, KIND_INDEX, TILE, LISTED, listed, moveInList, listIndex, wayTo, home,
-  PAGES, PAGE_STEP, paged, span, citiesOf, isGallery, pagesOf, pageName, on, listPlace,
+  activeScreen, mainScreen, KINDS, KIND_INDEX, LISTED, listed, moveInList, listIndex, wayTo, home,
+  roomFor, PAGES, PAGE_STEP, paged, span, citiesOf, isGallery, pagesOf, pageName, on, listPlace,
 } from './state.js';
 import { Engine, engines, paints } from './engine.js';
+import { BOARD, TW, TH, CX, CY, ROUND, BEZEL } from './screen.js';
 
-const CX = 233, SNAP = 6, HANDLE = 5, SAVE_KEY = 'popka.view';
+const SNAP = 6, HANDLE = 5, SAVE_KEY = ROUND ? 'popka.view' : `popka.view.${BOARD.id}`;  // (each shape its own zoom)
 // Round the screen's middle: curved text, the week, the forecast (they turn: angle) and the rings (radius only). Dragged,
 // they go round the middle and to or from it — they stay round it, X and Y untouched (moveRadial)
 const RADIAL = new Set(['curve', 'weekarc', 'forecast', 'stepring', 'batring']);
@@ -83,7 +84,9 @@ export class Stage {
     this.mapView = saved.mapView && saved.mapView.view?.z > 0 ? saved.mapView : null;  // {view, fitTo}: Map as left
     this.startMode = saved.mode === 'map' ? 'map' : 'edit';
     this.mapCam = this.startMode === 'map';  // the view now is Map's
-    this.live = new Engine(document.getElementById('live'), -1);
+    const liveCanvas = document.getElementById('live');
+    liveCanvas.width = TW, liveCanvas.height = TH;
+    this.live = new Engine(liveCanvas, -1);
     this.onEdit = null;  // a double click on a screen in Map: main.js opens Edit on it
     this.pager = document.getElementById('pager');
     this.pager.addEventListener('pointerdown', (e) => e.stopPropagation());  // (not the field's: no deselect)
@@ -111,7 +114,7 @@ export class Stage {
   // others keep their last picture and do nothing — no frames, no project — till they are seen again (engine.js: show)
   showEngines() {
     const { x, y, z } = state.view, x0 = -x / z, y0 = -y / z, x1 = x0 + (this.vw ?? 0) / z, y1 = y0 + (this.vh ?? 0) / z;
-    const sees = (mx, my) => mx < x1 && mx + TILE > x0 && my < y1 && my + TILE > y0;
+    const sees = (mx, my) => mx < x1 && mx + TW > x0 && my < y1 && my + TH > y0;
     const tr = state.mode === 'try';
     for (const s of screens()) {
       const t = this.tiles.get(s.id);
@@ -289,8 +292,8 @@ export class Stage {
 
   inView(s) {
     const r = this.viewport.getBoundingClientRect(), { x, y, z } = state.view;
-    const x0 = x + this.pageX(s) * z, y0 = y + s.y * z, w = TILE * z;
-    if (!(x0 + w > 0 && x0 < r.width && y0 + w > 0 && y0 < r.height)) this.center(s);
+    const x0 = x + this.pageX(s) * z, y0 = y + s.y * z, w = TW * z, h = TH * z;
+    if (!(x0 + w > 0 && x0 < r.width && y0 + h > 0 && y0 < r.height)) this.center(s);
   }
 
   center(s) {
@@ -302,14 +305,14 @@ export class Stage {
   // Edit: the active screen in the middle — fitted to the window, or at the zoom set by hand
   editFitZoom() {
     const r = this.viewport.getBoundingClientRect();
-    const z = Math.min((r.width - 600) / TILE, (r.height - 230) / TILE);  // room for the cards at the sides, the top row,
+    const z = Math.min((r.width - 600) / (TW + 2 * BEZEL[0]), (r.height - 230) / (TH + 2 * BEZEL[1]));  // room for the cards at the sides, the top row,
                                                                           // the name above the screen
     return Math.max(0.25, Math.min(2, Math.floor(z * 4) / 4));
   }
 
   editCenter(z, s = activeScreen()) {
     const r = this.viewport.getBoundingClientRect();
-    return [(r.width - TILE * z) / 2 - this.pageX(s) * z, (r.height - TILE * z) / 2 - s.y * z - 6];
+    return [(r.width - TW * z) / 2 - this.pageX(s) * z, (r.height - TH * z) / 2 - s.y * z - 6];
   }
 
   // Fit the active screen: in the middle, as big as the window lets it be
@@ -366,7 +369,7 @@ export class Stage {
         const el = document.createElement('div');
         el.className = 'tile';
         const canvas = document.createElement('canvas');
-        canvas.width = canvas.height = TILE;
+        canvas.width = TW, canvas.height = TH;
         el.append(canvas);
         this.world.append(el);
         t = { el, canvas, engine: new Engine(canvas, i), pages: [] };
@@ -380,7 +383,7 @@ export class Stage {
       while (t.pages.length < want) {
         const k = t.pages.length + 1, el = document.createElement('div'), canvas = document.createElement('canvas');
         el.className = 'page', el.style.left = k * PAGE_STEP + 'px';
-        canvas.width = canvas.height = TILE;
+        canvas.width = TW, canvas.height = TH;
         el.append(canvas), t.el.append(el);
         const q = { el, canvas, engine: new Engine(canvas, i, k) };
         t.pages.push(q);
@@ -415,6 +418,9 @@ export class Stage {
     if (this.drag?.kind === 'list') return;  // (grabbed in its list: it stays where it is under the mouse)
     const l = selected(), s = l && screenOf(l.id), e = s && this.engineOf(s);
     if (e && (LISTED.has(l.type) || l.type === 'edge')) e.scroll(screens().indexOf(s), s.layers.indexOf(l));  // (More: the list's end)
+    // The quick settings panel: open on the home's copy while its layer is selected (shade_rect.h: the command shade)
+    const he = this.engineOf(home()), open = l?.type === 'shade';
+    if (he?.M && he.shadeOpen !== open) he.shadeOpen = open, he.command(open ? 'shade open' : 'shade close');
   }
 
   engineOf(s) {
@@ -426,7 +432,7 @@ export class Stage {
   base(layer) {
     const s = screenOf(layer.id), e = s && this.engineOf(s), i = s ? s.layers.indexOf(layer) : -1;
     const p = e && e.M && i >= 0 ? e.places(screens().indexOf(s), s.layers.length)[i] : null;
-    return p || (this.live.bases || [])[KIND_INDEX[layer.type]] || [CX, CX];
+    return p || (this.live.bases || [])[KIND_INDEX[layer.type]] || [CX, CY];
   }
 
   // Where its layers were drawn (page k: in that page's copy)
@@ -438,7 +444,7 @@ export class Stage {
   // A map point in screen s: [x, y, page] — on one of its pages, that page's own pixels
   inScreen(s, mx, my) {
     let x = mx - s.x, k = 0;
-    if (paged(s) && x > TILE) k = Math.min(pagesOf(s) - 1, Math.round(x / PAGE_STEP)), x -= k * PAGE_STEP;
+    if (paged(s) && x > TW) k = Math.min(pagesOf(s) - 1, Math.round(x / PAGE_STEP)), x -= k * PAGE_STEP;
     return [x, my - s.y, k];
   }
 
@@ -473,7 +479,7 @@ export class Stage {
     const r = this.viewport.getBoundingClientRect(), v = state.view;
     if (cx == null) {
       const s = activeScreen();
-      [cx, cy] = state.mode === 'map' ? [r.width / 2, r.height / 2] : this.toView(this.pageX(s) + CX, s.y + CX);
+      [cx, cy] = state.mode === 'map' ? [r.width / 2, r.height / 2] : this.toView(this.pageX(s) + CX, s.y + CY);
     }
     z = Math.max(0.1, Math.min(4, z));
     v.x = cx - ((cx - v.x) * z) / v.z, v.y = cy - ((cy - v.y) * z) / v.z, v.z = z;
@@ -494,7 +500,7 @@ export class Stage {
     const list = screens();
     const r = this.viewport.getBoundingClientRect();
     const x0 = Math.min(...list.map((s) => s.x)) - 60, x1 = Math.max(...list.map((s) => s.x + span(s))) + 60;
-    const y0 = Math.min(...list.map((s) => s.y - 110)), y1 = Math.max(...list.map((s) => s.y + TILE)) + 150;
+    const y0 = Math.min(...list.map((s) => s.y - 110)), y1 = Math.max(...list.map((s) => s.y + TH)) + 150;
     // (in the room the cards leave: the left card, the right one while it shows properties, the top row)
     const props = document.querySelector('.card.right:not(.bare)');
     const L = 280, T = 50, R = props ? 300 : 20, B = 30, w = r.width - L - R, hh = r.height - T - B;
@@ -529,7 +535,7 @@ export class Stage {
     const list = this.shown();
     for (let i = list.length - 1; i >= 0; i--) {
       const s = list[i];
-      if (mx >= s.x && mx <= s.x + span(s) && my >= s.y && my <= s.y + TILE) return s;
+      if (mx >= s.x && mx <= s.x + span(s) && my >= s.y && my <= s.y + TH) return s;
     }
     return null;
   }
@@ -560,22 +566,23 @@ export class Stage {
   // Where in screen s's list a title or a card at board height y goes: {to — its place among the others (skip — the
   // one being dragged, not counted), line — the height of the gap there, or null}. Items scrolled out of the screen
   // have no box: those before the first one shown are above, the rest below
-  listSlot(s, y, skip, type = skip?.type || 'card') {
+  listSlot(s, y, skip, type = skip?.type || 'card', x = undefined) {
     const boxes = this.boxes(s), items = listed(s).filter((q) => q !== skip);
     const box = (q) => { const b = boxes[s.layers.indexOf(q)]; return b && b[2] >= b[0] ? b : null; };
     const first = items.findIndex(box);
     let to = 0;
     items.forEach((q, k) => {
       const b = box(q), mid = b ? (b[1] + b[3]) / 2 : k < first ? -Infinity : Infinity;
-      if (mid < y) to = k + 1;
+      // (a rectangle's gallery is a grid: in reading order — the rows above, then this row's cards to the left)
+      if (x !== undefined && b ? b[3] < y || (b[1] <= y && (b[0] + b[2]) / 2 < x) : mid < y) to = k + 1;
     });
     to = listPlace(s, skip, to, type);  // (never above the gallery's title: its head)
     const a = items[to - 1] && box(items[to - 1]), b = items[to] && box(items[to]);
-    return { to, line: a && b ? (a[3] + b[1]) / 2 : a ? a[3] + 8 : b ? b[1] - 8 : null };
+    return { to, line: x !== undefined ? null : a && b ? (a[3] + b[1]) / 2 : a ? a[3] + 8 : b ? b[1] - 8 : null };
   }
 
   // A title or a card dragged in its list: the place under its middle (its box when grabbed, moved with the mouse)
-  dragInList(d, my) {
+  dragInList(d, my, mx) {
     const l = layerById(d.id), s = l && screenOf(l.id);
     if (!s || !d.box) return;
     if (!d.moved) {
@@ -583,7 +590,8 @@ export class Stage {
       d.moved = true;
     }
     d.dy = my - d.y0;
-    Object.assign(d, this.listSlot(s, (d.box[1] + d.box[3]) / 2 + d.dy, l), { from: listed(s).indexOf(l) });
+    d.dx = ROUND ? 0 : mx - d.x0;  // (a grid: sideways too)
+    Object.assign(d, this.listSlot(s, (d.box[1] + d.box[3]) / 2 + d.dy, l, l.type, ROUND ? undefined : (d.box[0] + d.box[2]) / 2 + d.dx), { from: listed(s).indexOf(l) });
   }
 
   // ---------- Links as curves (map coordinates; Map only) ----------
@@ -611,26 +619,30 @@ export class Stage {
       let a = Math.atan2(toward[1] - c[1], toward[0] - c[0]);
       if (Math.abs(a - up) < 0.7) a = up + (a <= up ? -0.7 : 0.7);
       const d = [Math.cos(a), Math.sin(a)];
+      if (!ROUND) {  // a rectangle: where the ray leaves the bezel, and out square to that edge
+        const hw = CX + BEZEL[0] + 10, hh = CY + BEZEL[1] + 10, k = Math.min(hw / Math.abs(d[0] || 1e-6), hh / Math.abs(d[1] || 1e-6));
+        return { p: [c[0] + d[0] * k, c[1] + d[1] * k], d: Math.abs(d[0]) * hh > Math.abs(d[1]) * hw ? [Math.sign(d[0]), 0] : [0, Math.sign(d[1])] };
+      }
       return { p: [c[0] + d[0] * (CX + 10), c[1] + d[1] * (CX + 10)], d };
     };
     for (const k of links()) {
       const h = k.from, bb = this.boxes(h)[h.layers.indexOf(k.layer)];
-      const b = bb && (bb[1] + bb[3]) / 2 > 0 && (bb[1] + bb[3]) / 2 < TILE ? bb : null;  // a card off the list's view: none
-      const tc = [k.to.x + CX, k.to.y + CX];
+      const b = bb && (bb[1] + bb[3]) / 2 > 0 && (bb[1] + bb[3]) / 2 < TH ? bb : null;  // a card off the list's view: none
+      const tc = [k.to.x + CX, k.to.y + CY];
       let start;
       if (k.layer.type === 'edge' && b) {  // More: out of the button's bottom, downwards
-        start = { p: [h.x + CX, h.y + Math.min(b[3], TILE) + 8], d: [0, 1] };
+        start = { p: [h.x + CX, h.y + Math.min(b[3], TH) + 8], d: [0, 1] };
       } else if (b) {
         const right = tc[0] >= h.x + (b[0] + b[2]) / 2;
         start = { p: [h.x + (right ? b[2] + 8 : b[0] - 8), h.y + (b[1] + b[3]) / 2], d: [right ? 1 : -1, 0] };
       } else {  // a card scrolled out of the screen: from its screen's ring
-        start = ring([h.x + CX, h.y + CX], tc);
+        start = ring([h.x + CX, h.y + CY], tc);
       }
       arcs.push(this.arc('link', k.layer.id, start, ring(tc, start.p)));
     }
     const m = mainScreen(), f = screens()[0];
     if (m) {  // the face and the gallery: a swipe up, a swipe down from the top edge back
-      const fc = [f.x + CX, f.y + CX], mc = [m.x + CX, m.y + CX];
+      const fc = [f.x + CX, f.y + CY], mc = [m.x + CX, m.y + CY];
       arcs.push(this.arc('main', m.id, ring(fc, mc), ring(mc, fc)));
     }
     return arcs;
@@ -753,7 +765,7 @@ export class Stage {
     }
     const toBoard = (e) => {
       const r = live.getBoundingClientRect();
-      return [((e.clientX - r.left) / r.width) * TILE, ((e.clientY - r.top) / r.height) * TILE];
+      return [((e.clientX - r.left) / r.width) * TW, ((e.clientY - r.top) / r.height) * TH];
     };
     live.addEventListener('pointerdown', (e) => {
       live.setPointerCapture(e.pointerId);
@@ -830,7 +842,7 @@ export class Stage {
     c.setTransform(1, 0, 0, 1, 0, 0);
     c.clearRect(0, 0, w, h);
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    drawName(c, name, left + (TILE * z) / 2, top, z, s === screens()[0] && open !== -2, NAME.active);
+    drawName(c, name, left + (TW * z) / 2, top - BEZEL[1] * z, z, s === screens()[0] && open !== -2, NAME.active);
   }
 
   down(e) {
@@ -862,7 +874,7 @@ export class Stage {
         if (paged(s) && state.page !== page) state.page = page, emit('select');  // (on this page)
         // (a part of the gallery: the list places it — selected, not moved; a title or a card — to another place in it,
         // the list still till it is let go)
-        this.drag = LISTED.has(l.type) ? { kind: 'list', id: l.id, y0: my, box: this.boxes(s, page)[s.layers.indexOf(l)], moved: false }
+        this.drag = LISTED.has(l.type) ? { kind: 'list', id: l.id, x0: mx, y0: my, box: this.boxes(s, page)[s.layers.indexOf(l)], moved: false }
           : KINDS[l.type].fixed ? { kind: 'still', moved: false }
             : { kind: 'move', id: l.id, x0: mx, y0: my, dx0: l.dx, dy0: l.dy, moved: false };
       } else {
@@ -889,7 +901,7 @@ export class Stage {
         return this.viewMoved();
       }
       if (d.kind === 'tile') return this.moveTile(d, mx, my);
-      if (d.kind === 'list') return this.dragInList(d, my), (this.viewport.style.cursor = d.moved ? 'grabbing' : 'grab');
+      if (d.kind === 'list') return this.dragInList(d, my, mx), (this.viewport.style.cursor = d.moved ? 'grabbing' : 'grab');
       if (d.kind === 'resize') return this.resizeTo(d, mx, my);
       return this.moveLayer(d, mx, my, e.altKey);
     }
@@ -926,15 +938,16 @@ export class Stage {
     const probe = newLayer(kind, null, s);
     let at = {};
     if (x !== undefined) {
-      const [bx, by] = (this.live.bases || [])[KIND_INDEX[kind]] || [CX, CX];
+      const [bx, by] = (this.live.bases || [])[KIND_INDEX[kind]] || [CX, CY];
       at = { dx: Math.round(x - bx), dy: Math.round(y - by) };
     }
     const l = newLayer(kind, at, s);
+    const shifts = roomFor(kind, s);
     // a title or a card dropped onto a list: into the list where it was dropped (a click — at its end); the stars —
     // the background: under everything
     const i = kind === 'stars' ? 0 : LISTED.has(kind) && y !== undefined && listed(s).length ? listIndex(s, this.listSlot(s, y, null, kind).to, kind)
       : kind === 'title' && listed(s).length ? listIndex(s, listed(s).length, kind) : s.layers.length;  // (a list's first title: its head, on top)
-    change(() => s.layers.splice(i, 0, l), { structure: true });
+    change(() => { s.layers.splice(i, 0, l), shifts(); }, { structure: true });
     select({ type: 'layer', id: l.id });
   }
 
@@ -971,7 +984,7 @@ export class Stage {
     if (!free) {
       const r = SNAP / state.view.z + 1;
       const sx = [[CX - bx, CX], [0, bx]].find(([v]) => Math.abs(dx - v) <= r);
-      const sy = [[CX - by, CX], [0, by]].find(([v]) => Math.abs(dy - v) <= r);
+      const sy = [[CY - by, CY], [0, by]].find(([v]) => Math.abs(dy - v) <= r);
       if (sx) dx = sx[0], this.guides.push(['v', sx[1], s]);
       if (sy) dy = sy[0], this.guides.push(['h', sy[1], s]);
     }
@@ -1065,7 +1078,7 @@ export class Stage {
     if (!on) return;
     const pg = paged(s), n = pg ? pagesOf(s) : 1, k = Math.min(state.page, n - 1);
     const z = state.view.z, vx = this.slide ? this.slideTo : state.view.x;
-    const left = Math.round(vx + (this.pageX(s) + CX) * z) + 'px', top = Math.round(state.view.y + s.y * z - 10 * z - 38) + 'px';
+    const left = Math.round(vx + (this.pageX(s) + CX) * z) + 'px', top = Math.round(state.view.y + s.y * z - (10 + BEZEL[1]) * z - 38) + 'px';
     if (this.pager.style.left !== left) this.pager.style.left = left;
     if (this.pager.style.top !== top) this.pager.style.top = top;
     const key = [s.id, k, n, this.rev, this.fwd.length, this.came].join('|');
@@ -1138,7 +1151,7 @@ export class Stage {
     this.labels = [];
     const z = state.view.z;
     for (const s of this.shown()) {
-      const [cx, top] = V(s.x + CX, s.y), house = s === screens()[0];
+      const [cx, top] = V(s.x + CX, s.y - BEZEL[1]), house = s === screens()[0];
       const color = (k) => (hov && hov.type === 'label' && hov.id === s.id && (hov.page || 0) === k ? NAME.hover
         : s.id === state.screen && (!paged(s) || Math.min(state.page, pagesOf(s) - 1) === k) ? NAME.active : NAME.other);
       if (!paged(s)) {
@@ -1147,11 +1160,11 @@ export class Stage {
       } else {
         const n = pagesOf(s);
         for (let k = 0; k < n; k++) {
-          const [px, pt] = V(s.x + k * PAGE_STEP + CX, s.y), city = pageName(s, k);
+          const [px, pt] = V(s.x + k * PAGE_STEP + CX, s.y - BEZEL[1]), city = pageName(s, k);
           const asPager = state.mode === 'edit' && s.id === state.screen && Math.min(state.page, n - 1) === k;  // (placePager)
           if (!asPager) this.labels.push({ id: s.id, page: k, r: k ? drawName(c, city, px, pt, z, false, color(k)) : drawName(c, s.name, px, pt, z, house, color(0), city) });
           if (k + 1 === n) continue;
-          const [ax, ay] = V(s.x + k * PAGE_STEP + TILE + 10, s.y + CX), [bx] = V(s.x + (k + 1) * PAGE_STEP - 10, 0);
+          const [ax, ay] = V(s.x + k * PAGE_STEP + TW + 10, s.y + CY), [bx] = V(s.x + (k + 1) * PAGE_STEP - 10, 0);
           c.globalAlpha = 0.8, c.strokeStyle = c.fillStyle = '#4c8dff', c.lineWidth = 1.75;
           c.beginPath(), c.moveTo(ax, ay), c.lineTo(bx, ay), c.stroke();
           c.beginPath(), c.moveTo(bx, ay), c.lineTo(bx - 10 * Math.cos(0.5), ay - 10 * Math.sin(0.5)), c.lineTo(bx - 10 * Math.cos(0.5), ay + 10 * Math.sin(0.5));
@@ -1174,7 +1187,7 @@ export class Stage {
         if (!b) continue;
         const ox = s.x + k * PAGE_STEP, [x0, y0] = V(ox + b[0], s.y + b[1]), [x1, y1] = V(ox + b[2], s.y + b[3]);
         c.strokeStyle = color, c.lineWidth = width;
-        if (KINDS[l.type].round) c.beginPath(), c.arc((x0 + x1) / 2, (y0 + y1) / 2, (x1 - x0 - width) / 2, 0, Math.PI * 2), c.stroke();
+        if (KINDS[l.type].round && ROUND) c.beginPath(), c.arc((x0 + x1) / 2, (y0 + y1) / 2, (x1 - x0 - width) / 2, 0, Math.PI * 2), c.stroke();
         else c.strokeRect(x0, y0, x1 - x0, y1 - y0);
         if (!k) first = [x0, y0, x1, y1];
       }
@@ -1196,15 +1209,15 @@ export class Stage {
         c.arc(ox, oy, rr, 0, Math.PI * 2), c.stroke();
         continue;
       }
-      if (dir === 'v') c.moveTo(...V(s.x + v, s.y)), c.lineTo(...V(s.x + v, s.y + TILE));
-      else c.moveTo(...V(s.x, s.y + v)), c.lineTo(...V(s.x + TILE, s.y + v));
+      if (dir === 'v') c.moveTo(...V(s.x + v, s.y)), c.lineTo(...V(s.x + v, s.y + TH));
+      else c.moveTo(...V(s.x, s.y + v)), c.lineTo(...V(s.x + TW, s.y + v));
       c.stroke();
     }
     const d = this.drag;
     if (d && d.kind === 'list' && d.moved && d.box) {  // a title or a card dragged in its list: it, and where it goes
       const s = screenOf(d.id), b = d.box;
       if (s) {
-        const [x0, y0] = V(s.x + b[0], s.y + b[1] + d.dy), [x1, y1] = V(s.x + b[2], s.y + b[3] + d.dy);
+        const [x0, y0] = V(s.x + b[0] + d.dx, s.y + b[1] + d.dy), [x1, y1] = V(s.x + b[2] + d.dx, s.y + b[3] + d.dy);
         c.fillStyle = 'rgba(76,141,255,0.12)', c.fillRect(x0, y0, x1 - x0, y1 - y0);
         c.setLineDash([4, 3]), c.strokeStyle = '#4c8dff', c.lineWidth = 1.5, c.strokeRect(x0, y0, x1 - x0, y1 - y0), c.setLineDash([]);
         if (d.to !== d.from && d.line != null) {

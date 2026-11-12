@@ -1,0 +1,22 @@
+{
+  "id": "amoled175",
+  "order": 1,
+  "name": "Waveshare ESP32-S3-Touch-AMOLED-1.75C",
+  "short": "AMOLED 1.75",
+  "maker": "Waveshare",
+  "title": "ESP32-S3 AMOLED 1.75",
+  "screen": "466 × 466, round",
+  "spec": "1.75″ round · 466 × 466",
+  "drawn": "round",
+  "art": "img/board-amoled175-face.webp",
+  "usb": ["303A:1001"],
+  "chip": "ESP32-S3",
+  "psram": 8,
+  "flash": 32,
+  "w": 466,
+  "h": 466,
+  "shape": "round",
+  "engine": "build",
+  "without": ["video"],
+  "fqbn": "esp32:esp32:esp32s3:FlashSize=32M,PSRAM=opi,FlashMode=qio,PartitionScheme=app5M_fat24M_32MB,USBMode=hwcdc,CDCOnBoot=cdc,UploadSpeed=460800"
+}

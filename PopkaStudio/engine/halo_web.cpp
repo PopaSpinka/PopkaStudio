@@ -52,7 +52,26 @@ uint32_t esp_random() {  // xorshift32: the same "random" on every start — a p
 static HaloSpans dmg[HALO_BANDS];  // n = 0 — the band is clean
 static int16_t chord_x0[HALO_BANDS], chord_x1[HALO_BANDS];  // the round screen within the band (even — odd)
 
+#ifdef HALO_FAST_VEIL  // (a board with its own loop for this: here the same formula, so the page shows what the board shows)
+// (each channel on its own, as the board's halo_p4_simd.cpp since 9 Nov 2026: R and B in one multiply let R's low
+// product bits into B's top ones — a blue cast under every veil over color)
+void halo_fast_veil(uint16_t *p, int n, uint16_t color, int A) {
+  const uint32_t kinv = 256 - A;
+  const uint32_t veil = (((color & 0xF800u) * (uint32_t)A >> 8) & 0xF800u) | (((color & 0x07E0u) * (uint32_t)A >> 8) & 0x07E0u) |
+                        ((color & 0x001Fu) * (uint32_t)A >> 8);
+  for (int i = 0; i < n; i++) {
+    const uint32_t c = p[i];
+    const uint32_t r = ((c & 0xF800u) * kinv >> 8) & 0xF800u, g = ((c & 0x07E0u) * kinv >> 8) & 0x07E0u, b = (c & 0x001Fu) * kinv >> 8;
+    p[i] = (uint16_t)(r + g + b + veil);
+  }
+}
+#endif
+
 static void chords() {
+#ifndef HALO_ROUND  // a rectangle: every band is the whole width
+  for (int b = 0; b < HALO_BANDS; b++) chord_x0[b] = 0, chord_x1[b] = HALO_W - 1, dmg[b].n = 0;
+  return;
+#endif
   const float c = (HALO_W - 1) / 2.0f, R = HALO_W / 2.0f;
   for (int b = 0; b < HALO_BANDS; b++) {
     const int y = b * HALO_ROWS, rows = min(HALO_ROWS, HALO_H - y);
@@ -117,7 +136,7 @@ static bool shade() {
   for (int i = 0; i < 32; i++) lv5[i] = (uint8_t)lroundf(x5[i] * f);
   for (int i = 0; i < 64; i++) lv6[i] = (uint8_t)lroundf(x6[i] * f);
   for (int i = 0; i < HALO_W * HALO_H; i++) {
-    const uint16_t v = __builtin_bswap16(panel[i]);
+    const uint16_t v = HALO_PX(panel[i]);
     rgba[i * 4] = lv5[v >> 11], rgba[i * 4 + 1] = lv6[(v >> 5) & 63], rgba[i * 4 + 2] = lv5[v & 31];
   }
   return true;
@@ -131,7 +150,7 @@ static void band_out(int y, int rows, int x0, int x1) {
     for (int x = x0; x <= x1; x++, px += 4) {
       const uint16_t c = src[x];
       dst[x] = c;
-      const uint16_t v = __builtin_bswap16(c);
+      const uint16_t v = HALO_PX(c);
       px[0] = lv5[v >> 11], px[1] = lv6[(v >> 5) & 63], px[2] = lv5[v & 31], px[3] = 255;
     }
   }

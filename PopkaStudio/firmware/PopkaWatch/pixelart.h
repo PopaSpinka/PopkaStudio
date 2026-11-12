@@ -31,7 +31,7 @@ static void pixel_layout(const FaceScreen &S, int i, float a, const HaloView &v)
   HaloItem &it = R.pill;
   const HaloPixels &P = pixel_art(L.kind);
   it.kind = HI_PIXELS, it.pixels = &P;
-  it.x = CX + L.dx, it.y = CX + L.dy, it.scale = PX_CELL * L.k, it.a0 = L.p * (HALO_PI / 180), it.alpha = a;
+  it.x = CX + L.dx, it.y = CY + L.dy, it.scale = PX_CELL * L.k, it.a0 = L.p * (HALO_PI / 180), it.alpha = a;
   it.hide = L.p2 > 0.5f ? 0 : P.apart, it.tile = L.p2 > 1.5f, it.on_black = true;
   it.trail = L.p3 > 1 ? (int16_t)lroundf((L.p3 - 1) * P.tn) : 0;
   it.frame = fc_calm ? 0 : (halo_ms() / P.ms) % P.frames;

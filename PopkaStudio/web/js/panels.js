@@ -1,6 +1,8 @@
-// panels.js — Elements (three folders and the shelf of the open one: what can go on a screen), Screens, Functions (the
-// watch's: Always On, the buttons, Wi-Fi, Bluetooth — each with a switch; in the left card, folds), Layers (of the active screen) and Properties (of
-// a layer, a screen, a link, the way to the gallery or a function: what can be set, no more).
+// panels.js — Elements (three folders and the shelf of the open one: what can go on a screen), System (the watch's
+// functions: Always On, the buttons, Wi-Fi, Bluetooth — a fourth tile, its menu to the right; each one's switch is in its
+// Properties), Screens and Layers (of the active screen, a line between them to drag) and Properties (of a layer, a
+// screen, a link, the way to the gallery or a function: what can be set, no more).
+import { BOARD, ROUND, allowed, lacks } from './screen.js';
 import {
   state, screens, home, screenById, activeScreen, layers, selected, select, change, KINDS, layerById, screenOf,
   linkedScreens, links, newScreen, emit, PAGED, sync as saved, mainScreen, canLink, targetsFor, ICONS, TAPS, PAGES, paged,
@@ -8,10 +10,11 @@ import {
   LISTED, listed, moveInList, newLayer, FACE_SCREEN, FUNCTIONS, fnOf, setFn, ZONES, timeOf, setTime, citiesOf, unitsOf,
   setWeather, WX_MAX, moveCity, isGallery, galleryFor, SECTIONS, sectionParts, sectionPart, addSection, addAbout, DEVS, SECTION_PATH, titleOf, subGallery, keepHead, gamesGallery, newList, stepsSet, STEP_FAMILY,
   savedFaces, saveFace, removeFace, faceLayers,
-  FACE_PRESETS, FOUR_SIDES, CURVES, INFOS, PIXEL_ART,
+  roomFor, FACE_PRESETS, FOUR_SIDES, CURVES, INFOS, PIXEL_ART, SHADE_LOOKS, CLOCK_LOOKS, clockLook,
 } from './state.js';
 import { thumb } from './previews.js';
 import { openWifi, needWifi } from './wifi.js';
+import { clipsGroup, streamGroup } from './video.js';
 
 // What a tile adds, made apart from the project (for its picture): layers on a screen of their own
 const apart = (parts) => () => {
@@ -36,6 +39,8 @@ const h = (tag, attrs = {}, ...kids) => {
 
 const ICON = {
   clock: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4.8V8l2.2 1.4"/></svg>',
+  // the clock of sixteen looks (Layers → Clock: Hairline, LCD, Sport…) — a clock as the big one's
+  sclock: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4.8V8l2.2 1.4"/></svg>',
   watch: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="4.3"/><path d="M6 3.9 6.5 1.5h3l.5 2.4M6 12.1l.5 2.4h3l.5-2.4M8 6v2l1.3.8"/></svg>',
   widgets: '<svg viewBox="0 0 16 16"><rect x="2" y="2" width="5" height="5" rx="1.3"/><rect x="2" y="9" width="5" height="5" rx="1.3"/><rect x="9" y="9" width="5" height="5" rx="1.3"/><path d="M11.5 1.5 14 4l-2.5 2.5L9 4z"/></svg>',
   stack: '<svg viewBox="0 0 16 16"><path d="M8 2 14 5.2 8 8.4 2 5.2z"/><path d="M2 8.1 8 11.3 14 8.1"/><path d="M2 11 8 14.2 14 11"/></svg>',
@@ -85,6 +90,8 @@ const ICON = {
   scroll: '<svg viewBox="0 0 16 16"><path d="M11.5 3.5a6 6 0 0 1 0 9" stroke-width="1.2" opacity=".5"/><path d="M13 6a6 6 0 0 1 0 4" stroke-width="2.2"/></svg>',
   gallery: '<svg viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="11" height="4" rx="2"/><rect x="2.5" y="9.5" width="11" height="4" rx="2"/></svg>',
   functions: '<svg viewBox="0 0 16 16"><path d="M3 4.5h5M11 4.5h2M3 11.5h2M8 11.5h5"/><circle cx="9.5" cy="4.5" r="1.5"/><circle cx="6.5" cy="11.5" r="1.5"/></svg>',
+  // System (the watch's functions: the fourth tile at the top of the left card): a chip
+  system: '<svg viewBox="0 0 16 16"><rect x="4" y="4" width="8" height="8" rx="1.6"/><path d="M6.5 1.8V4M9.5 1.8V4M6.5 12v2.2M9.5 12v2.2M1.8 6.5H4M1.8 9.5H4M12 6.5h2.2M12 9.5h2.2"/></svg>',
   aod: '<svg viewBox="0 0 16 16"><path d="M13 9.6A5.5 5.5 0 1 1 6.4 3a4.3 4.3 0 0 0 6.6 6.6z"/></svg>',
   boot: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.8"/><circle cx="8" cy="8" r="2"/></svg>',
   pwr: '<svg viewBox="0 0 16 16"><path d="M8 2.5V8M4.6 4.6a4.8 4.8 0 1 0 6.8 0"/></svg>',
@@ -95,6 +102,9 @@ const ICON = {
   snkspace: '<svg viewBox="0 0 16 16"><path d="M3 13h4v-4h6V3"/></svg>',
   snkiso: '<svg viewBox="0 0 16 16"><path d="M3 13h4v-4h6V3"/></svg>',
   recorder: '<svg viewBox="0 0 16 16"><rect x="5.8" y="1.8" width="4.4" height="7.6" rx="2.2"/><path d="M3.6 7.6a4.4 4.4 0 0 0 8.8 0M8 12v2.2"/></svg>',
+  video: '<svg viewBox="0 0 16 16"><rect x="1.8" y="3.2" width="12.4" height="9.6" rx="2"/><path d="M6.6 6v4l3.4-2z"/></svg>',
+  // The quick settings panel: a sheet pulled down from the top edge, a slider and switches on it
+  shade: '<svg viewBox="0 0 16 16"><path d="M1.8 2.2h12.4v7.2a2 2 0 0 1-2 2H3.8a2 2 0 0 1-2-2z"/><path d="M4.2 5.2h4.6M10.8 5.2h1M6.6 13.8h2.8"/></svg>',
   battery: '<svg viewBox="0 0 16 16"><rect x="1.5" y="5" width="11.5" height="6" rx="1.6"/><path d="M14.5 7v2M3.6 7.2v1.6M5.6 7.2v1.6"/></svg>',
   // About: a chip; its screen — a chart; Power — a plug's bolt in a ring
   devcard: '<svg viewBox="0 0 16 16"><rect x="4" y="4" width="8" height="8" rx="1.6"/><path d="M6.2 1.8v2.2M9.8 1.8v2.2M6.2 12v2.2M9.8 12v2.2M1.8 6.2h2.2M1.8 9.8h2.2M12 6.2h2.2M12 9.8h2.2"/></svg>',
@@ -119,20 +129,26 @@ const signal = (rssi) => {
   return `<svg class="sig" viewBox="0 0 16 16"><path${n < 3 ? ' class="off"' : ''} d="M1.6 6.2a9.2 9.2 0 0 1 12.8 0"/><path${n < 2 ? ' class="off"' : ''} d="M3.7 8.4a6.2 6.2 0 0 1 8.6 0"/><path d="M5.8 10.6a3.2 3.2 0 0 1 4.4 0"/><circle cx="8" cy="12.9" r=".6"/></svg>`;
 };
 
-// ---------- Elements: three folders at the top of the left card, under its head — Faces, Layers, App: equal tiles, each
-// with how many it holds (6 Nov 2026, web/mockups/panels.html, variants 3 and 7). The open one's content shows to the
+// ---------- Elements: three folders at the top of the left card, under its head — Faces, Layers, App: equal low tiles,
+// an icon over the name, under the heading ADD and how many they hold in all; past a line the fourth tile, System — its
+// heading says how many functions are on (6 Nov 2026, web/mockups/panels.html, variants 3 and 7; 11 Nov 2026 —
+// web/mockups/fnname.html). The open one's content shows to the
 // right of the card, over the field (it moves nothing): its categories in a column — an icon, a name, how many — and the
 // chosen one's tiles beside them, three in a row (each folder's chosen category is kept: localStorage 'popka.cat'). A
 // tile of an element: drag it onto a screen, or click — onto the active screen, at its place on HaloWatch. A tile of a
-// screen: a new screen to the right on the map. The content closes (folding back to the left) after a tile is used, by
+// screen: a new screen to the right on the map. The content stays open after a tile is used (11 Nov 2026, the user's
+// word: pick several in a row; its "on the watch" marks follow — refreshShelf); it closes (folding back to the left) by
 // its folder again, Esc or a click anywhere else
 const FOLDERS = [
   { id: 'faces', name: 'Faces', icon: 'watch', title: 'Whole watch faces: a click makes it the watch face in place of the one before' },
   { id: 'face', name: 'Layers', icon: 'stack', title: 'Layers for a watch face: clocks, dates, weather, steps, battery, backgrounds' },  // (Widgets until 6 Nov 2026)
   { id: 'app', name: 'App', icon: 'widgets', title: 'Apps: Gallery, Display, Battery, Power, About, Music, Recorder, Weather, Steps, games — each its own screen' },
 ];
+if (BOARD.faces_name) FOLDERS[0].name = BOARD.faces_name;
 const FACE_SUB = 'HaloWatch\'s watch face: the date, the clock and the weather pill — becomes the watch face in place of the one before';
 const GALLERY_SUB = 'A new gallery: the title, the top clock, one card and More; a swipe up on the face opens it';
+// Where a straight line stands on a rectangle (widgets: the angle, as on the round watch's four sides)
+const LINE_PLACES = [['-90', 'Top left'], ['0', 'Top'], ['90', 'Top right'], ['-150', 'Bottom left'], ['180', 'Bottom'], ['150', 'Bottom right'], ['-100', 'Left side'], ['100', 'Right side']];
 const SCREEN_CARDS = {
   fwhole: { name: 'HaloWatch', icon: 'whole', kind: 'face', sub: FACE_SUB },
   fours: { name: 'Four sides', icon: 'whole', kind: 'foursides', sub: 'The clock, and the weekday, the date, the weather and the steps along the four sides — becomes the watch face in place of the one before' },
@@ -141,6 +157,12 @@ const SCREEN_CARDS = {
   gscreen: { name: 'Gallery', icon: 'gallery', kind: 'gallery', sub: GALLERY_SUB },
   empty: { name: 'Empty', icon: 'empty', kind: 'empty', sub: 'A blank screen' },
 };
+if (!ROUND) {
+  SCREEN_CARDS.fwhole.name = 'Status line';
+  SCREEN_CARDS.fwhole.sub = 'The date and the weather along the top, a big clock in the middle — becomes the home screen in place of the one before';
+  SCREEN_CARDS.fours.sub = 'The clock, and the weekday, the date, the weather and the city along the four sides — becomes the home screen in place of the one before';
+  SCREEN_CARDS.gscreen.sub = 'A new gallery: the title, the time and a card; a swipe up on the home screen opens it';
+}
 // A folder's tiles by category (the column at the left of its content: a click shows that category's tiles)
 const SHELVES = {
   faces: [
@@ -148,7 +170,7 @@ const SHELVES = {
     { name: 'Saved', icon: 'saved', items: [] },  // (the project's own faces and Add: savedFaces)
   ],
   face: [
-    { name: 'Clock', icon: 'clock', items: ['clock', 'pDotClock'] },
+    { name: 'Clock', icon: 'clock', items: ['clock', 'pDotClock', ...CLOCK_LOOKS.map(([k]) => 'pc' + k[0].toUpperCase() + k.slice(1))] },
     { name: 'Date', icon: 'date', items: ['date', 'pDateArc', 'pWeekday', 'pDayMonth', 'pWeek', 'pDateFrame'] },
     { name: 'Weather', icon: 'weather', items: ['weather', 'pWxArc', 'pForecast'] },
     { name: 'Steps', icon: 'steps', items: ['steps', 'pStepsRing', 'pStepsArc'] },
@@ -158,7 +180,8 @@ const SHELVES = {
   ],
   app: [
     { name: 'Gallery', icon: 'gallery', items: ['gscreen', 'display', 'battery', 'charge', 'about'] },
-    { name: 'Media', icon: 'music', items: ['music', 'recorder'] },
+    { name: 'Shade', icon: 'shade', items: ROUND ? ['shWear'] : ['shFull', 'shDual', 'shCorner', 'shStrip'] },  // (the home's quick settings: SHADES)
+    { name: 'Media', icon: 'music', items: ['music', 'recorder', 'video'] },
     { name: 'Info', icon: 'info', items: ['wxscreen', 'stepscreen'] },
     { name: 'Games', icon: 'games', items: ['snkdots', 'snkspace', 'snkiso'] },  // (in the Games gallery: toGames)
   ],
@@ -169,14 +192,14 @@ const SHELVES = {
   const rest = [...Object.keys(KINDS).filter((k) => KINDS[k].group === 'face'), ...Object.keys(FACE_PRESETS)].filter((k) => !placed.has(k));
   if (rest.length) SHELVES.face.push({ name: 'More', icon: 'plus', items: rest });
 }
-// What is folded (Functions in the left card: 'left:Functions') — kept after a restart
-const shut = new Set((() => { try { return JSON.parse(localStorage.getItem('popka.shut')) || []; } catch { return []; } })());
 // Each folder's chosen category — kept after a restart
 const catOf = (() => { try { return JSON.parse(localStorage.getItem('popka.cat')) || {}; } catch { return {}; } })();
 let shelf = '', paletteStage = null;  // the open folder
 
 const tile = (stage, key, i) => onWatch(SCREEN_CARDS[key] ? screenCard(stage, key, i) : SECTIONS[key] ? sectionCard(stage, key)
-  : FACE_PRESETS[key] ? presetCard(stage, key) : elementCard(stage, key), placesOf(key));
+  : SHADES[key] ? shadeCard(stage, key) : FACE_PRESETS[key] ? presetCard(stage, key) : elementCard(stage, key), placesOf(key));
+// The quick settings panel's looks (App → Shade): a tile each, it puts the panel on the home in place of another one
+const SHADES = Object.fromEntries(SHADE_LOOKS.map(([look, name]) => ['sh' + look[0].toUpperCase() + look.slice(1), { look, name }]));
 
 // What is on the watch already (6 Nov 2026, variant 5 of web/mockups/added.html): a tile whose element is in the project
 // gets a green chip on its picture's lower edge — a watch and how many — and a green frame; its tip starts with where it
@@ -184,7 +207,7 @@ const tile = (stage, key, i) => onWatch(SCREEN_CARDS[key] ? screenCard(stage, ke
 // the layers of its kind; a ready piece (Curved date…) — the layers of its kind with its "what" / "format"; an app —
 // the screens with its own layer (Weather — a city, Steps — the number…); a watch face — when the home is that one
 // (Empty — only while the home has nothing on it)
-const sig = (l) => `${l.type}|${l.what ?? ''}|${l.format ?? ''}`;
+const sig = (l) => `${l.type}|${l.what ?? ''}|${l.format ?? ''}|${l.type === 'sclock' ? l.look : ''}`;
 const presetSigs = new Map();
 const presetSig = (key) => presetSigs.get(key) ?? presetSigs.set(key, sig(apart([FACE_PRESETS[key].parts[0]])()[0])).get(key);
 function placesOf(key) {
@@ -196,6 +219,8 @@ function placesOf(key) {
   } else if (SECTIONS[key]) {
     const own = sectionParts(key).map(sectionPart).map(([k]) => k).find((k) => !['arc', 'title', 'dots', 'scroll'].includes(k));
     for (const s of screens()) if (s.layers.some((l) => l.type === own)) where.push(s.name);
+  } else if (SHADES[key]) {
+    if (home().layers.some((l) => l.type === 'shade' && (ROUND || l.look === SHADES[key].look))) where.push(home().name);  // (round: one look)
   } else if (FACE_PRESETS[key]) layersWhere((l) => sig(l) === presetSig(key));
   else layersWhere((l) => l.type === key);
   return where;
@@ -212,10 +237,17 @@ function onWatch(b, where) {
 }
 // A folder's categories: how many each holds and its tiles (Faces → Saved: the project's own faces, then Add)
 const saved_ = (id, cat) => id === 'faces' && cat.name === 'Saved';
+// What this board offers (its passport's lists: none — everything)
+const fits = (key) => (SCREEN_CARDS[key] ? allowed('screens', SCREEN_CARDS[key].kind) : SHADES[key] ? allowed('layers', 'shade')
+  : FACE_PRESETS[key] ? FACE_PRESETS[key].parts.every(([k, look]) => allowed('layers', k) && (k !== 'curve' || !BOARD.curves || BOARD.curves.includes(look.what)))
+    : allowed('layers', key));
+const itemsOf = (cat) => cat.items.filter(fits);
+const itemsOf_some = (cat) => itemsOf(cat).length > 0;
 const shelfCats = (stage, id) => SHELVES[id].map((cat) => saved_(id, cat)
   ? { cat, n: savedFaces().length, tiles: () => [...savedFaces().map((f) => onWatch(savedFaceCard(stage, f), home().face === 'saved:' + f.id ? [home().name] : [])), addFaceCard(stage)] }
-  : { cat, n: cat.items.length, tiles: () => cat.items.map((key, i) => tile(stage, key, i)) });
-const folderCount = (id) => SHELVES[id].reduce((n, cat) => n + (saved_(id, cat) ? savedFaces().length : cat.items.length), 0);
+  : { cat, n: itemsOf(cat).length, tiles: () => itemsOf(cat).map((key, i) => tile(stage, key, i)) })
+  .filter((c) => !BOARD.layers || saved_(id, c.cat) || c.n);
+const folderCount = (id) => SHELVES[id].reduce((n, cat) => n + (saved_(id, cat) ? savedFaces().length : itemsOf(cat).length), 0);
 
 // The content closes by folding back to the left (shelf-close), then it is gone; another folder's — at once
 function setShelf(id) {
@@ -223,24 +255,63 @@ function setShelf(id) {
   shelf = id;
   if (id || !open) return renderPalette(paletteStage);
   open.classList.add('closing');
-  for (const b of document.querySelectorAll('#palette > .folder')) b.classList.remove('open'), b.setAttribute('aria-expanded', 'false');
+  for (const b of document.querySelectorAll('#palette .folder')) b.classList.remove('open'), b.setAttribute('aria-expanded', 'false');
   setTimeout(() => { if (!shelf) renderPalette(paletteStage); }, 120);
 }
 
 export function renderPalette(stage) {
   if (!paletteStage) {
-    document.addEventListener('pointerdown', (e) => { if (shelf && !e.target.closest('#palette, #shelf-box')) setShelf(''); });
+    // a click anywhere else closes the folder (System's menu stays while its function is set in the right card)
+    document.addEventListener('pointerdown', (e) => {
+      if (shelf && !e.target.closest(shelf === SYSTEM ? '#palette, #shelf-box, #right' : '#palette, #shelf-box')) setShelf('');
+    });
     // Esc closes the folder only (before main.js's Esc, which drops the selection)
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && shelf) e.stopPropagation(), setShelf(''); }, true);
   }
   paletteStage = stage;
-  $('palette').replaceChildren(...FOLDERS.map((f) => {
-    const b = h('button', { class: 'folder' + (shelf === f.id ? ' open' : ''), title: f.title, 'aria-expanded': String(shelf === f.id) },
-      h('span', { class: 'folder-n' }, String(folderCount(f.id))), h('span', { class: 'folder-ic', html: ICON[f.icon] }), f.name);
-    b.addEventListener('click', () => setShelf(shelf === f.id ? '' : f.id));
+  const folders = FOLDERS.filter((f) => !BOARD.layers || SHELVES[f.id].some(itemsOf_some));
+  const folderTile = (id, name, icon, title) => {
+    const b = h('button', { class: 'folder' + (shelf === id ? ' open' : ''), title, 'aria-expanded': String(shelf === id) },
+      h('span', { class: 'folder-ic', html: ICON[icon] }), name);
+    b.addEventListener('click', () => setShelf(shelf === id ? '' : id));
+    return b;
+  };
+  const rows = sysRows(), add = folders.reduce((n, f) => n + folderCount(f.id), 0);
+  const heads = h('div', { class: 'folders-h' }, h('h2', {}, 'Add', h('span', { class: 'folders-n' }, String(add))),
+    rows.length ? h('h2', {}, 'System', h('span', { class: 'folders-n', id: 'sys-n' }, sysCount())) : null);
+  const row = h('div', { class: 'folders-row', style: `--n:${folders.length}` + (rows.length ? '' : ';--sys:0') },
+    ...folders.map((f) => folderTile(f.id, f.name, f.icon, f.title)),
+    ...(rows.length ? [h('i', { class: 'folders-sep', 'aria-hidden': 'true' }),
+      folderTile(SYSTEM, 'System', 'system', `How the watch works: ${rows.map((id) => fnRow(id).name).join(', ')}`)] : []));
+  $('palette').replaceChildren(heads, row);
+  renderShelf(stage);
+}
+
+// ---------- System: the watch's functions, a menu to the right of the left card (where a folder's content opens) — a
+// row each: its icon, its name over how it is set, On / Off; a click — its settings in the right card (its switch in
+// their head). The menu stays while they are set there; a click anywhere else, Esc or the tile again close it ----------
+const SYSTEM = 'system';
+const sysRows = () => FN_ROWS.filter((id) => allowed('functions', id));
+const sysCount = () => { const r = sysRows(); return `${r.filter((id) => fnRow(id).on).length}/${r.length}`; };
+function sysSub(id) {
+  const f = fnRow(id);
+  if (!f.on) return 'Off';
+  if (id === 'aod') return 'After ' + ((AFTER.find(([v]) => v === f.idle) || [])[1] || f.idle + ' s');
+  if (id === 'buttons') return ['pwr', 'boot'].filter((b) => fnOf(b).on && !(b === 'pwr' && lacks('pwr'))).map((b) => b.toUpperCase()).join(' · ');
+  if (id === 'wifi') return wifi.current || 'No network';
+  return 'Visible';
+}
+function sysMenu() {
+  if (!wifi.asked) wifi.asked = true, wifiCall().then(renderFunctions, () => {});  // (Wi-Fi's network: its name in the row)
+  return h('div', { class: 'shelf sys', role: 'menu', 'aria-label': 'System' }, ...sysRows().map((id) => {
+    const f = fnRow(id), picked = state.sel?.type === 'fn' && fnRowOf(state.sel.id) === id;
+    const b = h('button', { class: 'sys-row' + (f.on ? '' : ' off') + (picked ? ' sel' : ''), role: 'menuitem' },
+      h('span', { class: 'sys-ic', html: ICON[id] }),
+      h('span', { class: 'sys-txt' }, h('span', { class: 'sys-name' }, f.name), h('span', { class: 'sys-sub' }, sysSub(id))),
+      h('span', { class: 'sys-st' }, f.on ? 'On' : 'Off'));
+    b.addEventListener('click', () => select({ type: 'fn', id }));
     return b;
   }));
-  renderShelf(stage);
 }
 
 // The open folder's content: its categories at the left, the chosen one's tiles at the right (scrolling when they are
@@ -248,6 +319,11 @@ export function renderPalette(stage) {
 // stays put
 function renderShelf(stage) {
   const box = $('shelf-box');
+  if (shelf === SYSTEM) {
+    const m = sysMenu();
+    if (box.querySelector('.shelf:not(.closing)')) m.classList.add('still');  // (built again while open: it stays put)
+    return box.replaceChildren(m);
+  }
   if (!shelf || !SHELVES[shelf]) return box.replaceChildren();
   const id = shelf, cats = shelfCats(stage, id), on = cats.find((c) => c.cat.name === catOf[id]) || cats[0];
   const grid = h('div', { class: 'cat-tiles' }, ...on.tiles()), pane = h('div', { class: 'shelf-tiles' }, grid);
@@ -268,16 +344,43 @@ function renderShelf(stage) {
     h('div', { class: 'shelf-cats' }, ...rows), pane));
 }
 
-// The left card's Functions: folded or not by its title, kept after a restart (popka.shut)
-export function initFold() {
-  const panel = $('fn-panel'), btn = $('fn-fold'), key = 'left:Functions';
-  const show = () => { panel.classList.toggle('shut', shut.has(key)), btn.setAttribute('aria-expanded', String(!shut.has(key))); };
-  btn.addEventListener('click', () => {
-    shut.has(key) ? shut.delete(key) : shut.add(key);
-    localStorage.setItem('popka.shut', JSON.stringify([...shut]));
-    show();
+// ---------- The line between Screens and Layers: dragged up or down (or the arrows when it has the focus), Screens are
+// as tall as it was let go — kept after a restart (localStorage 'popka.split', px); Layers take the rest. A double
+// click — back to half and half. Each keeps a little room whatever the window ----------
+export function initSplit() {
+  const card = document.querySelector('.left'), top = $('screens-panel'), line = $('split');
+  const MIN_S = 76, MIN_L = 96;
+  let want = +localStorage.getItem('popka.split') || 0;
+  const room = () => card.clientHeight - [...card.children].reduce((n, e) => (e === top || e.id === 'layers-panel' ? n : n + e.offsetHeight), 0) + 8;
+  const place = () => {
+    const r = room(), v = Math.round(Math.max(MIN_S, Math.min(r - MIN_L, want || r / 2)));
+    top.style.height = v + 'px';
+    return v;
+  };
+  const keep = (v) => { want = v; v ? localStorage.setItem('popka.split', String(v)) : localStorage.removeItem('popka.split'); place(); };
+  line.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    line.setPointerCapture(e.pointerId);
+    const y0 = e.clientY, h0 = top.offsetHeight;
+    line.classList.add('on'), document.body.classList.add('splitting');
+    const move = (m) => { want = h0 + m.clientY - y0, want = place(); };
+    const up = () => {
+      line.removeEventListener('pointermove', move), line.removeEventListener('pointerup', up), line.removeEventListener('pointercancel', up);
+      line.classList.remove('on'), document.body.classList.remove('splitting');
+      keep(want);
+    };
+    line.addEventListener('pointermove', move), line.addEventListener('pointerup', up), line.addEventListener('pointercancel', up);
   });
-  show();
+  line.addEventListener('dblclick', () => keep(0));
+  line.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    e.preventDefault(), e.stopPropagation();
+    keep(top.offsetHeight + (e.key === 'ArrowUp' ? -24 : 24));
+  });
+  new ResizeObserver(place).observe(card);
+  new ResizeObserver(place).observe($('palette'));  // (the tiles: as tall as the page's font makes them)
+  place();
 }
 
 function elementCard(stage, kind) {
@@ -285,14 +388,14 @@ function elementCard(stage, kind) {
   const b = h('button', { class: 'tool', draggable: 'true', title: `${d.name} — ${d.sub}. Drag onto a screen, or click: onto the active one, at its place on HaloWatch` },
     thumb('kind:' + kind, ICON[kind], apart(kind === 'dots' ? [['stnum', { hidden: true }], ['dots', null]] : [[kind, null]]),
       kind === 'stars'), d.name);  // (the dots show on a screen with pages: a hidden part of the Steps screen gives two)
-  b.addEventListener('click', () => { setShelf(''); IN_GALLERY.has(kind) ? toGallery(stage, kind) : stage.add(kind, activeScreen()); });
+  b.addEventListener('click', () => { IN_GALLERY.has(kind) ? toGallery(stage, kind) : stage.add(kind, activeScreen()); });
   b.addEventListener('dragstart', (e) => {
     e.dataTransfer.setData('text/x-popka-kind', kind);
     e.dataTransfer.effectAllowed = 'copy';
     // the menu over the field steps aside: see-through, the drop lands on the screen under it too
     setTimeout(() => b.closest('.shelf')?.classList.add('dragging'));
   });
-  b.addEventListener('dragend', () => setShelf(''));
+  b.addEventListener('dragend', () => document.querySelector('#shelf-box .shelf')?.classList.remove('dragging'));  // (it stays open)
   return b;
 }
 
@@ -314,7 +417,7 @@ export function toGallery(stage, kind) {
     if (at >= 0) path = path.slice(at + 1);
     else if (path.length && isGallery(mainScreen())) g = mainScreen();
     for (const name of path) g = g && subGallery(g, name, key);
-    const card = g && (kind === 'about' ? addAbout(g, key) : addSection(g, kind, key));
+    const card = g && (kind === 'about' && ROUND ? addAbout(g, key) : addSection(g, kind, key));
     if (card) select({ type: 'layer', id: card.id });
   } else if (!fresh) {
     stage.add(kind, g);
@@ -342,10 +445,25 @@ function presetCard(stage, key) {
   const b = h('button', { class: 'tool', title: `${p.name} — ${KINDS[p.parts[0][0]].sub}. Click: onto the active screen` },
     thumb('preset:' + key, ICON[p.icon], apart(p.parts)), p.name);
   b.addEventListener('click', () => {
-    setShelf('');
-    const s = activeScreen(), ls = p.parts.map(([kind, look]) => newLayer(kind, look, s));
-    change(() => s.layers.push(...ls), { structure: true });
+    const s = activeScreen(), ls = p.parts.map(([kind, look]) => newLayer(kind, look, s)), shifts = roomFor(p.parts[0][0], s);
+    change(() => { s.layers.push(...ls), shifts(); }, { structure: true });
     select({ type: 'layer', id: ls[ls.length - 1].id });
+  });
+  return b;
+}
+
+// A look of the quick settings panel: its picture — the panel open over a home's date and clock; a click puts it on
+// the home (the one panel: another look there before is replaced) and selects it — the map shows it open
+function shadeCard(stage, key) {
+  const c = SHADES[key];
+  const b = h('button', { class: 'tool', title: `${c.name} — ${KINDS.shade.sub}. Click: onto the home screen` },
+    thumb('shade:' + key, ICON.shade, apart([['date', {}], ['clock', {}], ['shade', { look: c.look }]]), true), c.name);
+  b.addEventListener('click', () => {
+    const s = home(), was = s.layers.find((l) => l.type === 'shade');
+    const l = was && (ROUND || was.look === c.look) ? was : newLayer('shade', { look: c.look, color: was?.color ?? KINDS.shade.color }, s);
+    if (ROUND && was) was.look = c.look;  // (a stub of the rectangle's looks from before: now the round board's own)
+    if (l !== was) change(() => { s.layers = s.layers.filter((o) => o.type !== 'shade'), s.layers.push(l); }, { structure: true });
+    select({ type: 'layer', id: l.id });
   });
   return b;
 }
@@ -357,7 +475,7 @@ function sectionCard(stage, kind) {
     thumb('section:' + kind, ICON[SECTIONS[kind].tile ? 'whole' : kind],
       apart(sectionParts(kind).map(sectionPart)), true),
     SECTIONS[kind].tile || SECTIONS[kind].text);
-  b.addEventListener('click', () => { setShelf(''); KINDS[kind]?.game ? toGames(stage, kind) : toGallery(stage, kind); });
+  b.addEventListener('click', () => { KINDS[kind]?.game ? toGames(stage, kind) : toGallery(stage, kind); });
   return b;
 }
 
@@ -367,7 +485,6 @@ function screenCard(stage, key, i) {
   const b = h('button', { class: 'tool' + (i === 0 && key.endsWith('whole') ? ' main' : ''), title: `${c.sub}. Click: ${face ? 'it becomes the watch face' : 'a new screen on the map'}` },
     c.kind === 'empty' ? h('span', { html: ICON[c.icon] }) : thumb('screen:' + c.kind, ICON[c.icon], () => newScreen(c.kind).layers, true), c.name);
   b.addEventListener('click', () => {
-    setShelf('');
     if (face) toHomeFace(stage, c.kind);
     else stage.focus(addScreen(stage, null, c.kind));
   });
@@ -383,7 +500,7 @@ export function toHomeFace(stage, kind) {
   const own = kind.startsWith('saved:') ? savedFaces().find((f) => 'saved:' + f.id === kind) : null;
   if (kind.startsWith('saved:') && !own) return;
   const hm = home(), was = hm.name, old = hm.layers;
-  const title = own ? own.name : { face: 'HaloWatch', foursides: 'Four sides', blankface: 'Watch face' }[kind];
+  const title = own ? own.name : BOARD.home || { face: 'HaloWatch', foursides: 'Four sides', blankface: 'Watch face' }[kind];
   const part = (l) => l.type + ':' + (l.what || '');
   hm.layers = [];  // (made on the home itself, one by one: each new layer's id counts the ones before it)
   if (own) hm.layers = faceLayers(own, hm);
@@ -432,7 +549,7 @@ function savedFaceCard(stage, f) {
     renderPalette(stage);
   });
   b.append(del);
-  b.addEventListener('click', () => { setShelf(''); toHomeFace(stage, 'saved:' + f.id); });
+  b.addEventListener('click', () => { toHomeFace(stage, 'saved:' + f.id); });
   return b;
 }
 // Add: the watch face now saved as a new one — first its name (one is offered); Enter saves, Esc or a click away — not
@@ -477,39 +594,29 @@ export function makeHome(stage, s) {
   return s;
 }
 
-// ---------- Functions (the left card, between Screens and Layers) — a row each: its icon, its name, a switch; a click on the row — its
-// settings in Properties (the shelf stays: the other switches are at hand); Wi-Fi's open right here, under its row;
-// Bluetooth has none (a click — its switch) ----------
+// The project's structure changed (a tile used, a layer gone, a face saved): an open folder's tiles again — their "on
+// the watch" marks and counts — where they were scrolled
+export function refreshShelf() {
+  if (!paletteStage || !shelf || shelf === SYSTEM) return;
+  const at = (q) => $('shelf-box').querySelector(q)?.scrollTop || 0, tiles = at('.shelf-tiles'), cats = at('.shelf-cats');
+  renderPalette(paletteStage);
+  const box = $('shelf-box'), t = box.querySelector('.shelf-tiles'), c = box.querySelector('.shelf-cats');
+  if (t) t.scrollTop = tiles;
+  if (c) c.scrollTop = cats;
+}
+
+// A function changed or picked: System's count and, when it is open, its menu
 export function renderFunctions() {
-  const list = $('functions');
-  if (!list) return;
-  const focus = document.activeElement, at = focus?.selectionStart;  // (typing a password: it stays in its field)
-  list.replaceChildren(...FN_ROWS.flatMap((id) => {
-    const f = fnRow(id), sel = (state.sel?.type === 'fn' && fnRowOf(state.sel.id) === id) || (id === 'wifi' && wifi.open && f.on);
-    const row = h('li', { class: 'layer fn' + (sel ? ' sel' : '') + (f.on ? '' : ' off') },
-      h('span', { class: 'layer-icon', html: ICON[id] }), h('span', { class: 'layer-name' }, f.name), h('span'),
-      toggle(f.on, (on) => setRow(id, on), f.name));
-    row.addEventListener('click', () => {
-      if (id === 'bt') return setFn(id, { on: !f.on }, { structure: true });
-      if (id !== 'wifi') return select({ type: 'fn', id });
-      if (!f.on) return;
-      wifi.open = !wifi.open;
-      if (state.sel?.type === 'fn') select(null);
-      if (wifi.open && !wifi.loaded) wifi.loaded = true, wifiCall().then(drawWifi, () => {}), wifiScan();
-      renderFunctions();
-    });
-    return id === 'wifi' && wifi.open && f.on ? [row, wifiBox()] : [row];
-  }));
-  if (focus && focus !== document.activeElement && list.contains(focus)) {
-    focus.focus();
-    if (at != null) focus.setSelectionRange(at, at);
-  }
+  if (!paletteStage) return;
+  const n = $('sys-n');
+  if (n) n.textContent = sysCount();
+  if (shelf === SYSTEM) renderShelf(paletteStage);
 }
 
 // The rows: the buttons are one row — Buttons (both on its switch, each its own action in Properties)
 const FN_ROWS = ['aod', 'buttons', 'wifi', 'bt'];
 const fnRowOf = (id) => (id === 'boot' || id === 'pwr' ? 'buttons' : id);
-const fnRow = (id) => (id === 'buttons' ? { name: 'Buttons', on: fnOf('boot').on || fnOf('pwr').on } : fnOf(id));
+const fnRow = (id) => (id === 'buttons' ? { name: 'Buttons', on: fnOf('boot').on || (fnOf('pwr').on && !lacks('pwr')) } : fnOf(id));
 function setRow(id, on) {
   if (id !== 'buttons') return setFn(id, { on }, { structure: true });
   change((p) => {
@@ -523,7 +630,7 @@ function setRow(id, on) {
 // studio.py keeps it on this Mac (secrets/wifi.json: never in the project, never in git), the board joins it after
 // Flash. Other… — a network by its name (a hidden one, or the board not on USB) ----------
 const OTHER = '\u0000other';
-const wifi = { open: false, loaded: false, busy: false, nets: [], status: null, current: '', saved: [], pick: null, err: '',
+const wifi = { asked: false, loaded: false, busy: false, nets: [], status: null, current: '', saved: [], pick: null, err: '',
                name: '', pass: '', show: false, focus: false };
 let wifiEl = null;
 
@@ -556,8 +663,10 @@ async function wifiJoin(ssid, password) {
   drawWifi();
 }
 
+// Wi-Fi's Properties under its head (on): the board's network, the networks it sees — asked once the first time
 function wifiBox() {
-  if (!wifiEl) wifiEl = h('li', { class: 'acc' });
+  if (!wifiEl) wifiEl = h('div', { class: 'group acc' });
+  if (!wifi.loaded) wifi.loaded = true, wifiCall().then(drawWifi, () => {}), wifiScan();
   drawWifi();
   return wifiEl;
 }
@@ -1179,9 +1288,9 @@ export function renderProps(stage, force = false) {
   refreshers = [];
   // Only its head (a screen with nothing to set: its name and bin are in Screens too) — no properties, as with nothing
   // selected: the right card is its own head alone (the board, Load)
-  const s = state.sel, show = (parts) => {
+  const s = state.sel, show = (parts, keep = false) => {
     parts = parts.filter(Boolean);
-    const bare = parts.every((p) => p.classList.contains('props-head'));
+    const bare = !keep && parts.every((p) => p.classList.contains('props-head'));
     $('props').replaceChildren(...(bare ? [] : parts));
     $('right').classList.toggle('bare', bare);
   };
@@ -1189,7 +1298,7 @@ export function renderProps(stage, force = false) {
   if (s && s.type === 'link' && layerById(s.id)?.tap) return show(linkProps(stage, layerById(s.id)));
   if (s && s.type === 'main' && mainScreen()) return show(mainProps(stage, mainScreen()));
   if (s && (s.type === 'screen' || s.type === 'back') && screenById(s.id)) return show(screenProps(stage, screenById(s.id)));
-  if (s && s.type === 'fn' && FN_ROWS.includes(fnRowOf(s.id))) return show(fnProps(fnRowOf(s.id)));
+  if (s && s.type === 'fn' && FN_ROWS.includes(fnRowOf(s.id))) return show(fnProps(fnRowOf(s.id)), true);  // (Bluetooth: its switch alone)
   show([]);  // nothing selected: the head alone
 }
 
@@ -1254,6 +1363,11 @@ function layerProps(stage, l) {
       color('Accent', () => l.color, stepsSet('accent'), 'color'),
       color('Other days', () => l.color2, upd('color2'), 'color2'),
       color('Letters', () => l.color3, upd('color3'), 'color3')));
+  } else if (l.type === 'curve' && !ROUND) {  // (a rectangle: a straight line, the angle picks its place)
+    groups.push(h('div', { class: 'group' }, h('h3', {}, 'Line'),
+      choice('Shows', l.what, CURVES.filter(([v]) => !BOARD.curves || BOARD.curves.includes(v)), (v) => change(() => { l.what = v; }, { structure: true })),
+      choice('Place', String(l.angle), LINE_PLACES, (v) => upd('angle')(Number(v)))),
+      text('Text', color('Color', () => l.color, upd('color'), 'color')));
   } else if (l.type === 'curve') {
     groups.push(h('div', { class: 'group' }, h('h3', {}, 'Line'),
       choice('Shows', l.what, CURVES, (v) => change(() => { l.what = v; }, { structure: true })),
@@ -1272,8 +1386,8 @@ function layerProps(stage, l) {
       color('Accent', () => l.color, upd('color'), 'color'),
       color('Track', () => l.color2, upd('color2'), 'color2')));
   } else if (l.type === 'weekarc') {
-    groups.push(h('div', { class: 'group' }, h('h3', {}, 'Week'), turn(),
-      slider('Radius', () => l.radius, upd('radius'), { min: 100, max: 230, unit: 'px', key: 'radius' }),
+    groups.push(h('div', { class: 'group' }, h('h3', {}, 'Week'), ROUND ? turn() : null,
+      ROUND ? slider('Radius', () => l.radius, upd('radius'), { min: 100, max: 230, unit: 'px', key: 'radius' }) : null,
       color('Days gone', () => l.color, upd('color'), 'color'),
       color('Days ahead', () => l.color2, upd('color2'), 'color2'),
       color('Today', () => l.color3, upd('color3'), 'color3')), text('Letters'));
@@ -1281,10 +1395,11 @@ function layerProps(stage, l) {
     groups.push(h('div', { class: 'group' }, h('h3', {}, 'Line'),
       segmented('Format', () => l.format, INFOS, (v) => change(() => { l.format = v; }, { structure: true }))),
       text('Text', color('Color', () => l.color, upd('color'), 'color'),
-        l.format === 'icons' ? color('Shoe', () => l.color3, upd('color3'), 'color3') : null));
+        l.format === 'icons' ? color(ROUND ? 'Shoe' : 'High arrow', () => l.color3, upd('color3'), 'color3') : null));
   } else if (l.type === 'forecast') {
-    groups.push(h('div', { class: 'group' }, h('h3', {}, 'Forecast'), turn(), scale('Icons'),
-      slider('Radius', () => l.radius, upd('radius'), { min: 100, max: 210, unit: 'px', key: 'radius' }),
+    groups.push(h('div', { class: 'group' }, h('h3', {}, 'Forecast'), ROUND ? turn() : null, scale('Icons'),
+      ROUND ? slider('Radius', () => l.radius, upd('radius'), { min: 100, max: 210, unit: 'px', key: 'radius' }) : null,
+      ROUND ? null : color('Line', () => l.color3, upd('color3'), 'color3'),
       color('Degrees', () => l.color, upd('color'), 'color'),
       color('Hours', () => l.color2, upd('color2'), 'color2')), text('Text'));
   } else if (l.type === 'dateframe') {
@@ -1292,10 +1407,14 @@ function layerProps(stage, l) {
       slider('Gap', () => l.gap, upd('gap'), { min: 40, max: 330, unit: 'px', key: 'gap' }),
       color('Text', () => l.color, upd('color'), 'color'),
       color('Lines', () => l.color2, upd('color2'), 'color2')), text('Letters'));
+  } else if (l.type === 'sclock') {  // (its look is its piece's: Layers → Clock; the colors — what the look calls them)
+    const [, , , names] = clockLook(l), keys = ['color', 'color2', 'color3'];
+    groups.push(h('div', { class: 'group' }, h('h3', {}, 'Clock'), scale('Size'),
+      ...names.map((name, j) => (name ? color(name, () => l[keys[j]], upd(keys[j]), keys[j]) : null))));
   } else if (l.type === 'dotclock') {
     groups.push(h('div', { class: 'group' }, h('h3', {}, 'Dots'), scale('Size'),
       color('Lit', () => l.color, upd('color'), 'color'),
-      color('Dark', () => l.color2, upd('color2'), 'color2'),
+      ROUND ? color('Dark', () => l.color2, upd('color2'), 'color2') : null,
       color('Colon', () => l.color3, upd('color3'), 'color3')));
   } else if (l.type === 'stnum' || l.type === 'stcap') {
     groups.push(text('Text', color('Color', () => l.color, upd('color'), 'color')));
@@ -1309,10 +1428,16 @@ function layerProps(stage, l) {
       l.pill !== false ? color('Pill', () => l.color, upd('color'), 'color') : null,
       color('Text', () => l.color2, upd('color2'), 'color2'),
       color('Accent', () => l.color3, stepsSet('accent'), 'color3')));
+  } else if (l.type === 'hourly' && !ROUND) {  // (a rectangle: the temperature's line, wxscreen_rect.h)
+    groups.push(h('div', { class: 'group' }, h('h3', {}, 'Chart'), scale('Captions'),
+      color('Line', () => l.color, upd('color'), 'color'),
+      color('Captions', () => l.color2, upd('color2'), 'color2')));
   } else if (l.type === 'weather' || l.type === 'hourly') {
     if (l.type === 'weather') groups.push(citiesGroup(stage, null, true));
     groups.push(h('div', { class: 'group' }, h('h3', {}, 'Pill'), scale('Size'),
-      color('Pill', () => l.color, upd('color'), 'color'),
+      !ROUND && l.type === 'weather' ? h('div', { class: 'switch-row' }, h('label', {}, 'Background'),
+        toggle(l.pill !== false, (on) => change(() => { l.pill = on; }, { structure: true }), 'Background')) : null,
+      ROUND || l.pill !== false ? color('Pill', () => l.color, upd('color'), 'color') : null,
       color('Text', () => l.color2, upd('color2'), 'color2')));
   } else if (l.type === 'wxicon') {
     groups.push(h('div', { class: 'group' }, h('h3', {}, 'Icon'), scale('Size')));
@@ -1321,15 +1446,21 @@ function layerProps(stage, l) {
       color('Current', () => l.color, upd('color'), 'color'),
       color('Others', () => l.color2, upd('color2'), 'color2')));
   } else if (l.type === 'wxhilo') {
-    groups.push(text('Text', color('High', () => l.color, upd('color'), 'color'), color('Low', () => l.color2, upd('color2'), 'color2')));
+    groups.push(text('Text', color(ROUND ? 'High' : 'Sky', () => l.color, upd('color'), 'color'), color(ROUND ? 'Low' : 'High / low', () => l.color2, upd('color2'), 'color2')));
   } else if (l.type === 'arc') {
-    groups.push(text('Text', slider('Radius', () => l.radius, upd('radius'), { min: 100, max: 240, unit: 'px', key: 'radius' }),
+    groups.push(text('Text', !ROUND ? null : slider('Radius', () => l.radius, upd('radius'), { min: 100, max: 240, unit: 'px', key: 'radius' }),
       color('Color', () => l.color, upd('color'), 'color')));
   } else if (l.type === 'title' || l.type === 'edge') {
     groups.push(h('div', { class: 'group' }, h('h3', {}, 'Text'), words('Text', 'text'),
       color(l.type === 'edge' ? 'Button' : 'Color', () => l.color, upd('color'), 'color')));
   } else if (l.type === 'display' || l.type === 'battery' || l.type === 'music' || l.type === 'recorder' || l.type === 'charge' || KINDS[l.type]?.game) {
     // (HaloWatch's screen as it is: nothing to set)
+  } else if (l.type === 'video') {
+    groups.push(clipsGroup(h, ICON), streamGroup(h, ICON));
+  } else if (l.type === 'shade') {
+    groups.push(h('div', { class: 'group' }, h('h3', {}, 'Panel'),
+      SHADE_LOOKS.length > 1 ? choice('Look', l.look, SHADE_LOOKS, (v) => change(() => { l.look = v; }, { structure: true })) : null,
+      color('Accent', () => l.color, upd('color'), 'color')));
   } else if (l.type === 'devcard') {
     groups.push(h('div', { class: 'group' }, h('h3', {}, 'Card'),
       choice('Shows', l.what, DEVS, (v) => change(() => { l.what = v; }, { structure: true })), words('Label', 'text'),
@@ -1458,9 +1589,10 @@ const AFTER = [[5, '5 s'], [10, '10 s'], [15, '15 s'], [30, '30 s'], [60, '1 m']
 const WAKE = [['tap', 'Tap', 'tap'], ['raise', 'Raise', 'raise'], ['btn', 'Buttons', 'buttons']];
 function wakeGroup() {
   const f = fnOf('aod'), steps = screens().some((s) => s.layers.some((l) => STEP_FAMILY.has(l.type)));
-  const on = (k) => (k === 'raise' ? f.raise && !steps : k === 'btn' ? f.btn || !(f.tap || (f.raise && !steps)) : f[k]);
-  const left = WAKE.filter(([k]) => on(k)).length;
-  return h('div', { class: 'group' }, h('h3', {}, 'Wake up'), h('ul', { class: 'layers wake' }, ...WAKE.map(([k, name, icon]) => {
+  const raise = f.raise && !steps && !lacks('raise');
+  const on = (k) => (k === 'raise' ? raise : k === 'btn' ? f.btn || !(f.tap || raise) : f[k]);
+  const ways = WAKE.filter(([k]) => !lacks(k)), left = ways.filter(([k]) => on(k)).length;
+  return h('div', { class: 'group' }, h('h3', {}, 'Wake up'), h('ul', { class: 'layers wake' }, ...ways.map(([k, name, icon]) => {
     const sw = toggle(on(k), (v) => setFn('aod', { [k]: v }, { structure: true }), name);
     if ((k === 'raise' && steps) || (on(k) && left === 1)) sw.disabled = true;  // (the last way; Steps has the sensor)
     if (k === 'raise' && steps) sw.title = 'Steps has the motion sensor';
@@ -1490,20 +1622,22 @@ function pressOf(id) {
 function fnProps(id) {
   if (id === 'buttons') {
     const f = fnRow(id);
+    // as on the board (and on Try's bezel): PWR above, BOOT under it
     return [head(ICON.buttons, 'Buttons', 'Function', toggle(f.on, (on) => setRow(id, on), 'Buttons')),
-      h('div', { class: 'group' }, h('h3', {}, 'BOOT'), pressOf('boot')),
-      h('div', { class: 'group' }, h('h3', {}, 'PWR'), pressOf('pwr'))];
+      lacks('pwr') ? null : h('div', { class: 'group' }, h('h3', {}, 'PWR'), pressOf('pwr')),
+      h('div', { class: 'group' }, h('h3', {}, 'BOOT'), pressOf('boot'))];
   }
   const f = fnOf(id), set = (v) => { setFn(id, v, { structure: true }); };
   const parts = [head(ICON[id], f.name, 'Function', toggle(f.on, (on) => set({ on }), f.name))];
+  if (id === 'wifi' && f.on) parts.push(wifiBox());
   if (id === 'aod') {
     parts.push(h('div', { class: 'group' + (f.on ? '' : ' dim-off') },
       segmented('After', f.idle, AFTER, (v) => set({ idle: v })),
       slider('Brightness', () => Math.round(fnOf(id).bright * 100 / 255), (v, key) => setFn(id, { bright: Math.max(1, Math.round(v * 255 / 100)) }, { key }),
         { min: 2, max: 50, unit: '%', key: 'aod-bright' }),
-      h('div', { class: 'switch-row' }, h('label', {}, 'Back to watch face'),
-        toggle(f.home, (v) => set({ home: v }), 'Back to watch face')),
-      h('div', { class: 'switch-row' }, h('label', {}, 'Burn-in shift'),  // (a few pixels elsewhere every minute: AMOLED)
+      h('div', { class: 'switch-row' }, h('label', {}, BOARD.home ? 'Back to home screen' : 'Back to watch face'),
+        toggle(f.home, (v) => set({ home: v }), BOARD.home ? 'Back to home screen' : 'Back to watch face')),
+      lacks('shift') ? null : h('div', { class: 'switch-row' }, h('label', {}, 'Burn-in shift'),  // (a few pixels elsewhere every minute: AMOLED)
         toggle(f.shift !== false, (v) => set({ shift: v }), 'Burn-in shift'))),
       wakeGroup());
   }
@@ -1522,8 +1656,10 @@ function screenProps(stage, s) {
       face ? null : { title: 'Delete the screen', fn: () => removeScreen(s.id) }),
     face ? h('div', { class: 'group' }, mainChoice(stage)) : null,
     !face && !main && !isGallery(s) && !s.layers.some((l) => KINDS[l.type]?.group === 'section')
-      ? h('div', { class: 'group' }, h('button', { class: 'primary', onclick: () => makeHome(stage, s) }, 'Make it the watch face')) : null,
+      ? h('div', { class: 'group' }, h('button', { class: 'primary', onclick: () => makeHome(stage, s) }, BOARD.home ? 'Make it the home screen' : 'Make it the watch face')) : null,
     weatherPaged(s) ? citiesGroup(stage, s) : null,
+    s.layers.some((l) => l.type === 'video') ? clipsGroup(h, ICON) : null,
+    s.layers.some((l) => l.type === 'video') ? streamGroup(h, ICON) : null,
   ];
 }
 

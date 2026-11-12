@@ -13,7 +13,9 @@
 // Очередь пачек: каждая — в своём DMA-буфере. Её отправляет прерывание канала DMA «всё ушло» (TOTAL_EOF): кончилась
 // пачка — тут же следующая. Свободный буфер ждём на семафоре (ядро спит, а не крутится в цикле: так было 2–4 мс
 // на кадр в AmoledBoard).
-#include "halo_internal.h"
+#include <sdkconfig.h>
+#if CONFIG_IDF_TARGET_ESP32S3  // this board's port: other boards build their own
+#include "halo_s3.h"
 
 #include <driver/gpio.h>
 #include <driver/spi_master.h>
@@ -456,3 +458,5 @@ bool hd_begin(uint32_t hz, int buffers, uint8_t brightness) {
       dma_ch);
   return true;
 }
+
+#endif  // CONFIG_IDF_TARGET_ESP32S3

@@ -11,7 +11,9 @@
 // Time during sleep is counted by the RTC slow clock. The default one, the slow RC oscillator (~140 kHz), ran 0.54 %
 // fast in light sleep (half a minute per hour asleep); the fast RC oscillator / 256 (~70 kHz) — 0.03 %. It is
 // switched over before the first sleep, kept running during sleep and measured against the crystal every 5 minutes.
-#include "halo_internal.h"
+#include <sdkconfig.h>
+#if CONFIG_IDF_TARGET_ESP32S3  // this board's port: other boards build their own
+#include "halo_s3.h"
 
 #include <driver/gpio.h>
 #include <esp_private/esp_clk.h>
@@ -415,3 +417,5 @@ void hp_frame_end() {
   if (w == HALO_WAKE_TOUCH) hu_swallow_touch();
   if (w == HALO_WAKE_BOOT) hf_swallow_boot();
 }
+
+#endif  // CONFIG_IDF_TARGET_ESP32S3

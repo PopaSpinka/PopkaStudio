@@ -6,22 +6,27 @@
 
 ![PopkaStudio](docs/screenshots/editor.png)
 
-PopkaStudio is a visual editor for round watch interfaces. You put together a watch face, apps and screens from
-ready parts, link them like frames in Figma, and press **Load** — the board gets firmware built from exactly what you
-made, running smoothly at 60 frames per second.
+PopkaStudio is a visual editor for screen interfaces on ESP32 boards — a round 1.75″ watch and, new in 2.0, a 7″
+ESP32-P4 display. You put together a watch face, apps and screens from ready parts, link them like frames in Figma, and
+press **Load** — the board gets firmware built from exactly what you made, running smoothly at 60 frames per second.
 
 The preview is not a mock-up: it is **the board's own code**, compiled to WebAssembly. What you see in the editor is
 what the watch shows, pixel for pixel — the same fonts, the same animations, the same touch.
 
 ## What it can do
 
-- **Watch faces from layers** — big clock, dot clock, date lines, curved text along the edge, weather, steps,
-  battery, forecast, a starry sky with meteors, pixel art (meet **Popka**, the parrot). Move, resize, recolor
-  everything; any number of copies.
+- **Watch faces from layers** — sixteen clock styles (Hairline, LCD, Neon, Flip, Comet, Hands and more), a dot
+  clock, date lines, curved text along the edge, weather, steps, battery, forecast, a starry sky with meteors, pixel
+  art (meet **Popka**, the parrot). Move, resize, recolor everything; any number of copies.
 - **Apps** — a gallery of cards (as on modern smartwatches), Weather with real data and several cities, Steps (the
   motion chip's own pedometer), Display brightness, Battery, a Music player, a voice Recorder, three self-playing
   snake games, and About and Power — live cards about the board itself (processor, memory, battery, temperature,
   sound, motion; voltages).
+- **Quick settings** — swipe down on the home screen: brightness, volume, Wi-Fi, Always On, lock, screen off — all
+  real. One look on the round watch, four on the 7″ board, with app shortcuts and the player.
+- **Video** (7″ board) — clips from a microSD card, decoded in hardware, or straight from your computer over Wi-Fi with
+  **Stream**. Add a clip with **+**: PopkaStudio converts it (needs [ffmpeg](https://ffmpeg.org)) and writes it to the
+  card.
 - **A map of screens** — every screen at once, links drawn as curves; tap a card or a layer to open a screen, with
   transitions.
 - **Try** — use the watch right in the editor, the mouse as your finger.
@@ -29,18 +34,28 @@ what the watch shows, pixel for pixel — the same fonts, the same animations, t
 - **It knows your board** — the dot next to the board's name: green — this project is on it, blue — PopkaStudio
   firmware from another project or an older version, yellow — someone else's firmware. **Check the board** reads it
   without writing anything; **Save its firmware** keeps a copy of someone else's firmware before your first Load.
-- **Functions** — Always On display, what the side buttons do (screen off, lock), waking up by touch, raising your
-  wrist or a button, Wi-Fi (exact time and fresh weather), Bluetooth.
+- **System** — Always On display, what the side buttons do (screen off, lock), waking up by touch, raising your
+  wrist or a button, Wi-Fi (exact time and fresh weather), Bluetooth: one tile, a menu with how each is set, the
+  switches and settings in the right card.
 - **Only what you add gets in.** A layer you don't use isn't in the firmware at all — no code, no fonts, sensors off.
 
 ![The map of screens](docs/screenshots/map.png)
 
-## The board
+## The boards
 
-[Waveshare ESP32-S3-Touch-AMOLED-1.75C](https://www.waveshare.com/esp32-s3-touch-amoled-1.75c.htm): a round 1.75″
-AMOLED, 466 × 466, touch, a motion sensor, a speaker and microphones. The 7″ ESP32-P4 board is coming next.
+- [Waveshare ESP32-S3-Touch-AMOLED-1.75C](https://www.waveshare.com/esp32-s3-touch-amoled-1.75c.htm): a round 1.75″
+  AMOLED, 466 × 466, touch, a motion sensor, a speaker and microphones.
+- [Waveshare ESP32-P4-WIFI6-Touch-LCD-7B](https://www.waveshare.com/esp32-p4-wifi6-touch-lcd-7b.htm) (new in 2.0): a 7″
+  screen, 1024 × 600, touch, Wi-Fi 6 through its ESP32-C6, a speaker, microphones and a microSD card slot. Its
+  screens are laid out for a wide display — a grid gallery, weather with a chart, a home screen with the date and the
+  weather along the top — and its transitions are short and calm. Both chip revisions (v1.x and v3) are recognized by
+  themselves.
+
+Choose the board when you create a project; each project is for one board.
 
 ![The board](PopkaStudio/web/img/board-amoled175.webp)
+
+![The 7″ board in PopkaStudio](docs/screenshots/p4.png)
 
 ## Install — macOS and Linux
 
@@ -76,8 +91,9 @@ Windows is not supported.
 ## First steps
 
 1. **Choose a board**, then **New** — a project. It starts as an empty black watch face: you add only what you need.
-2. Add parts from the folders at the top of the left card: **Faces** (a whole face), **Layers** (its parts), **App**.
-   A tile with a green frame is already in your project.
+2. Add parts from the folders at the top of the left card (**ADD**): **Faces** (a whole face), **Layers** (its
+   parts), **App**. A tile with a green frame is already in your project. Next to them, **System** — Always On, the
+   buttons, Wi-Fi and Bluetooth.
 3. Connect the board with a USB-C cable and press **Load** (top right). The first Load builds everything and takes a
    minute or two; the next ones are faster.
 
@@ -104,16 +120,18 @@ the factory demo.
 ## Privacy
 
 No accounts, no telemetry. The editor talks only to [Open-Meteo](https://open-meteo.com) (the weather for the cities
-you pick), [Zippopotam.us](https://zippopotam.us) (when you look up a US ZIP code) and GitHub — once a day, for the
-list of PopkaStudio's releases (the same request any browser makes; nothing about you is sent). The watch connects to
-your Wi-Fi only for the time and the weather, and only if you turn Wi-Fi on.
+you pick), [Zippopotam.us](https://zippopotam.us) (when you look up a US ZIP code) and GitHub — at most once an hour, for
+the list of PopkaStudio's releases (the same request any browser makes; nothing about you is sent). The watch connects to
+your Wi-Fi only for the time and the weather, and only if you turn Wi-Fi on. **Stream** (the 7″ board's Video), while
+it's on, lets your board download the clips of one folder from your computer over your local network — nothing else,
+nothing written.
 
 ## Plans
 
 I'm going to keep developing PopkaStudio — I love ESP32 boards and devices like them, and making beautiful
 interfaces for them that run flawlessly at 60 fps and more.
 
-- More boards: the 7″ ESP32-P4 (1024 × 600) next, then other round and square screens.
+- More boards: other round and square screens after the 7″ ESP32-P4.
 - Your own GIF or video clip as a pixel-art layer, in seconds.
 - More apps and widgets, more watch faces.
 - Even smoother motion and longer battery life.
@@ -146,12 +164,14 @@ decompiled, and no code was taken from GPL projects:
 | [Horologist](https://github.com/google/horologist) | Apache 2.0 | the player: sizes, the progress ring, icon timing |
 | [wear-os-samples](https://github.com/android/wear-os-samples) | Apache 2.0 | how a screen is put together from components |
 | [PebbleOS](https://github.com/coredevices/PebbleOS) | Apache 2.0 | screen transitions on a microcontroller |
+| [Material Components for Android](https://github.com/material-components/material-components-android) | Apache 2.0 | the 7″ board's transitions: the shared axis — its time, distance and easing |
 
 Third-party parts:
 
 | What | Author | License |
 | --- | --- | --- |
 | Google Sans Flex font (downloaded by the installer; glyphs rendered into the firmware) | Google | [SIL OFL 1.1](https://openfontlicense.org) |
+| Instrument Serif and JetBrains Mono fonts (the Serif and Terminal clocks; downloaded when first used, glyphs rendered into the firmware) | Instrument; JetBrains | [SIL OFL 1.1](https://openfontlicense.org) |
 | Font Awesome Free icons (downloaded by the installer; rendered into the firmware) | Fonticons, Inc. | [CC BY 4.0](https://fontawesome.com/license/free) |
 | Weather data | [Open-Meteo.com](https://open-meteo.com) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 | US ZIP code lookup | [Zippopotam.us](https://zippopotam.us) | free API |

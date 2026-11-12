@@ -27,7 +27,7 @@ static std::vector<const HaloFont *> st_fonts;
 static std::vector<const HaloImage *const *> st_icons;
 static char st_text[ST_SCREENS][ST_LAYERS][3][40];  // the gallery's text: the title, the line under it, the icon
 static char st_name[ST_SCREENS][40];                // the screens' names (an empty one shows its name)
-static float st_boxes[ST_LAYERS * 4], st_places[ST_LAYERS * 2], st_bases[FL_CHARGE * 2 + 2], st_radii[ST_LAYERS * 2];
+static float st_boxes[ST_LAYERS * 4], st_places[ST_LAYERS * 2], st_bases[FL_SCLOCK * 2 + 2], st_radii[ST_LAYERS * 2];
 static int st_pin = -1, st_page = 0;
 
 void web_loop(HaloUpdate update, HaloDraw draw);  // halo_web.cpp
@@ -56,6 +56,9 @@ struct Reader {
 static void pinned_update(float dt) {
   settings_tick(dt);  // (as the board's update: Battery's words along the arc are made there)
   face_tick(dt);
+#if HAS_SHADE
+  shade_anim(dt);  // (the home's panel, shown while its layer is selected: the command shade open)
+#endif
   if (st_pin >= 0 && st_pin < face_scr_n) {  // (its own count: the Weather screen — the cities, the Steps screen — 2)
     const int pg = min(st_page, screen_pages(face_scr[st_pin]) - 1);
     if (face_scr[st_pin].pager.x != pg) halo_spring_set(face_scr[st_pin].pager, pg);
@@ -111,7 +114,7 @@ EMSCRIPTEN_KEEPALIVE int studio_icons(const uint8_t *blob, int len) {
 
 // All screens, bottom to top layers: [[{"kind": FL_*, "dx", "dy", "k", "c", "c2", "sp", "font": slot, "icons": slot,
 // "tap": screen or -1, "fx", "p", "hidden", "t", "u", "i" (the gallery: the title, the line under it, the icon), "c3",
-// "font2": slot (steps: the ring, the shoe)}, ...],
+// "font2": slot (steps: the ring, the shoe), "font3", "font4" (a clock of sclock.h)}, ...],
 // ...]; the first — the watch face. A layer whose kind, font, spacing, size, radius or text changed is made anew (its
 // letters in place); the lists are made from the layers again (kept where they were if the same layers make them);
 // the screen is drawn anew.
@@ -140,6 +143,9 @@ EMSCRIPTEN_KEEPALIVE int studio_set(const char *json) {
       const int fs = o["font"] | -1, is = o["icons"] | -1, f2 = o["font2"] | -1;
       L.font = fs >= 0 && fs < (int)st_fonts.size() ? st_fonts[fs] : nullptr;
       L.font2 = f2 >= 0 && f2 < (int)st_fonts.size() ? st_fonts[f2] : nullptr;
+      const int f3 = o["font3"] | -1, f4 = o["font4"] | -1;  // (a clock of sclock.h: its third and fourth fonts)
+      L.font3 = f3 >= 0 && f3 < (int)st_fonts.size() ? st_fonts[f3] : nullptr;
+      L.font4 = f4 >= 0 && f4 < (int)st_fonts.size() ? st_fonts[f4] : nullptr;
       L.color3 = o["c3"] | 0xFFFFFF;
       L.p2 = o["p2"] | 0.0f, L.p3 = o["p3"] | 0.0f;
       L.icons = is >= 0 && is < (int)st_icons.size() ? st_icons[is] : nullptr;
@@ -316,6 +322,9 @@ EMSCRIPTEN_KEEPALIVE float *studio_bases() {
   st_bases[FL_BATTERY * 2] = st_bases[FL_BATTERY * 2 + 1] = CX;
   st_bases[FL_MUSIC * 2] = st_bases[FL_MUSIC * 2 + 1] = CX;
   st_bases[FL_RECORDER * 2] = st_bases[FL_RECORDER * 2 + 1] = CX;
+  st_bases[FL_VIDEO * 2] = st_bases[FL_VIDEO * 2 + 1] = CX;
+  st_bases[FL_SHADE * 2] = CX, st_bases[FL_SHADE * 2 + 1] = CY;
+  st_bases[FL_SCLOCK * 2] = CX, st_bases[FL_SCLOCK * 2 + 1] = CY;  // (a clock of sclock.h: by the screen's middle)
   for (int k = FL_SNKDOTS; k <= FL_SNKISO; k++) st_bases[k * 2] = st_bases[k * 2 + 1] = CX;
 #if HAS_STEPSCR
   const float st[4][2] = {{CX, SS_NUM_Y}, {CX, SS_CAP_Y}, {CX, SS_FOOT_Y}, {SS_CX, SS_CY}};  // the Steps screen's parts
@@ -326,6 +335,13 @@ EMSCRIPTEN_KEEPALIVE float *studio_bases() {
   for (int k = 0; k < 7; k++) st_bases[(FL_CURVE + k) * 2] = wg[k][0], st_bases[(FL_CURVE + k) * 2 + 1] = wg[k][1];
   st_bases[FL_BATRING * 2] = st_bases[FL_BATRING * 2 + 1] = CX;
   st_bases[FL_PARROT * 2] = CX, st_bases[FL_PARROT * 2 + 1] = CX;
+#ifndef HALO_ROUND
+  // A rectangle's places (widgets_rect.h, wxscreen_rect.h): where each stands before it is moved
+  const float wr[5][2] = {{CX, WR_WEEK_CAP_Y}, {CX, WR_INFO_Y}, {CX, WR_FC_BOX_Y + WR_FC_BOX_H / 2.0f}, {CX, WR_FRAME_CY}, {CX, WR_DOT_CY}};
+  for (int k = 0; k < 5; k++) st_bases[(FL_WEEKARC + k) * 2] = wr[k][0], st_bases[(FL_WEEKARC + k) * 2 + 1] = wr[k][1];
+  st_bases[FL_CURVE * 2 + 1] = CY, st_bases[FL_STARS * 2 + 1] = CY, st_bases[FL_PARROT * 2 + 1] = CY;
+  st_bases[FL_FEELS * 2] = RW_TEXT_R, st_bases[FL_FEELS * 2 + 1] = RW_FEELS_Y;
+#endif
   for (int k = FL_DEVCARD; k <= FL_CHARGE; k++) st_bases[k * 2] = st_bases[k * 2 + 1] = CX;
   return st_bases;
 }
@@ -375,6 +391,10 @@ EMSCRIPTEN_KEEPALIVE void studio_scroll(int s, int i) {
   float to = l.top;
   if (edge) to = halo_list_min(l);
   else if (k >= 0) to = CX - l.cum[k] - l.h[k] / 2;
+#ifndef HALO_ROUND
+  for (int c = 0; c < g.cells; c++)
+    if (g.cell[c].layer == i) to = CY - g.cell[c].y - g.cell[c].h / 2;
+#endif
   to = fminf(l.top, fmaxf(fminf(l.top, halo_list_min(l)), to));
   l.scroll = l.last = to;
   halo_list_update(l, 0, false);  // (a pinned copy has no finger) just the layout

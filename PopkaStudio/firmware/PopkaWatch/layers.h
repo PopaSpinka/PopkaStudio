@@ -25,6 +25,9 @@
 #define FN_BATTERY 0
 #define FN_MUSIC 0
 #define FN_RECORDER 0
+#define FN_VIDEO 0
+// The quick settings panel of the home (shade_rect.h, shade_round.h): only with its layer
+#define FN_SHADE 0
 // About and Power (device.h): only with their layers (About: the microphones and the motion sensor only while
 // something on screen shows them)
 #define FN_ABOUT 0

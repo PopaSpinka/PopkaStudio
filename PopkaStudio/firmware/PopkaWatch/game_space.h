@@ -17,7 +17,19 @@
 #define SP_R 8       // orbits
 #define SP_R0 52.0f  // the first orbit's inner edge, px
 #define SP_DR 20.4f  // an orbit's width, px
+#ifdef HALO_ROUND
 #define SP_STARS 170
+#define SP_SKY 236           // the stars: out to here
+#define SP_H(v) (v)          // the hole's size
+#define SP_S(v) (v)          // its disc's blobs
+#define SP_BAND_REST gm_rest()
+#else
+#define SP_STARS 340         // (the sky goes on past the orbits, to the screen's sides)
+#define SP_SKY 430
+#define SP_H(v) ((v) * 1.6f)
+#define SP_S(v) ((v) * 1.05f)
+#define SP_BAND_REST false   // (the dots are bucketed by row of the watch's world, not of this screen)
+#endif
 #define SP_GLOW 48
 struct SpStar {
   float r, a, w;   // round the hole: radius, angle, rad/s
@@ -30,10 +42,18 @@ static GmBox *sp_orb;  // a box per piece of the body (an orb and the ones betwe
 static HaloMask sp_glow;
 static float sp_t;
 static GmBox sp_hole_box, sp_food_box;
+#ifndef HALO_ROUND
+// Stars and orbit dots are found by row of the world (16 px a bucket), for any view: a draw of one band touches only its own
+#define SP_GB 64
+static int16_t sp_star_at[SP_GB + 2], sp_star_of[SP_STARS];  // bucket -> first in sp_star_of
+#endif
 // The orbits' dots: screen px, sorted by row; sp_band[b] — the first dot of band b (16 rows each)
 #define SP_ODOTS (SP_R * 96)
 static int16_t (*sp_odot)[2];
 static int16_t sp_band[HALO_BANDS + 1];
+#ifndef HALO_ROUND
+static int16_t sp_gband[SP_GB + 2];  // the same dots by rows of the world
+#endif
 // The food's colours: as the stars in the photos of nebulae
 static const uint32_t SP_FOOD[7] = {0xFF6BD6, 0x7AA2FF, 0xFFB347, 0xB388FF, 0x64FFDA, 0xFFE28A, 0xFF6B6B};
 static uint32_t sp_food_col = 0xFFE28A;
@@ -111,7 +131,7 @@ static void space_build() {
   uint32_t r = 31;
   auto rnd = [&]() { r ^= r << 13, r ^= r >> 17, r ^= r << 5; return (r >> 8) * (1.0f / 16777216); };
   for (int i = 0; i < SP_STARS; i++) {  // even over the area from the disc out (r 46…236); ω ∝ r^−1.6
-    const float rr = sqrtf(46 * 46 + rnd() * (236 * 236 - 46 * 46));
+    const float rr = sqrtf(46 * 46 + rnd() * (SP_SKY * SP_SKY - 46 * 46));
     sp_star[i] = {rr, rnd() * 2 * HALO_PI, sp_omega(rr), (uint8_t)(1 + (int)(rnd() * 3)), -9, -9};
   }
   sp_make_glow();
@@ -134,6 +154,12 @@ static void space_build() {
       while (i < m && sp_odot[i][1] < b * HALO_ROWS) i++;
       sp_band[b] = i;
     }
+#ifndef HALO_ROUND
+    for (int b = 0, i = 0; b <= SP_GB + 1; b++) {
+      while (i < m && sp_odot[i][1] < b * 16) i++;
+      sp_gband[b] = i;
+    }
+#endif
   }
 }
 
@@ -227,7 +253,20 @@ static void space_layout() {
     if (rest) gm_damage(s.dx - 1, s.dy - 1, s.dx + 2, s.dy + 2), gm_damage(ix - 1, iy - 1, ix + 2, iy + 2);
     s.dx = ix, s.dy = iy;
   }
-  gm_mark(sp_hole_box, CX - 64, CX - 36, CX + 64, CX + 36, (uint32_t)(sp_t * 60) + 1);  // (it turns: every frame)
+#ifndef HALO_ROUND
+  {  // the stars by rows of the world, for the draw (a counting sort)
+    int16_t count[SP_GB + 1] = {0};
+    auto bucket = [](int y) { return constrain(y / 16, 0, SP_GB); };
+    for (int i = 0; i < SP_STARS; i++) count[bucket(sp_star[i].dy)]++;
+    int16_t at = 0;
+    for (int b = 0; b <= SP_GB; b++) sp_star_at[b] = at, at += count[b];
+    sp_star_at[SP_GB + 1] = at;
+    int16_t next[SP_GB + 1];
+    memcpy(next, sp_star_at, sizeof next);
+    for (int i = 0; i < SP_STARS; i++) sp_star_of[next[bucket(sp_star[i].dy)]++] = i;
+  }
+#endif
+  gm_mark(sp_hole_box, CX - SP_H(64), CX - SP_H(36), CX + SP_H(64), CX + SP_H(36), (uint32_t)(sp_t * 60) + 1);  // (it turns: every frame)
   const float fx = sp_food_x(), fy = sp_food_y();
   gm_mark(sp_food_box, fx - 18, fy - 18, fx + 18, fy + 18, gm_mix(gm_mix((int32_t)(fx * 4) << 12 ^ (int32_t)(fy * 4), (int32_t)(sp_t * 60)), sp_food_col));
   sp_body(S);
@@ -255,21 +294,26 @@ static void sp_glow_at(float x, float y, float scale, uint32_t rgb, float a) {  
 }
 static void sp_disc(bool front) {  // the hole's disc: hot blobs on three ellipses, the back half or the front one
   static const float DR[3] = {22, 31, 40}, DW[3] = {1.3f, 0.95f, 0.7f}, DS[3] = {3.2f, 3.8f, 4.4f}, DA[3] = {0.8f, 0.6f, 0.45f};
+#ifdef HALO_ROUND
   static const int DN[3] = {10, 14, 18};
+#else
+  static const int DN[3] = {22, 30, 40};  // (more and smaller: a bigger disc stays smooth)
+#endif
   static const uint32_t DC[3] = {0xFFF0C8, 0xFFB347, 0xFF5A1F};
   for (int k = 2; k >= 0; k--)
     for (int i = 0; i < DN[k]; i++) {
       const float a = i * 2 * HALO_PI / DN[k] + sp_t * DW[k] + k, s = sinf(a);
       if ((s >= 0) != front) continue;
-      halo_circle(gm_x(CX + DR[k] * cosf(a)), gm_y(CX + 0.38f * DR[k] * s), DS[k] * gm_v.s, gm_col(DC[k], DA[k]));
+      halo_circle(gm_x(CX + SP_H(DR[k]) * cosf(a)), gm_y(CX + 0.38f * SP_H(DR[k]) * s), SP_S(DS[k]) * gm_v.s, gm_col(DC[k], DA[k]));
     }
 }
 static void space_draw() {
   if (!sp_s) return;
   static const uint32_t STAR[4] = {0, 0x5A5A5A, 0x9A9A9A, 0xE0E0E0};
+#ifdef HALO_ROUND
   if (sp_odot) {  // the orbits the snake runs on: faint dots — at rest only this band's, else all through the view
     const uint32_t oc = gm_col(0x26355C);
-    const bool rest = gm_rest();
+    const bool rest = SP_BAND_REST;
     const int b0 = rest ? max(0, hb.y / HALO_ROWS) : 0, b1 = rest ? min(HALO_BANDS, (hb.y + hb.rows - 1) / HALO_ROWS + 1) : HALO_BANDS;
     for (int i = sp_band[b0]; i < sp_band[b1]; i++) {
       const int x = (int)gm_x(sp_odot[i][0]), y = (int)gm_y(sp_odot[i][1]);
@@ -281,14 +325,31 @@ static void space_draw() {
     const float x = gm_x(s.dx), y = gm_y(s.dy), w = (s.l == 3 ? 2 : 1) * gm_v.s;
     if (halo_hits(x, y, x + w, y + w)) halo_rect((int)x, (int)y, (int)(x + w - 0.01f), (int)(y + w - 0.01f), gm_col(STAR[s.l]));
   }
+#else
+  // Only the rows of the world this band shows (the view maps rows one to one: a shift and a scale)
+  const float wy0 = gm_y(0), wk = 1 / (gm_v.s * 16);
+  const int g0 = constrain((int)((hb.y - wy0) * wk) - 1, 0, SP_GB + 1), g1 = constrain((int)((hb.y + hb.rows - wy0) * wk) + 2, 0, SP_GB + 1);
+  if (sp_odot) {
+    const uint32_t oc = gm_col(0x26355C);
+    for (int i = sp_gband[g0]; i < sp_gband[g1]; i++) {
+      const int x = (int)gm_x(sp_odot[i][0]), y = (int)gm_y(sp_odot[i][1]);
+      if (y >= hb.y && y < hb.y + hb.rows && x >= hb.x0 && x <= hb.x1) halo_rect(x, y, x, y, oc);
+    }
+  }
+  for (int k = sp_star_at[g0]; k < sp_star_at[g1]; k++) {
+    const SpStar &s = sp_star[sp_star_of[k]];
+    const float x = gm_x(s.dx), y = gm_y(s.dy), w = (s.l == 3 ? 2 : 1) * gm_v.s;
+    if (halo_hits(x, y, x + w, y + w)) halo_rect((int)x, (int)y, (int)(x + w - 0.01f), (int)(y + w - 0.01f), gm_col(STAR[s.l]));
+  }
+#endif
   // The black hole
-  if (halo_hits(gm_x(CX - 64), gm_y(CX - 36), gm_x(CX + 64), gm_y(CX + 36))) {
+  if (halo_hits(gm_x(CX - SP_H(64)), gm_y(CX - SP_H(36)), gm_x(CX + SP_H(64)), gm_y(CX + SP_H(36)))) {
     sp_disc(false);
-    halo_circle(gm_x(CX), gm_y(CX), 13 * gm_v.s, gm_col(0x000000));
-    halo_ring(gm_x(CX), gm_y(CX), 14.5f * gm_v.s, 1.5f * gm_v.s, 1, gm_col(0xFFDCAA));
+    halo_circle(gm_x(CX), gm_y(CX), SP_H(13) * gm_v.s, gm_col(0x000000));
+    halo_ring(gm_x(CX), gm_y(CX), SP_H(14.5f) * gm_v.s, SP_H(1.5f) * gm_v.s, 1, gm_col(0xFFDCAA));
     sp_disc(true);
     for (int k = 0; k < 14; k++) {
-      const float ph = fmodf(sp_t * 0.4f + k / 14.0f, 1), a = k * 2.4f + ph * 9, r = 60 * (1 - ph);
+      const float ph = fmodf(sp_t * 0.4f + k / 14.0f, 1), a = k * 2.4f + ph * 9, r = SP_H(60) * (1 - ph);
       const float x = gm_x(CX + cosf(a) * r), y = gm_y(CX + sinf(a) * r * 0.5f);
       halo_rect((int)x, (int)y, (int)x + 1, (int)y + 1, gm_col(0xFFC88C, ph));
     }

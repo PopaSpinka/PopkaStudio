@@ -23,7 +23,9 @@ static void ws_scan(void *) {
         LOG("wifi: net %d %d %s\n", (int)WiFi.RSSI(i), WiFi.encryptionType(i) == WIFI_AUTH_OPEN ? 0 : 1, WiFi.SSID(i).c_str());
     WiFi.scanDelete();
   }
+#ifndef HALO_WIFI_KEEP
   WiFi.mode(WIFI_OFF);  // (its memory back: the screen's buffers need it)
+#endif
   halo_stay_awake(false);
   LOG("wifi: scan done %d\n", n < 0 ? 0 : n);
   ws_task = nullptr;

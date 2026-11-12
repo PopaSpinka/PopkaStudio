@@ -6,3 +6,5 @@
 #define FN_BT 0
 #define TZ "EST5EDT,M3.2.0,M11.1.0"  // New York
 #define CLOCK_24H 0
+// The clocks of sixteen looks (sclock.h): a bit a look the project has (none — not in the firmware)
+#define FN_SCLOCK 0x0000

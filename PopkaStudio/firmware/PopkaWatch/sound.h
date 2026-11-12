@@ -5,10 +5,13 @@
 
 static int (*snd_voice)(int16_t *, int);  // the recorder's playback (0 — nothing to play)
 static int (*snd_music)(int16_t *, int);  // the music
+static int (*snd_video)(int16_t *, int);  // the Video app's sound (video_hw.h): it goes first
+static int snd_rate;                      // what the speaker runs at, once started
 static volatile bool snd_started;
 
 #ifndef __EMSCRIPTEN__
 static int snd_fill(int16_t *buf, int n) {  // the audio task (core 0)
+  if (snd_video) return snd_video(buf, n);
   const int k = snd_voice ? snd_voice(buf, n) : 0;
   if (k > 0) return k;
   return snd_music ? snd_music(buf, n) : 0;
@@ -20,6 +23,7 @@ static void snd_begin(int rate) {
 #ifndef __EMSCRIPTEN__
   if (snd_started) return;
   snd_started = true;
+  snd_rate = rate;
   static int r;
   r = rate;
   xTaskCreatePinnedToCore(

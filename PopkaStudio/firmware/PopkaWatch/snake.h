@@ -171,6 +171,17 @@ static void sn_init_polar(Snake &S, int A, int R, float tick, int cap, uint32_t 
   sn_spawn(S), sn_place_food(S);
 }
 
+#ifndef HALO_ROUND
+// A rectangular board, all of it free (Dot Snake on a rectangular screen)
+static void sn_init_rect(Snake &S, int C, int R, float tick, int cap, uint32_t seed) {
+  S.G = S.cols = C, S.rows = R, S.wrap = false;
+  S.tick = tick, S.cap = min(cap, SN_MAXL - 1), S.rnd = seed | 1;
+  for (int i = 0; i < C * R; i++) S.valid[i] = 1, S.obst[i] = 0;
+  S.time = S.acc = 0, S.last_eat = -9, S.score = S.best = 0, S.ev_n = 0, S.shed_n = 0;
+  sn_spawn(S), sn_place_food(S);
+}
+#endif
+
 static void sn_step(Snake &S) {
   if (S.before_step) S.before_step(S);
   memcpy(S.prev, S.body, S.n * 2), S.pn = S.n;

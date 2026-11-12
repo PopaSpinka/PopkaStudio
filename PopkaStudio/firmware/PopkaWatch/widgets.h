@@ -29,6 +29,15 @@ static const char *const MONTH_FULL[12] = {"JANUARY", "FEBRUARY", "MARCH", "APRI
 static const char *const WX_WORD[4] = {"partly cloudy", "sunny", "cloudy", "rain"};  // by WX_PARTLY ...
 enum : uint8_t { CV_WEEKDAY, CV_SHORTDATE, CV_DAYMONTH, CV_WEATHER, CV_STEPS, CV_DATESTEPS, CV_BATTERY };
 enum : uint8_t { IF_WORDS, IF_SHORT, IF_ICONS };
+#ifndef HALO_ROUND
+#define CV_CITY 7                 // (a rectangle's: the Four sides face has the city where the watch has the steps)
+#define WR_SIDE_X 56.0f           // a line along the left or the right side: its letters' middle from the edge
+#define WR_SIDE_RAD 40000.0f      // baked as an arc so wide it is straight (halo_text_arc turns the letters)
+static bool wr_side(float angle) {  // the Place of a line: -100 — along the left side, 100 — along the right
+  const float a = fabsf(angle);
+  return a > 95 && a < 115;
+}
+#endif
 #define WG_DOTS (4 * 35 + 7)  // the dot clock: four digits and the colon
 #define WG_ICON 0xF54B        // the shoe (Font Awesome shoe-prints, the Steps pill's)
 #define WG_ROWS 10            // a layer's texts (R.txt: rows of 24; its items point into them — each layer its own)
@@ -78,7 +87,12 @@ static void wg_curve_text(char *o, int n, int what) {
   switch (what) {
     case CV_WEEKDAY: snprintf(o, n, "%s", ok ? WEEKDAY_FULL[t.tm_wday] : "---"); break;
     case CV_SHORTDATE: ok ? snprintf(o, n, "%s · %d %s", WEEKDAY[t.tm_wday], t.tm_mday, MONTH[t.tm_mon]) : snprintf(o, n, "---"); break;
+#ifdef HALO_ROUND
     case CV_DAYMONTH: ok ? snprintf(o, n, "%d %s", t.tm_mday, MONTH_FULL[t.tm_mon]) : snprintf(o, n, "---"); break;
+#else
+    case CV_DAYMONTH: ok ? snprintf(o, n, "%s %d", MONTH_FULL[t.tm_mon], t.tm_mday) : snprintf(o, n, "---"); break;
+    case CV_CITY: snprintf(o, n, "%s", wx_city[0].name), wg_upper(o); break;
+#endif
     case CV_WEATHER: snprintf(o, n, "%s %s", deg, WX_WORD[d.kind & 3]), wg_upper(o); break;
     case CV_STEPS: snprintf(o, n, "%s STEPS", st); break;
     case CV_BATTERY: {
@@ -95,11 +109,30 @@ static void wg_curve_text(char *o, int n, int what) {
 }
 static void wg_curve_bake(const FaceLayer &L, FaceRun &R, const char *s) {
   strlcpy(R.txt, s, 40);
+#ifndef HALO_ROUND
+  if (!wr_side(L.p3) || !L.font) return;  // (a rectangle draws it straight: wg_layout; along a side — turned, baked)
+  {
+    float tx, ty;
+    const float an = (L.p3 < 0 ? -90 : 90) * (HALO_PI / 180);
+    if (halo_text_arc(R.arc, *L.font, s, R.mid, WR_SIDE_RAD, an, false, L.spacing, &tx, &ty)) {
+      const float C = HALO_W / 2.0f;                                // (the arc's middle)
+      R.tx = tx - (L.p3 < 0 ? C - WR_SIDE_RAD : C + WR_SIDE_RAD), R.ty = ty - C;  // (from the letters' axis and its middle)
+    } else {
+      free((void *)R.arc.bits), free((void *)R.arc.ext), R.arc = {};
+    }
+    return;
+  }
+#endif
   const float a = L.p3 * (HALO_PI / 180);
   const bool bottom = fabsf(L.p3) > 120;  // (the lower part reads left to right, upright)
   if (!L.font || !halo_text_arc(R.arc, *L.font, s, R.mid, L.p, a, bottom, L.spacing, &R.tx, &R.ty))
     free((void *)R.arc.bits), free((void *)R.arc.ext), R.arc = {};
 }
+
+#ifndef HALO_ROUND
+static int wgr_items(uint8_t kind);
+static bool wgr_fc_tick(const FaceLayer &L, FaceRun &R);
+#endif
 
 // ---------- Built once a change (face_layer_build) ----------
 static void wg_layer_build(const FaceScreen &S, int i) {
@@ -115,12 +148,23 @@ static void wg_layer_build(const FaceScreen &S, int i) {
       wg_curve_bake(L, R, s);
       break;
     }
+#ifdef HALO_ROUND
     case FL_WEEKARC: R.g = new HaloItem[8](); break;
     case FL_INFOLINE: R.g = new HaloItem[4](); break;
     case FL_FORECAST: R.g = new HaloItem[15](); break;
     case FL_DATEFRAME: R.g = new HaloItem[4](); break;
     case FL_DOTCLOCK: R.g = new HaloItem[WG_DOTS](); break;
+#else
+    case FL_WEEKARC:
+    case FL_INFOLINE:
+    case FL_FORECAST:
+    case FL_DATEFRAME:
+    case FL_DOTCLOCK: R.g = new HaloItem[wgr_items(L.kind)](); break;
+#endif
   }
+#ifndef HALO_ROUND
+  if (L.font2 && (L.kind == FL_WEEKARC || L.kind == FL_FORECAST)) R.top = halo_text_mid(*L.font2, "0123456789");
+#endif
   if (L.font && L.kind != FL_CURVE) R.mid = halo_text_mid(*L.font, L.kind == FL_FORECAST ? "0123456789" : "MTWFS 0123456789");
   if (!R.txt) R.txt = (char *)calloc(WG_ROWS, 24);
 }
@@ -135,6 +179,9 @@ static void wg_tick() {
     for (int i = 0; i < face_scr[k].n; i++) {
       const FaceLayer &L = face_scr[k].layers[i];
       FaceRun &R = face_scr[k].run[i];
+#ifndef HALO_ROUND
+      if (L.kind == FL_FORECAST && wgr_fc_tick(L, R)) return;
+#endif
       if (L.kind != FL_CURVE || !R.txt || !L.font) continue;
       char s[40];
       wg_curve_text(s, sizeof(s), (int)L.p2);
@@ -155,8 +202,15 @@ static const uint8_t WG_GLYPH[11][7] = {
     {2, 6, 10, 18, 31, 2, 2},     {31, 16, 30, 1, 1, 17, 14}, {6, 8, 16, 30, 17, 17, 14}, {31, 1, 2, 4, 8, 8, 8},
     {14, 17, 17, 14, 17, 17, 14}, {14, 17, 17, 15, 1, 2, 12}, {0, 0, 1, 0, 1, 0, 0}};
 
+#ifndef HALO_ROUND
+#include "widgets_rect.h"
+#endif
+
 // ---------- Each frame ----------
 static void wg_layout(const FaceScreen &S, int i, float a, const HaloView &v0) {
+#ifndef HALO_ROUND
+  if (wgr_layout(S, i, a, v0)) return;
+#endif
   const FaceLayer &L = S.layers[i];
   FaceRun &R = S.run[i];
   HaloView v = v0;
@@ -168,6 +222,30 @@ static void wg_layout(const FaceScreen &S, int i, float a, const HaloView &v0) {
   struct tm t;
   const bool ok = wg_now(t);
   switch (L.kind) {
+#ifndef HALO_ROUND
+    case FL_CURVE: {  // straight (D1, S2): the angle only picks its place on the top or the bottom line
+      if (!L.font) break;
+      if (wr_side(L.p3)) {  // along the left or the right side: turned, reads up on the left and down on the right
+        const float sx = L.p3 < 0 ? WR_SIDE_X : W - WR_SIDE_X;
+        HaloItem &m = R.pill;
+        m.kind = HI_MASK, m.mask = &R.arc, m.color = L.color, m.on_black = true, m.on = &halo_black;
+        m.x = sx + R.tx + R.arc.w / 2.0f, m.y = CY + R.ty + R.arc.h / 2.0f, m.scale = 1, m.alpha = R.arc.bits ? a : 0;
+        halo_view_commit(m, v);
+        ax = sx, ay = CY;
+        break;
+      }
+      const float an = L.p3, abs_a = fabsf(an);
+      const int align = abs_a < 15 || abs_a > 165 ? 1 : an < 0 ? 0 : 2;
+      const float x = align == 1 ? CX : align == 0 ? RH_MARGIN : W - RH_MARGIN;
+      const float y = abs_a > 120 ? HALO_H - RH_LINE_Y : RH_LINE_Y;
+      HaloItem &c = R.pill;
+      c.kind = HI_TEXT, c.font = L.font, c.text = R.txt, c.align = align, c.color = L.color, c.on = &halo_black, c.on_black = true;
+      c.x = x, c.y = y + (L.font->line / 2.0f - R.mid), c.scale = 1, c.alpha = a, c.spacing = L.spacing;
+      halo_view_commit(c, v);
+      ax = x, ay = y;
+      break;
+    }
+#else
     case FL_CURVE: {
       HaloItem &c = R.pill;
       c.kind = HI_MASK, c.mask = &R.arc, c.color = L.color, c.on_black = true, c.on = &halo_black;
@@ -176,6 +254,7 @@ static void wg_layout(const FaceScreen &S, int i, float a, const HaloView &v0) {
       ax = c.x, ay = c.y;
       break;
     }
+#endif
     case FL_STEPRING:
     case FL_BATRING: {  // (the same ring: the steps to the goal, or the battery's percent)
       HaloItem &c = R.pill;
@@ -330,6 +409,9 @@ static void wg_draw(const FaceScreen &S, int i) {
   const FaceLayer &L = S.layers[i];
   const FaceRun &R = S.run[i];
   if (L.kind == FL_CURVE || L.kind == FL_STEPRING || L.kind == FL_BATRING) return halo_item_draw(R.pill);
+#ifndef HALO_ROUND
+  if (wgr_draw(L, R)) return;
+#endif
   if (!R.g) return;
   if (L.kind == FL_WEEKARC) halo_item_draw(R.g[7]);  // (the circle under today's letter)
   const int n = L.kind == FL_WEEKARC ? 7 : L.kind == FL_FORECAST ? 15 : L.kind == FL_DOTCLOCK ? WG_DOTS : 4;

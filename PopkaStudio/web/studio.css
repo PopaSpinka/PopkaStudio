@@ -148,7 +148,7 @@ button.danger { color: var(--bad); }
 .board-pop .color:last-child { margin-bottom: 0; }
 
 /* ---------- The cards over the field (6 Nov 2026, web/mockups/panels.html: variant 3's heads, variant 7's folder
-   content): the left card — its head the name, then the folders, Screens, Functions, Layers; the right card — its head
+   content): the left card — its head the name, then the folders and System, Screens, Layers; the right card — its head
    the board and Load, then the selection's properties; the middle of the top — a card of its own (.bar). The heads and
    the bar are one row: 34 px from the top's 12 (the Mac app's window buttons sit in its middle: app/main.js BUTTONS) */
 :root { --lw: 256px; --head: 32px; }
@@ -157,7 +157,7 @@ button.danger { color: var(--bad); }
   box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
 }
 .card { position: absolute; z-index: 3; top: 12px; max-height: calc(100% - 24px); overflow: auto; }
-.left { left: 12px; width: var(--lw); display: flex; flex-direction: column; overflow: hidden; }
+.left { left: 12px; bottom: 12px; width: var(--lw); display: flex; flex-direction: column; overflow: hidden; }
 /* The right card: its head always (the board, Load); the properties under it scroll — nothing selected: the head alone.
    It doesn't clip: the board's popover hangs out of it */
 .right { right: 12px; width: 276px; display: flex; flex-direction: column; overflow: visible; }
@@ -168,26 +168,44 @@ button.danger { color: var(--bad); }
 .head-l { border-bottom: 1px solid var(--line); }
 .panel { padding: 12px 10px; border-bottom: 1px solid var(--line); }
 .left > .panel { flex: none; }
-/* Layers take the rest of the card and scroll inside it (their title stays on top) */
-.left > .panel.grow { flex: 1 1 auto; min-height: 120px; overflow-y: auto; border-bottom: 0; }
-.panel.grow > h2 { position: sticky; top: -12px; z-index: 1; margin: -12px 0 0; padding: 12px 0 10px; background: #1e1f22; }
+/* The card goes down to the window's bottom: Screens as tall as the line between them was let go (panels.js:
+   initSplit), Layers the rest; each scrolls inside, its title stays on top */
+.left > .panel.grow { flex: 1 1 auto; min-height: 0; overflow-y: auto; border-bottom: 0; }
+.panel.grow > h2, .left > .screens-panel > h2 { position: sticky; top: -12px; z-index: 1; margin: -12px 0 0; padding: 12px 0 10px; background: #1e1f22; }
+.left > .screens-panel { min-height: 0; overflow-y: auto; border-bottom: 0; }
+/* The line: dragged — blue, as when the mouse is over it; a grip in its middle */
+.split { position: relative; z-index: 2; flex: none; height: 9px; margin: -4px 0; cursor: row-resize; touch-action: none; outline: none; }
+.split::before { content: ""; position: absolute; left: 0; right: 0; top: 4px; height: 1px; background: var(--line); transition: background 0.15s; }
+.split::after {
+  content: ""; position: absolute; left: 50%; top: 2px; width: 30px; height: 5px; margin-left: -15px; border-radius: 3px;
+  background: #1e1f22; box-shadow: inset 0 0 0 1px var(--line-2); transition: background 0.15s, box-shadow 0.15s;
+}
+.split:hover::before, .split.on::before, .split:focus-visible::before { background: var(--accent); }
+.split:hover::after, .split.on::after, .split:focus-visible::after { background: var(--accent); box-shadow: 0 0 8px rgba(76, 141, 255, 0.6); }
+body.splitting, body.splitting * { cursor: row-resize !important; }
 /* Try: the watch alone — the cards only their heads (the name; the board and Load), no folder open */
 body[data-mode="try"] .card > :not(.card-head), body[data-mode="try"] .shelf-box { display: none; }
 body[data-mode="try"] .head-l { border-bottom: 0; }
+body[data-mode="try"] .left { bottom: auto; }
 
-/* The folders (the left card, under its head): Faces, Widgets, App — three equal tiles, an icon over the name, how
-   many in the corner; the open one lit blue */
-.folders { flex: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 8px; border-bottom: 1px solid var(--line); }
+/* The folders (the left card, under its head): Faces, Layers, App under ADD and how many they hold, past a line System
+   under its heading and how many functions are on — low tiles, an icon over the name; the open one lit blue
+   (11 Nov 2026: web/mockups/fnname.html) */
+.folders { flex: none; padding: 10px 8px 8px; border-bottom: 1px solid var(--line); }
+.folders-h { display: flex; justify-content: space-between; }
+.folders-h h2 { justify-content: flex-start; gap: 6px; margin: 0 2px 8px; }
+.folders-n { color: var(--faint); letter-spacing: 0.02em; }
+.folders-row { display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)) 1px minmax(0, 1fr); gap: 6px; }
+.folders-row[style*="--sys:0"] { grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); }
+.folders-sep { background: var(--line-2); margin: 8px 0; }
 .folder, .folder:hover:not(:disabled) {
-  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; height: 62px;
-  padding: 0; border: 0; border-radius: 9px; background: var(--panel-2); color: var(--dim); font-size: 11px; font-weight: 550;
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; height: 44px; min-width: 0;
+  padding: 0; border: 0; border-radius: 9px; background: var(--panel-2); color: var(--dim); font-size: 10.5px; font-weight: 550; white-space: nowrap;
 }
 .folder:hover:not(:disabled) { background: var(--panel-3); color: var(--text); }
-.folder-ic svg { display: block; width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-.folder-n { position: absolute; top: 5px; right: 8px; font-size: 10px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.folder-ic svg { display: block; width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .folder.open, .folder.open:hover:not(:disabled) { background: #24314a; color: var(--text); box-shadow: inset 0 0 0 1px rgba(76, 141, 255, 0.5); }
 .folder.open .folder-ic { color: var(--accent); }
-.folder.open .folder-n { color: #8fb6ff; }
 /* The open folder's content: to the right of the left card, its top at the folders' — a card of two columns: the
    categories (a click — its tiles), the chosen one's tiles three in a row (they scroll, the column stays); it grows out
    of the card and folds back into it when closed; drag a tile onto a screen or click it */
@@ -251,6 +269,25 @@ body[data-mode="try"] .head-l { border-bottom: 0; }
 .tool-name { width: 100%; box-sizing: border-box; font: inherit; font-size: 12px; text-align: center; color: var(--text); background: transparent; border: 0; border-bottom: 1px solid var(--accent); outline: none; padding: 2px 0; }
 .tool[draggable="true"] { cursor: grab; }
 .tool[draggable="true"]:active { cursor: grabbing; }
+/* System's menu (where a folder's content opens): a row a function — its icon in a square, the name over how it is set,
+   On / Off; the picked one (its settings in the right card) — blue */
+.shelf.sys { display: block; width: 252px; padding: 6px; }
+.sys-row, .sys-row:hover:not(:disabled) {
+  display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; height: 46px;
+  padding: 0 10px 0 8px; border: 0; border-radius: 9px; background: none; color: var(--text); text-align: left;
+}
+.sys-row + .sys-row { margin-top: 2px; }
+.sys-row:hover:not(:disabled) { background: var(--panel-2); }
+.sys-ic { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: var(--panel-2); color: var(--text); }
+.sys-row:hover .sys-ic { background: var(--panel-3); }
+.sys-ic svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.sys-txt { display: flex; flex-direction: column; min-width: 0; }
+.sys-name, .sys-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.25; }
+.sys-name { font-weight: 600; }
+.sys-sub { font-size: 11px; color: var(--dim); }
+.sys-st { font-size: 11px; color: #8fb6ff; }
+.sys-row.off .sys-name, .sys-row.off .sys-st, .sys-row.off .sys-ic { color: var(--faint); }
+.sys-row.sel, .sys-row.sel:hover:not(:disabled) { background: var(--accent-soft); box-shadow: inset 0 0 0 1px rgba(76, 141, 255, 0.5); }
 @keyframes shelf-open { from { opacity: 0; transform: translateX(-8px) scale(0.96); } to { opacity: 1; transform: none; } }
 @keyframes shelf-close { to { opacity: 0; transform: translateX(-8px) scale(0.96); } }
 
@@ -285,7 +322,6 @@ body[data-mode="try"] .head-l { border-bottom: 0; }
 .layers-title { color: var(--text); letter-spacing: 0; text-transform: none; font-weight: 600; }
 .link-dot { display: inline-grid; place-items: center; width: 16px; height: 16px; margin-left: 6px; vertical-align: -3px; color: var(--accent); }
 .link-dot svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-.left .screens-panel { max-height: 40vh; overflow: auto; }
 /* A paged screen in Screens: its pages under it, behind a twist (the cities) */
 .layer .twist { opacity: 1; transition: transform 0.15s; }
 .layer .twist.open { transform: rotate(90deg); }
@@ -317,15 +353,15 @@ body[data-mode="try"] .head-l { border-bottom: 0; }
 }
 .tile.off { display: none; }
 .world.pixels canvas { image-rendering: pixelated; }
-/* Map: the picked screen — a bright frame and a soft glow round its bezel, as thick on the screen at any zoom (--z:
-   the map's zoom, stage.js applyView) */
+/* Map: the picked screen — a thin bright frame and a faint glow round its bezel (11 Nov 2026: thinner and dimmer, the
+   user's word), as thick on the screen at any zoom (--z: the map's zoom, stage.js applyView) */
 .tile.active {
-  box-shadow: 0 0 0 9px #1c1d20, 0 0 0 calc(9px + 3px / var(--z, 1)) var(--accent),
-    0 0 calc(26px / var(--z, 1)) calc(6px / var(--z, 1)) rgba(76, 141, 255, 0.4), 0 30px 80px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 0 0 9px #1c1d20, 0 0 0 calc(9px + 2px / var(--z, 1)) var(--accent),
+    0 0 calc(16px / var(--z, 1)) calc(1px / var(--z, 1)) rgba(76, 141, 255, 0.22), 0 30px 80px rgba(0, 0, 0, 0.6);
 }
 .tile .page.active {
-  box-shadow: 0 0 0 9px #1c1d20, 0 0 0 calc(9px + 3px / var(--z, 1)) var(--accent),
-    0 0 calc(26px / var(--z, 1)) calc(6px / var(--z, 1)) rgba(76, 141, 255, 0.4), 0 30px 80px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 0 0 9px #1c1d20, 0 0 0 calc(9px + 2px / var(--z, 1)) var(--accent),
+    0 0 calc(16px / var(--z, 1)) calc(1px / var(--z, 1)) rgba(76, 141, 255, 0.22), 0 30px 80px rgba(0, 0, 0, 0.6);
 }
 .tile.drop { box-shadow: 0 0 0 9px #1c1d20, 0 0 0 12px var(--accent), 0 30px 80px rgba(0, 0, 0, 0.6); }
 #overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
@@ -599,37 +635,21 @@ pre {
 .start-name:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .start-newbox .primary { margin-top: 14px; min-width: 120px; height: 34px; justify-content: center; border-radius: 9px; }
 
-/* ---------- Functions → Wi-Fi: its networks open in the (wider) menu, under its row ---------- */
-/* Functions in the left card, between Screens and Layers: its title folds it away and back (
-   the chevron turns, the rows slide shut — the row track 1fr → 0fr) */
-.fold, .fold:hover:not(:disabled) {
-  display: inline-flex; align-items: center; gap: 5px; padding: 0; border: 0; border-radius: 0; background: none;
-  color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer;
-}
-.fold:hover:not(:disabled) { color: var(--text); }
-.fold svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
-  transform: rotate(90deg); transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1); }
-.fn-panel.shut .fold svg { transform: none; }
-.fn-panel > h2 { transition: margin-bottom 0.2s cubic-bezier(0.2, 0, 0, 1); }
-.fn-panel.shut > h2 { margin-bottom: 0; }
-.fold-body { display: grid; grid-template-rows: 1fr; transition: grid-template-rows 0.2s cubic-bezier(0.2, 0, 0, 1); }
-.fn-panel.shut .fold-body { grid-template-rows: 0fr; }
-.fold-clip { min-height: 0; overflow: hidden; }
-.left > .fn-panel { flex: none; }
-.acc { margin: 2px 0 4px; padding: 4px 0 2px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+/* ---------- System → Wi-Fi: its networks in its Properties, under its head ---------- */
+.acc { padding: 10px 0 0; }
 .acc .layers { gap: 1px; }
-.acc .layer { height: 30px; padding-left: 30px; cursor: pointer; }
+.acc .layer { height: 30px; padding-left: 6px; cursor: pointer; }
 .acc .layer.cur { background: var(--panel-2); cursor: default; }
 .acc .layer.cur .layer-name { font-weight: 600; }
 .acc .ok-ic { color: var(--accent); }
-.acc .empty { padding: 2px 4px 6px 30px; font-size: 12px; }
+.acc .empty { padding: 2px 4px 6px 6px; font-size: 12px; }
 /* The networks: a list of their own, about 7 rows (fewer in a low window), it scrolls */
 .acc .nets {
   max-height: clamp(93px, calc(100vh - 500px), 217px); overflow-y: auto; overscroll-behavior: contain;
   scrollbar-width: thin; scrollbar-color: var(--line-2) transparent;
 }
 .acc-h {
-  display: flex; align-items: center; justify-content: space-between; padding: 4px 4px 0 30px;
+  display: flex; align-items: center; justify-content: space-between; padding: 8px 0 4px 6px;
   font-size: 10.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint);
 }
 .acc-h .icon-btn svg { width: 14px; height: 14px; }
@@ -639,7 +659,7 @@ svg.sig .off { opacity: 0.28; }
 svg.sig circle { fill: currentColor; }
 .lk { display: grid; place-items: center; width: 14px; height: 14px; color: var(--faint); }
 .lk svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.pw { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; padding: 3px 4px 7px 56px; }
+.pw { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; padding: 3px 0 7px 34px; }
 .pw .field { height: 28px; padding-right: 2px; }
 .pw .field.wide { grid-column: 1 / -1; }
 .pw .field input[type=password] { letter-spacing: 0.12em; }
@@ -651,6 +671,8 @@ svg.sig circle { fill: currentColor; }
 .layer.city .acts { display: flex; gap: 0; }
 .layer.city.editing { background: var(--panel-2); }
 .group h3 > .icon-btn { margin: -6px -4px -6px 0; }
+.group h3 > .h3-acts { display: flex; align-items: center; gap: 10px; }
+.group h3 > .h3-acts > .icon-btn { margin: -6px -4px -6px 0; }
 .city-search { padding: 4px 0 6px; }
 .city-search .field input { font-variant-numeric: normal; }
 .city-search .results { margin-top: 4px; max-height: 220px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
@@ -944,3 +966,42 @@ body.sorting .layer:hover:not(.lifted):not(.sel) { background: none; }
 }
 .upd-x:hover:not(:disabled) { background: var(--panel-2); color: var(--text); }
 .upd-x svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+
+/* A rectangular screen (screen.js: the passport's size on :root). The round board's rules above stay as they are */
+:root[data-shape="rect"] .tile, :root[data-shape="rect"] .tile .page, :root[data-shape="rect"] .device {
+  width: var(--scr-w); height: var(--scr-h); border-radius: 2px; box-shadow: none;
+}
+:root[data-shape="rect"] .tile canvas, :root[data-shape="rect"] .device canvas { border-radius: 2px; }
+:root[data-shape="rect"] .tile .page { top: 0; }
+:root[data-shape="rect"] .side-btn { display: none; }
+/* Its bezel: black glass in the panel's own proportions (web/mockups/screens.html, A2), behind the screen */
+:root[data-shape="rect"] .tile::before, :root[data-shape="rect"] .tile .page::before, :root[data-shape="rect"] .device::before {
+  content: ""; position: absolute; z-index: -1; pointer-events: none; border-radius: 18px; background: #050506;
+  inset: calc(-1px * var(--bez-y)) calc(-1px * var(--bez-x));
+  box-shadow: 0 0 0 1px #4a4b50, 0 0 0 3px #1e1f22, 0 30px 80px rgba(0, 0, 0, 0.6);
+}
+:root[data-shape="rect"] .tile.active::before, :root[data-shape="rect"] .tile .page.active::before {
+  box-shadow: 0 0 0 calc(2px / var(--z, 1)) var(--accent), 0 0 calc(16px / var(--z, 1)) calc(1px / var(--z, 1)) rgba(76, 141, 255, 0.22),
+    0 30px 80px rgba(0, 0, 0, 0.6);
+}
+:root[data-shape="rect"] .tile.drop::before { box-shadow: 0 0 0 calc(3px / var(--z, 1)) var(--accent), 0 30px 80px rgba(0, 0, 0, 0.6); }
+:root[data-shape="rect"] .tool-pic.whole img { width: 88px; height: auto; border-radius: 4px; }
+/* The start window: a rectangular board, drawn (start.js: picture) */
+.rectboard { position: relative; width: 236px; max-width: 86%; aspect-ratio: 1088 / 684; margin: auto 0 46px; padding: 3.2% 2.9%; border-radius: 10px;
+  background: #050506; box-shadow: 0 0 0 1px #4a4b50, 0 18px 34px rgba(0, 0, 0, 0.5); }
+.rectboard img { display: block; width: 100%; height: 100%; }
+.rectboard.mini { width: 64px; margin: 0; border-radius: 5px; box-shadow: 0 0 0 1px #4a4b50; }
+/* … and the round one, the same way (11 Nov 2026): black glass round its round screen */
+.roundboard { position: relative; width: 176px; max-width: 80%; aspect-ratio: 1; margin: auto 0 26px; padding: 4.5%; border-radius: 50%;
+  background: #050506; box-shadow: 0 0 0 1px #4a4b50, 0 18px 34px rgba(0, 0, 0, 0.5); }
+.roundboard img { display: block; width: 100%; height: 100%; border-radius: 50%; }
+.roundboard.mini { width: 40px; margin: 0; box-shadow: 0 0 0 1px #4a4b50; }
+.start-grid[data-shape="rect"] .ptile .th, .start-grid[data-shape="rect"] .new-ring { width: 136px; height: 80px; border-radius: 9px; object-fit: cover; }
+
+/* ---------- The Video app's clips (Properties of its screen) ---------- */
+.layer.clip { grid-template-columns: 44px minmax(0, 1fr) auto auto; }
+.layer.clip .clip-pic { width: 44px; height: 33px; border-radius: 5px; object-fit: cover; background: var(--panel-2); display: block; }
+.layer.clip .layer-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.layer.clip .tag { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px; }
+.layer.clip.bad .tag { color: #f28b82; }
+.layer.clip .acts { display: flex; gap: 0; }

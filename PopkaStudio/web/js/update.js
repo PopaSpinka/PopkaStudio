@@ -1,5 +1,5 @@
 // update.js — updates (6 Nov 2026, the user's pick: variant 3 of web/mockups/updates.html). An installed PopkaStudio
-// asks studio.py once at the start (/api/update — GitHub at most once a day); newer versions → a blue number on the
+// asks studio.py once at the start (/api/update — GitHub at most once an hour); newer versions → a blue number on the
 // heart: how many. The heart then opens "What's new" instead of About: two columns as a folder's content — the versions
 // newer than this one on the left (the newest first, LATEST; this one at the bottom, grey — yours), the picked one's
 // notes on the right (its GitHub release notes: the English part, without the install command — Update does that).
@@ -235,7 +235,7 @@ export function openUpdates(i = info) {
   q('.upd-win').focus({ preventScroll: true });
 }
 
-// ---------- At the start: ask once (studio.py asks GitHub at most once a day, and only from an installed copy) ----------
+// ---------- At the start: ask once (studio.py asks GitHub at most once an hour, and only from an installed copy) ----------
 export function initUpdate() {
   fetch('/api/update').then((r) => r.json()).then((i) => {
     setUpdates(i);

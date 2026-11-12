@@ -3,9 +3,10 @@
 // drawn (a whole screen — the round screen) and kept as an image. Made once each (by the tile's key), one at a time,
 // while the folder is open; until it is ready the tile shows its icon.
 import { Engine } from './engine.js';
+import { TW, TH, ROUND } from './screen.js';
 
-const W = 466, PERIOD = 1000 / 60;
-const TW = 220, TH = 104;  // the picture, device pixels (the tile shows it at half: 110 × 52)
+const PERIOD = 1000 / 60;
+const PW = 220, PH = 104;  // the picture, device pixels (the tile shows it at half: 110 × 52)
 let eng = null, ready = null, queue = Promise.resolve();
 const cache = new Map();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -13,7 +14,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function engine() {
   if (!ready) {
     const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = W;
+    canvas.width = TW, canvas.height = TH;
     eng = new Engine(canvas, 1);  // (screen 1: an empty home before it)
     eng.onAssets = () => {};
     ready = eng.start().catch((e) => { ready = null; throw e; });  // (didn't start: a new one next time)
@@ -46,19 +47,19 @@ async function draw(layers, whole, px) {
   for (let i = 0; i < 30; i++) e.M._web_frame((t += PERIOD), 1);
   e.paint(true);
   // What to show: the whole screen, or the layers' boxes (with a margin)
-  let x0 = 0, y0 = 0, x1 = W, y1 = W;
+  let x0 = 0, y0 = 0, x1 = TW, y1 = TH;
   if (!whole) {
     const boxes = e.boxes(1, layers.length).filter(Boolean);
     if (!boxes.length) return null;
     x0 = Math.max(0, Math.min(...boxes.map((b) => b[0])) - 8), y0 = Math.max(0, Math.min(...boxes.map((b) => b[1])) - 8);
-    x1 = Math.min(W, Math.max(...boxes.map((b) => b[2])) + 8), y1 = Math.min(W, Math.max(...boxes.map((b) => b[3])) + 8);
+    x1 = Math.min(TW, Math.max(...boxes.map((b) => b[2])) + 8), y1 = Math.min(TH, Math.max(...boxes.map((b) => b[3])) + 8);
   }
-  const w = x1 - x0, h = y1 - y0, k = px ? px / W : Math.min(TW / w, TH / h);
+  const w = x1 - x0, h = y1 - y0, k = px ? px / TW : Math.min(PW / w, PH / h);
   const out = document.createElement('canvas');
   out.width = Math.round(w * k), out.height = Math.round(h * k);
   const c = out.getContext('2d');
   c.imageSmoothingQuality = 'high';
-  if (whole) c.beginPath(), c.arc(out.width / 2, out.height / 2, out.width / 2, 0, Math.PI * 2), c.clip();
+  if (whole && ROUND) c.beginPath(), c.arc(out.width / 2, out.height / 2, out.width / 2, 0, Math.PI * 2), c.clip();
   c.drawImage(e.canvas, x0, y0, w, h, 0, 0, out.width, out.height);
   return out.toDataURL('image/png');
 }

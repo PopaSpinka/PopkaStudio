@@ -33,8 +33,9 @@ static inline bool halo_clock_valid() {  // no Wi-Fi: the time comes from the co
 #endif
 #include "src/halo_assets.h"
 
-#define W 466
-#define CX 233.0f
+#define W HALO_W
+#define CX (HALO_W / 2.0f)
+#define CY (HALO_H / 2.0f)
 
 #include "weather.h"  // the weather: the editor's cities (wxdata.h) and their weather
 #include "face.h"     // the watch face made of layers
@@ -55,6 +56,9 @@ static void update(float dt) {
   face_tick(dt);         // the time, the date and the layers' animations, on every screen
   power_view();          // the whole interface's view on the way to Always On (after face_tick: its minute is fresh)
   gallery_tick();        // a card tapped in the last frame: open its screen (face.h)
+#if HAS_SHADE
+  shade_tick(dt, pw_mode == PW_ACTIVE && pw_amb.x == 0 && !pw_locked);  // the quick settings panel: its finger first
+#endif
   halo_nav_update(dt);   // the face, the gallery, the screens open over them, the transitions, the ways back
   power_lock_layout();   // the lock at the top — over everything
 }
@@ -65,6 +69,9 @@ static void draw() {  // both cores, each its part of a band
 }
 
 void setup() {
+#if !defined(HALO_ROUND) && !defined(__EMSCRIPTEN__)
+  layers_alloc();  // (layers.h: this board's PSRAM is in the heap only now)
+#endif
   face_build();
   gallery_begin();      // the gallery (if the project has one) — lib/Halo's main screen: a swipe up on the face
   halo_nav_face(FACE);  // the home: the board starts on it
@@ -109,4 +116,7 @@ void loop() {
   steps_write();  // flash: here, not in the frame task
   bt_tick();      // Bluetooth starts a moment after the first frames
   settings_poll();  // Display's brightness and the battery's history into flash
+#if HAS_SHADE
+  shade_poll();  // (the panel's own brightness, without Display)
+#endif
 }

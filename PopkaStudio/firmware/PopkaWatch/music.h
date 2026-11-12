@@ -32,6 +32,9 @@ static volatile bool mu_play;       // playing; false — silence, the position 
 static volatile uint32_t mu_pos;    // samples played of the current track
 static volatile bool mu_ended;      // the current track ran out
 static volatile int mu_cur = -1;    // the track mapped now
+#ifndef HALO_ROUND
+static volatile int32_t mu_seek = -1;  // go to this sample of the current track (the time line on a rectangle)
+#endif
 static const uint8_t *mu_data;
 static int16_t mu_buf[512];         // the decoded block
 static int mu_have, mu_at;          // samples in it and how far it has been played
@@ -54,7 +57,11 @@ static void music_start_audio() {}
 static void music_begin() {
   // music — how many tracks the board has (studio.py: a Load writes the free tracks once when there are none)
   halo_command("music", [](const char *) { LOG("music: %d tracks\n", mu_n); });
+#ifdef HALO_ROUND
   mu_part = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_FAT, "ffat");
+#else
+  mu_part = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_SPIFFS, "spiffs");  // (this board's table)
+#endif
   const size_t HEAD = 16 + MU_MAX * 128;  // read once at start: a temporary in PSRAM, not static internal RAM
   uint8_t *head = (uint8_t *)heap_caps_malloc(HEAD, MALLOC_CAP_SPIRAM);
   if (!head) return;
@@ -100,6 +107,7 @@ static void mu_decode(const uint8_t *b) {
   }
 }
 
+#ifdef HALO_ROUND
 static bool mu_open(int t) {  // map the track into memory
   if (mu_data) esp_partition_munmap(mu_map), mu_data = nullptr;
   const void *p = nullptr;
@@ -108,6 +116,29 @@ static bool mu_open(int t) {  // map the track into memory
   mu_data = (const uint8_t *)p;
   return true;
 }
+#else
+// This board's music partition lies above 16 MB of flash, where the cache can't reach (24-bit mapping), so a track is
+// read in pieces of 16 blocks (0.37 s of sound) instead of being mapped. mu_data is the piece; a track's blocks stay in it
+// until the next piece is needed.
+#define MU_PIECE 16
+static uint32_t mu_piece_at = UINT32_MAX;
+
+static bool mu_open(int t) {
+  (void)t;
+  if (!mu_data) mu_data = (const uint8_t *)heap_caps_malloc(MU_PIECE * mu_block, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  mu_piece_at = UINT32_MAX;
+  return mu_data != nullptr;
+}
+
+static const uint8_t *mu_block_at(const MuTrack &t, uint32_t b) {
+  const uint32_t first = b - b % MU_PIECE;
+  if (first != mu_piece_at) {
+    if (esp_partition_read(mu_part, t.off + first * mu_block, (void *)mu_data, MU_PIECE * mu_block) != ESP_OK) return nullptr;
+    mu_piece_at = first;
+  }
+  return mu_data + (b - first) * mu_block;
+}
+#endif
 
 // The audio task: n samples of the current track (fewer — it ran out, or nothing is playing)
 static int mu_fill(int16_t *out, int n) {
@@ -117,6 +148,13 @@ static int mu_fill(int16_t *out, int n) {
     mu_cur = mu_open(cmd) ? cmd : -1;
     mu_pos = 0, mu_have = mu_at = 0, mu_next_block = 0, mu_ended = false;
   }
+#ifndef HALO_ROUND
+  const int32_t seek = mu_seek;
+  if (seek >= 0 && mu_data) {
+    mu_seek = -1;
+    mu_next_block = seek / mu_spb, mu_pos = mu_next_block * mu_spb, mu_have = mu_at = 0, mu_ended = false;
+  }
+#endif
   if (!mu_play || !mu_data || mu_ended) return 0;
   const MuTrack &t = mu_tracks[mu_cur];
   int k = 0;
@@ -126,7 +164,16 @@ static int mu_fill(int16_t *out, int n) {
         mu_ended = true;
         break;
       }
+#ifdef HALO_ROUND
       mu_decode(mu_data + mu_next_block++ * mu_block);
+#else
+      const uint8_t *blk = mu_block_at(t, mu_next_block++);
+      if (!blk) {
+        mu_ended = true;
+        break;
+      }
+      mu_decode(blk);
+#endif
       mu_have = mu_spb, mu_at = 0;
     }
     const int m = min(n - k, mu_have - mu_at);

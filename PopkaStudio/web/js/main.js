@@ -5,7 +5,7 @@ import {
 } from './state.js';
 import { engines, runAll } from './engine.js';
 import { Stage } from './stage.js';
-import { renderPalette, renderFunctions, initFold, renderScreens, renderLayers, renderProps, remove, duplicate, addScreen, toGallery } from './panels.js';
+import { renderPalette, renderFunctions, refreshShelf, initSplit, renderScreens, renderLayers, renderProps, remove, duplicate, addScreen, toGallery } from './panels.js';
 import { initBoard } from './board.js';
 import { initLive } from './live.js';
 import { initStart, startOpen, thumbSoon } from './start.js';
@@ -36,7 +36,7 @@ async function start() {
   on((what) => {
     if (what === 'project') stage.sync(), renderFunctions(), renderProps(stage), history(), refreshWeather();
     if (what === 'weather') stage.sync();  // (the cities' numbers came)
-    if (what === 'structure') renderScreens(stage), renderLayers(), renderProps(stage, true);
+    if (what === 'structure') renderScreens(stage), renderLayers(), renderProps(stage, true), refreshShelf();
     if (what === 'select') renderFunctions(), renderScreens(stage), renderLayers(), renderProps(stage), stage.reveal(), stage.ensureTiles();  // (the page picked: its frame, its row)
     if (what === 'screen') stage.screenChanged(), stage.ensureTiles(), renderScreens(stage), renderLayers(), state.mode === 'edit' && stage.focus(activeScreen());
     if (what === 'view') $('zoom-val').textContent = Math.round(stage.zoom() * 100) + '%';
@@ -45,8 +45,7 @@ async function start() {
   markMode();
   emit('view');  // the zoom kept from the last time — next to its buttons
   renderPalette(stage);
-  renderFunctions();
-  initFold();
+  initSplit();
   renderScreens(stage);
   renderLayers();
   renderProps(stage, true);

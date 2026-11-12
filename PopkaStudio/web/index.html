@@ -11,8 +11,8 @@
 <body>
   <!-- The field is the whole window; everything else floats over it as cards: the left card — its head is the name
        (PopkaStudio / the project), under it the three folders of what can be added (Faces, Layers, App: the open one's
-       content to the right of the card, its categories in a column, the chosen one's tiles beside them), then the screens,
-       the functions and the layers; the right card — its head is the board and Load, under it the selection's properties
+       content to the right of the card, its categories in a column, the chosen one's tiles beside them) and System (the
+       watch's functions: a menu to the right), then the screens and the layers, a line between them to drag; the right card — its head is the board and Load, under it the selection's properties
        (nothing selected — only the head); in the middle at the top — a card of its own: history, the mode, the zoom
        (6 Nov 2026: web/mockups/panels.html — variant 3's heads, variant 7's folder content) -->
   <main class="stage">
@@ -61,18 +61,18 @@
         <span class="brand-sep" aria-hidden="true">/</span>
         <button class="proj-name" id="proj-name" title="All projects"></button>
       </div>
+      <!-- What can be added (ADD: Faces, Layers, App) and, past a line, System — how the watch works (Always On, the
+           buttons, Wi-Fi, Bluetooth): a tile each; the open one's content — or System's menu — to the right of the card
+           (11 Nov 2026: web/mockups/fnname.html, the tiles of fnmenu.html's 4, the menu of its 1) -->
       <div class="folders" id="palette" role="toolbar" aria-label="Add"></div>
-      <section class="panel screens-panel">
+      <section class="panel screens-panel" id="screens-panel">
         <h2>Screens <button id="add-screen" class="ghost small" title="A new empty screen on the map">+ New</button></h2>
         <ul class="layers" id="screens"></ul>
       </section>
-      <!-- The watch's functions (Always On, the buttons, Wi-Fi, Bluetooth): a click on the title folds them away and back,
-           kept after a restart (panels.js: initFold) -->
-      <section class="panel fn-panel" id="fn-panel">
-        <h2><button class="fold" id="fn-fold" aria-expanded="true" title="Fold or show the functions"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5"/></svg>Functions</button></h2>
-        <div class="fold-body"><div class="fold-clip"><ul class="layers" id="functions"></ul></div></div>
-      </section>
-      <section class="panel grow">
+      <!-- The line between Screens and Layers: dragged, it stays where it was let go, after a restart too (panels.js:
+           initSplit) -->
+      <div class="split" id="split" role="separator" aria-orientation="horizontal" aria-label="Screens and layers" tabindex="0"></div>
+      <section class="panel grow" id="layers-panel">
         <h2><span>Layers · <span id="layers-title" class="layers-title"></span></span>
           <button id="reset" class="ghost small" title="Start again from an empty watch face (Undo brings your screens back)">Reset</button></h2>
         <ul class="layers" id="layers"></ul>
@@ -186,6 +186,7 @@
           <div class="ab-lic"><b>License</b> · free for people, paid for business (PolyForm Noncommercial 1.0.0 + a commercial license)</div>
           <div class="ab-credits">
             <b>Google Sans Flex</b><span>font</span><a href="https://openfontlicense.org" target="_blank" rel="noopener">SIL OFL 1.1</a>
+            <b>Instrument Serif · JetBrains Mono</b><span>clock fonts</span><a href="https://openfontlicense.org" target="_blank" rel="noopener">SIL OFL 1.1</a>
             <b>Font Awesome Free</b><span>icons</span><a href="https://fontawesome.com/license/free" target="_blank" rel="noopener">CC BY 4.0</a>
             <b><a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo.com</a></b><span>weather data</span><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>
             <b>Zippopotam.us</b><span>US ZIP codes</span><span>free API</span>

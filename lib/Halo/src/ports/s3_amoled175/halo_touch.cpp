@@ -14,7 +14,9 @@
 // процент (0xA4 — «топливомер» чипа, включён битом 3 в 0x18), напряжение (0x34/0x35, мВ — АЦП включён битом 0 в 0x30);
 // там же АЦП: USB (0x38/0x39, мВ, бит 2), система (0x3A/0x3B, мВ, бит 3), температура чипа (0x3C/0x3D, бит 4:
 // 22 + (7274 − отсчёт) / 20 °C — как XPowersLib). Каждое — 6 старших бит и 8 младших
-#include "halo_internal.h"
+#include <sdkconfig.h>
+#if CONFIG_IDF_TARGET_ESP32S3  // this board's port: other boards build their own
+#include "halo_s3.h"
 
 #include <driver/gpio.h>
 #include <driver/i2c_master.h>
@@ -253,3 +255,5 @@ bool ht_begin() {
   LOG("touch: CST9217 %s, PWR button (AXP2101) %s\n", found ? "ok" : "NOT FOUND", pmu ? "ok" : "NOT FOUND");
   return found;
 }
+
+#endif  // CONFIG_IDF_TARGET_ESP32S3

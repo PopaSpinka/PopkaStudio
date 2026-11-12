@@ -9,7 +9,13 @@
 //   * halo_trace_pump() переносит новые события в большой кольцевой буфер в PSRAM (64 тыс. событий, ~10 с):
 //     движок — раз в кадр, halo_loop — каждый проход;
 //   * trace dump выдаёт большой буфер в порт: заголовок с именами событий и команд, события, контрольная сумма.
-#include "halo_internal.h"
+#include <sdkconfig.h>
+#if CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32P4  // nothing here depends on the board: the ESP32 family shares it
+#if CONFIG_IDF_TARGET_ESP32S3
+#include "../s3_amoled175/halo_s3.h"
+#else
+#include "../p4_lcd7/halo_p4.h"
+#endif
 
 #include <esp_log.h>
 #include <esp_system.h>
@@ -417,7 +423,7 @@ static void trace_bench() {
   const uint32_t c_on = bench_min(1);
   trace_enable(false);
   if (was_on) trace_enable(true);  // замер испортил запись — начать заново
-  LOG("trace bench: event %lu cycles = %.2f us (time %lu, off %lu)\n", (unsigned long)c_on, c_on / 240.0f,
+  LOG("trace bench: event %lu cycles = %.2f us (time %lu, off %lu)\n", (unsigned long)c_on, c_on / (float)HALO_CPU_MHZ,
       (unsigned long)c_time, (unsigned long)c_off);
 }
 
@@ -512,3 +518,5 @@ void hc_trace_setup() {
   halo_command("trace", cmd_trace);
   halo_command("sys", cmd_sys);
 }
+
+#endif  // the ESP32 family

@@ -16,7 +16,9 @@
 // за это время доигрывает из буфера. Микрофон: та же задача на каждом круге забирает из DMA приёма всё, что пришло
 // (не ждёт), в кольцо в PSRAM, halo_mic_read — из кольца. DMA приёма — тоже 6 × 256 отсчётов (моно, 3 КБ): задача
 // может опоздать на ~80 мс при 16 000 Гц, дальше пропадает самое старое.
-#include "halo_internal.h"
+#include <sdkconfig.h>
+#if CONFIG_IDF_TARGET_ESP32S3  // this board's port: other boards build their own
+#include "halo_s3.h"
 
 #include <driver/gpio.h>
 #include <driver/i2c_master.h>
@@ -287,3 +289,5 @@ void halo_mic_end() {
   if (mic_lost) LOG("mic: %u samples skipped (read too late)\n", (unsigned)mic_lost);
   LOG("mic: off\n");
 }
+
+#endif  // CONFIG_IDF_TARGET_ESP32S3
