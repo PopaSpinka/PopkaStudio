@@ -1,5 +1,5 @@
 // Waveshare ESP32-P4-WIFI6-Touch-LCD-7B: the numbers every part of Halo needs to know about this board.
-// Our chip is revision 1.3: 360 MHz (docs/esp32-p4-7b.md).
+// Our chip is revision 1.3: 360 MHz (boards/p4lcd7/hardware.md).
 #pragma once
 
 #define HALO_W 1024

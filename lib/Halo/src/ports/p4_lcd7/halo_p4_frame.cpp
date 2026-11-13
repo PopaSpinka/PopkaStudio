@@ -6,7 +6,7 @@
 //
 //   frame boundary -> update(dt) for the frame shown at the NEXT boundary -> draw what changed into the back buffer -> swap
 //
-// Every part follows from a measurement (docs/esp32-p4-7b.md):
+// Every part follows from a measurement (boards/p4lcd7/hardware.md):
 //   * two buffers swapped at the boundary: no tearing, and the swap costs 0.25 ms;
 //   * every band is drawn in a tile of internal memory and DMA2D puts it into the frame. PSRAM is the bottleneck here, and
 //     a band drawn right in the frame is written there two or three times (black background, then what lies on it), each
@@ -91,9 +91,9 @@ void halo_under(HaloUnder fn) {
 static SemaphoreHandle_t help_go, help_done;
 
 // A tile holds a band of the full width. Two are being drawn, the third waits for the copy: with fewer the drawing stops and
-// waits for DMA. A fourth takes the internal memory the ESP32-C6's Wi-Fi driver needs (docs/esp32-p4-7b.md) and adds nothing.
+// waits for DMA. A fourth takes the internal memory the ESP32-C6's Wi-Fi driver needs (boards/p4lcd7/hardware.md) and adds nothing.
 // (Two tiles' memory cut into four of half the width made a frame of the whole screen 0.5-1 ms slower, not faster: what
-// such a frame waits for is PSRAM, not the copies — 10 Nov 2026, docs/p4-video.md)
+// such a frame waits for is PSRAM, not the copies — 10 Nov 2026, boards/p4lcd7/p4-video.md)
 #define TILES 3
 static int tiles_n = TILES;
 void hf_tiles(int n) {  // before halo_begin

@@ -15,7 +15,7 @@ Halo состоит из двух половин.
 |---|---|---|
 | `s3_amoled175` | ESP32-S3-Touch-AMOLED-1.75C, круг 466×466 | здесь |
 | `p4_lcd7` | ESP32-P4-WIFI6-Touch-LCD-7B, 1024×600 | здесь |
-| браузер | превью в PopkaStudio | `PopkaStudio/engine/halo_web.cpp` |
+| браузер | превью в PopkaStudio | `studio/engine/halo_web.cpp` |
 
 `esp32_common/` — не порт, а то, что одинаково у всех ESP32 и от платы не зависит: журнал, команды, трасса (`halo_core.cpp`).
 

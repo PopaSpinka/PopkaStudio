@@ -37,5 +37,10 @@ Write to the same address.
 
 - The weather comes from [Open-Meteo](https://open-meteo.com): free for noncommercial use only. A commercial product
   needs its own Open-Meteo plan (or another weather source).
+- **Radio.** The commercial license covers PopkaStudio's code only. It gives no rights to the stations' streams,
+  names or logos, or to the [Radio Browser](https://www.radio-browser.info) directory's data, and doesn't promise that
+  any station may be played on a product you sell. A company that ships the radio chooses its own default stations,
+  gets whatever permissions the broadcasters and the collecting societies of its markets require, and names its own
+  product in the radio's User-Agent (`firmware/PopkaWatch/radio_net.h`).
 - The older Halo v1.1 published in [PopaSpinka/HaloWatch](https://github.com/PopaSpinka/HaloWatch) stays under the
   MIT license; this repository's newer versions are under the license above.

@@ -11,6 +11,9 @@ halo.conf — по строке на ресурс (# — комментарий;
                                               # запечь эффект в буквы: +glow=3:12 — свечение (два размытия, как
                                               # у неона); +shadow=64:0.85 — длинная тень вниз-вправо на 64 px (яркость
                                               # от буквы к концу тени падает со степенью 0,85); рисуется под буквами
+                                              # запасной шрифт: +else=Nunito.ttf:700 — буквы, которых нет в основном
+                                              # (кириллица у Google Sans Flex), из него: та же высота заглавных,
+                                              # та же базовая линия; :700 — его вес (ось wght)
   icon  ИМЯ  ФАЙЛ.ttf  РАЗМЕР_PX  0xКОД         # значок из шрифта (Font Awesome) → маска, красится при рисовании
   mask  ИМЯ  ФАЙЛ.png  [ШИРИНА]                 # одноцветный значок из картинки (берётся прозрачность)
   image ИМЯ  ФАЙЛ.png  [ШИРИНА]                 # цветная картинка
@@ -102,9 +105,13 @@ KNOWN_FONTS = {
     "InstrumentSerif-OFL.txt": "https://raw.githubusercontent.com/google/fonts/main/ofl/instrumentserif/OFL.txt",
     "JetBrainsMono.ttf": "https://raw.githubusercontent.com/google/fonts/main/ofl/jetbrainsmono/JetBrainsMono%5Bwght%5D.ttf",
     "JetBrainsMono-OFL.txt": "https://raw.githubusercontent.com/google/fonts/main/ofl/jetbrainsmono/OFL.txt",
+    # The Radio's Cyrillic (Google Sans Flex has none): rounded like it, Google Fonts, OFL
+    "Nunito.ttf": "https://raw.githubusercontent.com/google/fonts/main/ofl/nunito/Nunito%5Bwght%5D.ttf",
+    "Nunito-OFL.txt": "https://raw.githubusercontent.com/google/fonts/main/ofl/nunito/OFL.txt",
 }
 LICENSES = {"GoogleSansFlex.ttf": "GoogleSansFlex-OFL.txt", "InstrumentSerif-Regular.ttf": "InstrumentSerif-OFL.txt",
-            "InstrumentSerif-Italic.ttf": "InstrumentSerif-OFL.txt", "JetBrainsMono.ttf": "JetBrainsMono-OFL.txt"}
+            "InstrumentSerif-Italic.ttf": "InstrumentSerif-OFL.txt", "JetBrainsMono.ttf": "JetBrainsMono-OFL.txt",
+            "Nunito.ttf": "Nunito-OFL.txt"}
 
 
 def font_path(name):
@@ -176,9 +183,46 @@ def dither(a):
     return np.clip(np.round(out), 0, 255).astype(np.uint8)
 
 
-def do_font(out, name, path, size, chars, preview, axes="", fx=""):
+def font_cmap(path):
+    """The letters a font really has (its cmap): Pillow draws a missing one as the .notdef box, which looks like a letter."""
+    try:
+        from fontTools.ttLib import TTFont
+        return set(TTFont(path).getBestCmap())
+    except Exception:  # noqa: BLE001 — (no fontTools: trust Pillow, as before)
+        return None
+
+
+def cap_height(font):
+    return -font.getbbox("H", anchor="ls")[1]
+
+
+def fallback_font(spec, main):
+    """The spare font of +else=FILE.ttf[:WEIGHT]: at the size where its capitals are as tall as the main font's."""
+    file, _, weight = spec.partition(":")
+    path = font_path(file)
+    fallback_font.path = path
+    probe = ImageFont.truetype(path, 100)
+    size = max(1, round(100 * cap_height(main) / max(1, cap_height(probe))))
+    fb = ImageFont.truetype(path, size)
+    if weight:
+        try:
+            fb.set_variation_by_axes([float(weight) if a.get("name") in (b"Weight", "Weight") else a["default"]
+                                      for a in fb.get_variation_axes()])
+            size = max(1, round(size * cap_height(main) / max(1, cap_height(fb))))  # (the weight moved the capitals)
+            fb = ImageFont.truetype(path, size)
+            fb.set_variation_by_axes([float(weight) if a.get("name") in (b"Weight", "Weight") else a["default"]
+                                      for a in fb.get_variation_axes()])
+        except OSError:  # (not a variable font)
+            pass
+    return fb
+
+
+def do_font(out, name, path, size, chars, preview, axes="", fx="", alt=""):
     font = ImageFont.truetype(path, size)
     set_axes(font, size, axes)
+    spare = fallback_font(alt, font) if alt else None
+    has = font_cmap(path) if alt else None
+    spare_has = font_cmap(fallback_font.path) if alt else None
     ascent, descent = font.getmetrics()
     line = ascent + descent
     codes = sorted(set(ord(c) for c in chars))
@@ -186,10 +230,14 @@ def do_font(out, name, path, size, chars, preview, axes="", fx=""):
     sheet = []
     for cp in codes:
         ch = chr(cp)
-        if ch != " " and not font.getmask(ch).getbbox():
-            missing.append(ch)
-            continue
-        a, x0, y0 = render_glyph(font, ch)
+        f = font
+        if ch != " " and (not font.getmask(ch).getbbox() or (has is not None and cp not in has)):
+            if spare is not None and spare.getmask(ch).getbbox() and (spare_has is None or cp in spare_has):
+                f = spare  # (a letter the main font has not got: from the spare one, on the same baseline)
+            else:
+                missing.append(ch)
+                continue
+        a, x0, y0 = render_glyph(f, ch)
         a, tx, ty = trim(a)
         if fx.startswith("glow=") and a.any():
             sd1, sd2 = (float(v) for v in fx[5:].split(":"))
@@ -202,7 +250,7 @@ def do_font(out, name, path, size, chars, preview, axes="", fx=""):
             tx, ty = tx + tx2, ty + ty2
         a4 = q4(a)
         b, e = pack4(a4)
-        adv = int(round(font.getlength(ch)))
+        adv = int(round(f.getlength(ch)))
         glyphs.append((cp, a4.shape[1], a4.shape[0], x0 + tx, ascent + y0 + ty, adv, len(bits), len(ext)))
         bits += b
         ext += e
@@ -293,15 +341,17 @@ def do_line(out, sketch, raw, preview):
         return None
     kind, name = p[0], p[1]
     if kind == "font":
-        chars, axes, fx = "", "", ""
+        chars, axes, fx, alt = "", "", "", ""
         for s in p[4:]:
             if s.startswith("@"):
                 axes = s[1:]
             elif re.fullmatch(r"\+(glow|shadow)=[\d.:]+", s):
                 fx = s[1:]
+            elif re.fullmatch(r"\+else=[\w.-]+\.ttf(:\d+)?", s):
+                alt = s[6:]
             else:
                 chars += chr(int(s, 16)) if re.fullmatch(r"0x[0-9a-fA-F]+", s) else SETS.get(s, s)
-        return do_font(out, name, font_path(p[2]), int(p[3]), chars, preview, axes, fx)
+        return do_font(out, name, font_path(p[2]), int(p[3]), chars, preview, axes, fx, alt)
     if kind == "icon":
         return do_icon(out, name, font_path(p[2]), int(p[3]), int(p[4], 16), preview)
     if kind == "mask":

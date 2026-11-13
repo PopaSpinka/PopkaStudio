@@ -22,6 +22,10 @@ what the watch shows, pixel for pixel — the same fonts, the same animations, t
   motion chip's own pedometer), Display brightness, Battery, a Music player, a voice Recorder, three self-playing
   snake games, and About and Power — live cards about the board itself (processor, memory, battery, temperature,
   sound, motion; voltages).
+- **Radio** (round watch, new in 2.1) — internet radio over Wi-Fi: tens of thousands of free stations from the
+  [Radio Browser](https://www.radio-browser.info) catalog in folders (Top, genres, countries), favorites with a heart,
+  the song that's playing, and an equalizer of rays along the edge that dances to the real sound. In the editor its
+  screen is made of layers — move, recolor, resize or hide every part.
 - **Quick settings** — swipe down on the home screen: brightness, volume, Wi-Fi, Always On, lock, screen off — all
   real. One look on the round watch, four on the 7″ board, with app shortcuts and the player.
 - **Video** (7″ board) — clips from a microSD card, decoded in hardware, or straight from your computer over Wi-Fi with
@@ -53,7 +57,7 @@ what the watch shows, pixel for pixel — the same fonts, the same animations, t
 
 Choose the board when you create a project; each project is for one board.
 
-![The board](PopkaStudio/web/img/board-amoled175.webp)
+![The board](studio/web/img/board-amoled175.webp)
 
 ![The 7″ board in PopkaStudio](docs/screenshots/p4.png)
 
@@ -100,10 +104,10 @@ Windows is not supported.
 Wi-Fi is off in a new project — the clock takes its time from your computer at each Load. Choose **From: Wi-Fi** for
 a clock's time or pick a weather city, and the Wi-Fi window lists the networks your board sees.
 
-Your projects are saved on your computer (`PopkaStudio/projects/`). The Wi-Fi password stays on your computer too
-(`PopkaStudio/secrets/`) and goes only into the firmware it builds.
+Your projects are saved on your computer (`projects/`). The Wi-Fi password stays on your computer too
+(`studio/secrets/`) and goes only into the firmware it builds.
 
-To go back to the firmware that was on the board, use the copy from **Save its firmware** (`PopkaStudio/backups/`,
+To go back to the firmware that was on the board, use the copy from **Save its firmware** (`studio/backups/`,
 with `restore.txt`), or see [Waveshare's examples](https://github.com/waveshareteam/ESP32-S3-Touch-AMOLED-1.75C) for
 the factory demo.
 
@@ -122,9 +126,27 @@ the factory demo.
 No accounts, no telemetry. The editor talks only to [Open-Meteo](https://open-meteo.com) (the weather for the cities
 you pick), [Zippopotam.us](https://zippopotam.us) (when you look up a US ZIP code) and GitHub — at most once an hour, for
 the list of PopkaStudio's releases (the same request any browser makes; nothing about you is sent). The watch connects to
-your Wi-Fi only for the time and the weather, and only if you turn Wi-Fi on. **Stream** (the 7″ board's Video), while
+your Wi-Fi only for the time, the weather and the radio, and only if you turn Wi-Fi on. **Radio** asks the
+[Radio Browser](https://www.radio-browser.info) catalog for its lists of stations, tells it when you start one of its
+stations (an anonymous count of listens, as the catalog asks its apps to), and plays the stream straight from the
+station's own server. **Stream** (the 7″ board's Video), while
 it's on, lets your board download the clips of one folder from your computer over your local network — nothing else,
 nothing written.
+
+## Radio stations
+
+![Radio in PopkaStudio](docs/screenshots/radio.png)
+
+PopkaStudio stores, records and rebroadcasts no audio. **Radio** is a player: you pick stations from the
+[Radio Browser](https://www.radio-browser.info) community directory or add your own, and the watch plays each stream
+straight from the broadcaster's server, as any internet radio does. A new project starts with stations whose
+broadcasters publish their links for other players: [Radio Paradise](https://radioparadise.com/listen/stream-links)
+(four mixes), Radio Swiss Classic and Radio Swiss Jazz.
+
+Station names, programs and music belong to the stations and their rights holders; PopkaStudio is not affiliated with
+or endorsed by any of them. Each broadcaster's own terms apply to your listening, and some allow personal use only.
+Broadcasters: to have your station taken out of the defaults (or put in), open an
+[issue](https://github.com/PopaSpinka/PopkaStudio/issues) or write to **lastmail.sk@gmail.com**.
 
 ## Plans
 
@@ -172,15 +194,18 @@ Third-party parts:
 | --- | --- | --- |
 | Google Sans Flex font (downloaded by the installer; glyphs rendered into the firmware) | Google | [SIL OFL 1.1](https://openfontlicense.org) |
 | Instrument Serif and JetBrains Mono fonts (the Serif and Terminal clocks; downloaded when first used, glyphs rendered into the firmware) | Instrument; JetBrains | [SIL OFL 1.1](https://openfontlicense.org) |
+| Nunito font (Cyrillic letters in Radio; downloaded when first used, glyphs rendered into the firmware) | Vernon Adams, Jacques Le Bailly | [SIL OFL 1.1](https://openfontlicense.org) |
+| Radio station catalog | [Radio Browser](https://www.radio-browser.info) community | free API, for free and non-free software |
+| Helix MP3 decoder (Radio; part of the ESP32 Arduino core, not in this repository) | RealNetworks; [esp-libhelix-mp3](https://github.com/chmorgan/esp-libhelix-mp3) | RPSL 1.0 / RCSL |
 | Font Awesome Free icons (downloaded by the installer; rendered into the firmware) | Fonticons, Inc. | [CC BY 4.0](https://fontawesome.com/license/free) |
 | Weather data | [Open-Meteo.com](https://open-meteo.com) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 | US ZIP code lookup | [Zippopotam.us](https://zippopotam.us) | free API |
 | ES8311 codec register sequence (`lib/Halo/src/halo_audio.cpp`) | based on Espressif's es8311 driver | Apache 2.0 |
 | Board pins and display start-up sequence | based on [Waveshare's examples](https://github.com/waveshareteam/ESP32-S3-Touch-AMOLED-1.75C) | Apache 2.0 |
 | [ArduinoJson](https://arduinojson.org) (`lib/ArduinoJson`) | Benoît Blanchon | MIT |
-| [Emscripten](https://emscripten.org) runtime (`PopkaStudio/web/build`) | Emscripten authors | MIT |
+| [Emscripten](https://emscripten.org) runtime (`studio/web/build`) | Emscripten authors | MIT |
 | [Electron](https://www.electronjs.org) (the optional Mac app) | OpenJS Foundation | MIT |
-| Music — 20-second excerpts of [Musopen](https://musopen.org) recordings | see [firmware/music](PopkaStudio/firmware/music/README.md) | public domain, CC0 |
+| Music — 20-second excerpts of [Musopen](https://musopen.org) recordings | see [firmware/music](firmware/music/README.md) | public domain, CC0 |
 | The board photo | PopaSpinka | part of this repository |
 
 PopkaStudio is an independent project, not affiliated with or endorsed by Google, Espressif or Waveshare. Wear OS and

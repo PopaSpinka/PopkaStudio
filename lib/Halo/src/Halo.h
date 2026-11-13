@@ -291,6 +291,20 @@ int halo_text_width(const HaloFont &f, const char *s, int spacing = 0);
 void halo_text(const HaloFont &f, const char *s, float x, float y, uint32_t rgb, float alpha = 1, int align = 0,
                float scale = 1, int spacing = 0, int32_t bg = -1);
 void halo_mask(const HaloMask &m, float x, float y, uint32_t rgb, float alpha = 1, float scale = 1, int32_t bg = -1);
+// Цвет, готовый к рисованию (halo_paint), — для halo_mask_rows: свой у каждой строки (градиент). blk — 16 уровней
+// маски поверх чёрного: на чёрном пикселе — запись готового цвета, а не смешивание (то же значение)
+struct HaloPaint {
+  uint16_t c, blk[16];
+  int16_t r5, g6, b5, A;  // A 0 — строка не рисуется
+};
+void halo_paint(HaloPaint &p, uint32_t rgb, float alpha = 1);
+// Маска с цветом по строкам экрана: строка y — rows[y − y0] (за пределами 0..n−1 — не рисуется). Пиксели — ровно те же,
+// что у halo_mask с цветом этой строки (без bg)
+void halo_mask_rows(const HaloMask &m, float x, float y, float scale, const HaloPaint *rows, int y0, int n,
+                    const uint8_t *full = nullptr);
+// Сплошные места маски для halo_mask_rows (full): в каждой строке — до 4 отрезков столбцов, где маска 15 (от 6 столбцов),
+// парами байтов [a, b] (a > b — нет); out — m.h × 8 байт. Там пиксель — сразу цвет, без выборки по точкам
+void halo_mask_full(const HaloMask &m, uint8_t *out);
 void halo_image(const HaloImage &im, float x, float y, float alpha = 1, float scale = 1);
 // Кадр frame пиксель-арта: точка (ax, ay) — в (x, y), клетка — cell пикселей, поворот angle (радианы по часовой);
 // hide — цвета, которые не рисовать (бит i — цвет i); on_black — прозрачность тусклым цветом (на чёрном)
@@ -520,6 +534,10 @@ struct HaloRoll {
   // сдвигается при смене цифр, а у «ЧЧ:ММ» по центру двоеточие стоит ровно в точке привязки
   bool tabular = false;
   float cell = 0;                 // ширина ячейки цифры (считает halo_roll_init)
+  // По видимым краям (ставить до halo_roll_set): align — не по ширинам букв с их полями, а по самим буквам. По центру —
+  // середина нарисованного ровно в x, «до x» — последняя буква касается x. Иначе у «12» слева пусто от узкой «1», а
+  // справа поле «2» — строка не посередине. Новая ширина при смене — едет той же пружиной, что соседние буквы
+  bool ink = false;
   int n = 0;
   HaloSpring w;                   // ширина строки (едет вместе с буквами)
   HaloRollCell c[HALO_ROLL_MAX];
@@ -614,6 +632,9 @@ void halo_nav_open(const HaloScreen &screen);
 void halo_nav_open_from(const HaloScreen &screen, float x, float y, float w, float h, float r, uint32_t color);
 #endif
 void halo_nav_back();
+// Назад сразу на уровень d (0 — главный): экраны между ним и верхним закрываются сразу, верхний уходит, как при
+// свайпе назад (Radio в PopkaStudio: выбрал станцию в папке каталога — сразу к тюнеру). Только когда верхний на месте
+void halo_nav_back_to(int d);
 void halo_nav_back_zone(float x);  // свайп назад — если начат левее x (по умолчанию 60 px = 30 dp, как в Android 16)
 void halo_nav_update(float dt);    // в update после halo_finger_update
 void halo_nav_draw();              // в draw

@@ -52,6 +52,7 @@ static int nbufs, next_buf;
 static DRAM_ATTR Job jobs[MAX_BUFS];
 static DRAM_ATTR volatile int q_head, q_count, fly = -1;
 static DRAM_ATTR uint32_t fly_t;
+static DRAM_ATTR int resends;  // пачка в полёте: сколько раз она ушла ещё раз после сбоя DMA (take_free; kick — 0)
 static DRAM_ATTR SemaphoreHandle_t free_sem;
 static portMUX_TYPE q_mux = portMUX_INITIALIZER_UNLOCKED;
 static int last_x = -1, last_w, last_y;  // окно прошлой пачки
@@ -131,7 +132,7 @@ static void IRAM_ATTR kick() {  // под q_mux: шина свободна — �
   const int i = q_head;
   const Job &j = jobs[i];
   if (j.win) own_cmd(0x2A, j.caset, 4), own_cmd(0x2B, j.paset, 4), own_cmd(0x2C, 0, 0);
-  fly = i;
+  fly = i, resends = 0;
   fly_t = halo_trace_on ? trace_now() : 0;
   q_head = (i + 1) % nbufs, q_count--;
   own_px(j.buf, j.bytes);
@@ -160,14 +161,23 @@ static void IRAM_ATTR dma_isr(void *) {
 // Пока работает Wi-Fi, DMA иногда не успевает подать байты: SPI досчитывает свои биты и останавливается (usr = 0), а
 // у DMA в очереди остаются данные — «всё ушло» (TOTAL_EOF) не наступит никогда, и кадры встали бы навсегда (так и
 // было: sys показывал dma busy, spi2 usr 0, fifo полон). Не от скорости шины (на 40 МГц так же) и не от приоритета
-// каналов DMA. AmoledBoard в том же случае считает пачку законченной, как только закончил SPI (blit_poll), — здесь
-// так же: буфер не освободился за 3 мс (пачка идёт 0,4 мс), SPI стоит, а «всё ушло» нет — сбросить канал, запустить
-// следующую пачку и перерисовать эту (её строки могли уйти с мусором) в следующем кадре
-static volatile uint32_t stalls;
+// каналов DMA. AmoledBoard в том же случае считает пачку законченной, как только закончил SPI (blit_poll).
+//
+// Откуда (замер 13 ноября 2026, радио PopkaWatch): приём Wi-Fi пишет пакет во внутреннюю память и на микросекунды
+// забирает её у DMA, а FIFO SPI (64 байта) пустеет за 1,6 мкс — SPI шлёт мусор и доходит до конца раньше DMA. Wi-Fi
+// подключён, но поток не идёт — 0 сбоев; радио играет, лента листается (шина занята 40 % времени) — 5–10 в секунду.
+// Буфер пачки при этом цел (свободным он станет только по «всё ушло»): та же пачка тут же уходит ещё раз, со своим
+// окном (указатель записи панели уже ушёл за неё), и очередь идёт дальше. Сбой виден через тик (~1 мс), а не через 3.
+// Вслед за проходом (ленты, переходы) повтор приходит задолго до следующего прохода — мусора на экране нет; впереди
+// прохода его может показать один проход. Было: пачку бросали и перерисовывали в следующем кадре — каждый сбой был
+// полосой мусора на экране и задержкой на 3 мс. Три сбоя одной пачки подряд — как раньше: дальше, а её — в следующем
+// кадре
+static volatile uint32_t stalls, stall_lost;
 
 static void take_free() {
-  while (xSemaphoreTake(free_sem, pdMS_TO_TICKS(3)) != pdTRUE) {
+  while (xSemaphoreTake(free_sem, 1) != pdTRUE) {  // (1 тик — 1 мс)
     int y = -1;
+    bool again = false;
     portENTER_CRITICAL(&q_mux);
     if (fly >= 0 && spi_ll_usr_is_done(&GPSPI2) &&
         !(gdma_ll_tx_get_interrupt_status(&GDMA, dma_ch, true) & GDMA_LL_EVENT_TX_TOTAL_EOF)) {
@@ -176,15 +186,25 @@ static void take_free() {
       spi_ll_dma_tx_fifo_reset(&GPSPI2);
       gdma_ll_tx_clear_interrupt_status(&GDMA, dma_ch, 0xFF);
       cs_high();
-      y = jobs[fly].y, fly = -1;
-      kick();
+      if (resends < 2) {  // та же пачка ещё раз — со своим окном
+        const Job &j = jobs[fly];
+        own_cmd(0x2A, j.caset, 4), own_cmd(0x2B, j.paset, 4), own_cmd(0x2C, 0, 0);
+        resends++, again = true;
+        own_px(j.buf, j.bytes);
+      } else {
+        y = jobs[fly].y, fly = -1;
+        kick();
+      }
     }
     portEXIT_CRITICAL(&q_mux);
-    if (y < 0) continue;
+    if (!again && y < 0) continue;
+    if (++stalls == 1 || stalls % 100 == 0)
+      LOG("display: DMA stalled %lu times (SPI ended first): the band sent again (%lu lost)\n", (unsigned long)stalls,
+          (unsigned long)stall_lost);
+    if (again) continue;
+    stall_lost++;
     xSemaphoreGive(free_sem);
     halo_damage(0, y, HALO_W - 1, y + HALO_ROWS - 1);
-    if (++stalls == 1 || stalls % 100 == 0) LOG("display: DMA stalled %lu times (SPI ended first), queue restarted\n",
-                                                (unsigned long)stalls);
   }
 }
 
@@ -250,7 +270,8 @@ void hd_regs(char *out, int n) {
            (unsigned long)GDMA.channel[dma_ch].out.int_raw.val, (unsigned long)GDMA.channel[dma_ch].out.int_ena.val,
            (unsigned long)GDMA.channel[dma_ch].out.outfifo_status.val, (unsigned long)GDMA.channel[dma_ch].out.link.val,
            (unsigned long)GDMA.channel[dma_ch].out.state.val, (int)GPSPI2.cmd.usr);
-  snprintf(out + strlen(out), n - strlen(out), "; stalls %lu", (unsigned long)stalls);
+  snprintf(out + strlen(out), n - strlen(out), "; stalls %lu (lost %lu)", (unsigned long)stalls,
+           (unsigned long)stall_lost);
 }
 
 void hd_state(int *f, int *queued, int *free_bufs) {

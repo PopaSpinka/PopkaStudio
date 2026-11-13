@@ -31,7 +31,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"
 repair() {
   git -C "$1" checkout -q -- PopkaStudio/popkastudio 2>/dev/null || true
 }
-if [ -n "$HERE" ] && [ -f "$HERE/PopkaStudio/studio.py" ]; then
+if [ -n "$HERE" ] && { [ -f "$HERE/studio/studio.py" ] || [ -f "$HERE/PopkaStudio/studio.py" ]; }; then
   DIR="$HERE"
   if [ -d "$DIR/.git" ] && command -v git >/dev/null; then
     say "Updating PopkaStudio"
@@ -119,7 +119,7 @@ Type=Application
 Name=PopkaStudio
 Comment=Watch screens for ESP32 boards
 Exec=$RUN
-Icon=$DIR/PopkaStudio/app/icon.png
+Icon=$DIR/studio/app/icon.png
 Terminal=false
 Categories=Development;
 EOF

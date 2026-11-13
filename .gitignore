@@ -2,18 +2,24 @@
 .venv/
 .tools/
 tools/fonts/
-# Builds (the page's engine, PopkaStudio/web/build, is in git: no Emscripten needed)
+# Builds (the page's engine, studio/web/build, is in git: no Emscripten needed)
 /build/
 __pycache__/
 # Your projects and your Wi-Fi password — they stay on your computer, never in git
-PopkaStudio/projects/
-PopkaStudio/secrets/
+/projects/
+studio/secrets/
 wifi_net.h
 # Copies of the firmware that was on your boards (Save its firmware) — yours only
+studio/backups/
+studio/videos/
+# The Mac app's build (studio/app/build.sh)
+studio/app/node_modules/
+studio/app/dist/
+studio/app/home.json
+# Up to 2.0 all of these were inside PopkaStudio/ (the studio moves them by itself)
+PopkaStudio/projects/
+PopkaStudio/secrets/
 PopkaStudio/backups/
 PopkaStudio/videos/
-# The Mac app's build (PopkaStudio/app/build.sh)
-PopkaStudio/app/node_modules/
-PopkaStudio/app/dist/
-PopkaStudio/app/home.json
+PopkaStudio/app/
 .DS_Store

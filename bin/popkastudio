@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start PopkaStudio: its helper (PopkaStudio/studio.py) and the editor in your browser — http://localhost:8466.
+# Start PopkaStudio: its helper (studio/studio.py) and the editor in your browser — http://localhost:8466.
 # Ctrl+C here stops it. Installed by ./install.sh (the Python in .venv, arduino-cli in .tools/bin).
 # It lives in bin/, not next to install.sh: on a Mac "popkastudio" and the folder "PopkaStudio" are the same name.
 set -euo pipefail
@@ -19,4 +19,4 @@ if curl -s -o /dev/null "$URL/api/about"; then  # (already running)
   exit 0
 fi
 (sleep 1.5 && open_page) &
-exec "$PY" "$DIR/PopkaStudio/studio.py"
+exec "$PY" "$DIR/studio/studio.py"

@@ -34,9 +34,9 @@ static const char *hclk_ssid = WIFI_SSID, *hclk_pass = WIFI_PASSWORD;
 static TaskHandle_t hclk_handle;
 static void (*hclk_online)();         // работа, пока Wi-Fi подключён (halo_clock_online)
 static uint32_t hclk_every = 6 * 3600;  // как часто включать Wi-Fi, когда всё прошло (с)
-#ifdef HALO_WIFI_KEEP
-static volatile bool hclk_hold;  // someone streams over Wi-Fi (the P4's Video, video_net.h): the clock leaves it connected
-#endif
+// Someone streams over Wi-Fi (the P4's Video — video_net.h, the Radio — radio.h): the clock leaves it connected
+static volatile bool hclk_hold;
+static volatile bool hclk_busy;  // the clock's task has Wi-Fi on now (a sync or a scan): it turns it off itself
 
 static inline bool halo_clock_valid() {
   return time(nullptr) > 1735689600;  // 2025-01-01: раньше — время ещё не получено
@@ -53,6 +53,7 @@ static void hclk_status() {
 
 // Сети вокруг (только 2,4 ГГц — другие плата не видит): Wi-Fi на время поиска, 2–4 с
 static void hclk_scan() {
+  hclk_busy = true;
   halo_stay_awake(true);
   WiFi.mode(WIFI_STA);
   const int n = WiFi.scanNetworks();
@@ -62,21 +63,20 @@ static void hclk_scan() {
       LOG("wifi: net %d %d %s\n", (int)WiFi.RSSI(i), WiFi.encryptionType(i) == WIFI_AUTH_OPEN ? 0 : 1, WiFi.SSID(i).c_str());
   WiFi.scanDelete();
 #ifndef HALO_WIFI_KEEP
-  WiFi.mode(WIFI_OFF);
+  if (!hclk_hold) WiFi.mode(WIFI_OFF);
 #endif
   halo_stay_awake(false);
+  hclk_busy = false;
   LOG("wifi: scan done %d\n", n < 0 ? 0 : n);
 }
 
 // Подключиться и узнать время (не дольше минуты; просьба поискать сети прерывает попытку — она повторится)
 static void hclk_sync() {
-  hclk_synced = false;
+  hclk_synced = false, hclk_busy = true;
   halo_stay_awake(true);  // пока Wi-Fi включён, плата не засыпает по-настоящему (halo_sleep): связь оборвалась бы
   LOG("clock: wifi on\n");
   WiFi.mode(WIFI_STA);
-#ifdef HALO_WIFI_KEEP
   if (WiFi.status() != WL_CONNECTED)  // (begin on a connected station drops it first: a stream would stop)
-#endif
     WiFi.begin(hclk_ssid, hclk_pass);
   sntp_set_time_sync_notification_cb(hclk_on_sync);
   configTzTime(hclk_tz, "pool.ntp.org", "time.google.com");  // SNTP сам дождётся сети
@@ -93,12 +93,13 @@ static void hclk_sync() {
 #ifdef HALO_WIFI_KEEP
   if (!hclk_hold) WiFi.disconnect(false);  // (the board's port: its Wi-Fi driver can't be started twice — board.h)
 #else
-  WiFi.disconnect(true);
-  WiFi.mode(WIFI_OFF);
+  if (!hclk_hold) WiFi.disconnect(true), WiFi.mode(WIFI_OFF);
 #endif
   halo_stay_awake(false);
+  hclk_busy = false;
   if (ok || !hclk_scan_req) hclk_state = ok ? 1 : joined ? 3 : 2;
-  LOG("clock: %s, wifi off, free internal %u KB\n", ok ? "time synced" : hclk_scan_req ? "stopped for a scan" : joined ? "no time" : "no network",
+  LOG("clock: %s, wifi %s, free internal %u KB\n", ok ? "time synced" : hclk_scan_req ? "stopped for a scan" : joined ? "no time" : "no network",
+      hclk_hold ? "kept on (held)" : "off",
       (unsigned)(heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024));
 }
 

@@ -226,6 +226,14 @@ void halo_nav_back() {
   cmd_back = true;
 }
 
+void halo_nav_back_to(int d) {
+  if (d < 0 || d >= depth || view != V_TOP) return;
+  for (int k = d + 1; k < depth; k++)  // the levels between close at once (their items hidden, as a closed screen's)
+    if (scr[k].layout) scr[k].layout({0, 0, 1, 0});
+  scr[d + 1] = scr[depth], depth = d + 1;
+  cmd_back = true;
+}
+
 void halo_nav_back_zone(float x) {
   back_zone = x;
 }

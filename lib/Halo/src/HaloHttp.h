@@ -11,6 +11,9 @@
 #include <WiFi.h>
 #include <lwip/netdb.h>
 
+// Who asks (some services want a speaking name: the Radio — "PopkaStudio/2.0" for Radio Browser)
+static const char *halo_http_agent = "Halo";
+
 // ArduinoJson's memory in PSRAM
 struct HaloPsram : ArduinoJson::Allocator {
   void *allocate(size_t n) override { return heap_caps_malloc(n, MALLOC_CAP_SPIRAM); }
@@ -39,7 +42,7 @@ static bool halo_http_get_json(const char *host, const char *path, JsonDocument 
     return false;
   }
   client.setTimeout(10000);
-  client.printf("GET %s HTTP/1.0\r\nHost: %s\r\nUser-Agent: Halo\r\nConnection: close\r\n\r\n", path, host);
+  client.printf("GET %s HTTP/1.0\r\nHost: %s\r\nUser-Agent: %s\r\nConnection: close\r\n\r\n", path, host, halo_http_agent);
   String status = client.readStringUntil('\n');  // "HTTP/1.1 200 OK"
   if (status.indexOf(" 200 ") < 0) {
     LOG("http: %s from %s\n", status.c_str(), host);
@@ -47,9 +50,28 @@ static bool halo_http_get_json(const char *host, const char *path, JsonDocument 
     return false;
   }
   client.find("\r\n\r\n");  // the headers
-  const DeserializationError err = filter ? deserializeJson(doc, client, DeserializationOption::Filter(*filter))
-                                          : deserializeJson(doc, client);
+  // The body into PSRAM first, in big reads: ArduinoJson reading the socket a letter at a time took seconds for a
+  // few dozen KB (the Radio's catalog: 38 KB). HTTP/1.0 — the body ends where the connection closes
+  size_t cap = 16384, n = 0;
+  char *body = (char *)heap_caps_malloc(cap, MALLOC_CAP_SPIRAM);
+  uint32_t last = millis();
+  while (body && millis() - last < 10000) {
+    if (n + 4096 > cap) {
+      if (cap >= 512 * 1024) break;  // (more than any answer here: the rest is cut)
+      char *more = (char *)heap_caps_realloc(body, cap * 2, MALLOC_CAP_SPIRAM);
+      if (!more) break;
+      body = more, cap *= 2;
+    }
+    const int k = client.read((uint8_t *)body + n, cap - n);
+    if (k > 0) n += k, last = millis();
+    else if (!client.connected() && !client.available()) break;
+    else delay(5);
+  }
   client.stop();
+  if (!body) return LOG("http: no memory for the answer from %s\n", host), false;
+  const DeserializationError err = filter ? deserializeJson(doc, body, n, DeserializationOption::Filter(*filter))
+                                          : deserializeJson(doc, body, n);
+  heap_caps_free(body);
   if (err) LOG("json: %s from %s\n", err.c_str(), host);
   return !err;
 }

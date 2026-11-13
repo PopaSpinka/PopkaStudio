@@ -25,7 +25,7 @@ void hd_set_brightness(uint8_t level);
 void hd_set_power(bool on);
 // The refresh at run time: the frame is made longer with blank rows at its end, a line and the picture stay the same. 0 — the
 // panel's own 60.4 Hz. Does not wait: the frame task writes it right after the next boundary (hd_rate_apply), so the frame
-// after that one has it (experiments/P4Video, docs/p4-video.md)
+// after that one has it (experiments/P4Video, boards/p4lcd7/p4-video.md)
 void hd_set_rate(float hz);
 void hd_rate_apply();  // the frame task, right after a boundary
 bool ht_begin();  // the touch chip (halo_p4_touch.cpp)

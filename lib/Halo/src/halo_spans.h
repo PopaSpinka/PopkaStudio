@@ -3,7 +3,7 @@
 // other) — each its own span, so the pixels between them are neither drawn nor sent; closer than HALO_SPAN_GAP — one
 // span (a window of its own costs more than that many pixels); one more than fits — joined to the span it grows the
 // least. Before, a band had one span from its leftmost change to its rightmost: three small stars in a band — the
-// whole band. Shared by halo_frame.cpp and the editor's engine (PopkaStudio/engine/halo_web.cpp), so both draw the
+// whole band. Shared by halo_frame.cpp and the editor's engine (studio/engine/halo_web.cpp), so both draw the
 // same parts.
 #pragma once
 #include <stdint.h>

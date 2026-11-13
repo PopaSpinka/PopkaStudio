@@ -1,5 +1,5 @@
 // The P4 board: what is not done yet or does not exist here. A part of the contract without hardware answers "no", the way
-// the browser port does (PopkaStudio/engine/halo_web.cpp), so interfaces simply do not offer it.
+// the browser port does (studio/engine/halo_web.cpp), so interfaces simply do not offer it.
 //
 // Not on this board at all: the PWR button and fuel gauge (no AXP2101), the motion sensor. Sound and microphones:
 // halo_p4_audio.cpp.

@@ -516,6 +516,80 @@ static inline void pix(uint16_t *p, const Paint &P, int v) {
   if (P.lut) *p = P.lut[v];
   else put(p, P, v == 15 ? P.A : (v * 17 * P.A) >> 8);
 }
+// Цвет строки (halo_mask_rows): на чёрном пикселе — готовый цвет (то же, что дало бы смешивание с чёрным), на другом —
+// смешивание, как у pix
+static inline void pix(uint16_t *p, const HaloPaint &P, int v) {
+  if (!*p) {
+    *p = P.blk[v];
+    return;
+  }
+  const int a = v == 15 ? P.A : (v * 17 * P.A) >> 8;
+  if (a >= 256) *p = P.c;
+  else if (a > 0) halo_blend(p, P.r5, P.g6, P.b5, a);
+}
+
+void halo_paint(HaloPaint &P, uint32_t rgb, float alpha) {
+  const Paint Q = paint(rgb, alpha);
+  P.c = Q.c, P.r5 = Q.r5, P.g6 = Q.g6, P.b5 = Q.b5, P.A = Q.A;
+  P.blk[0] = 0;
+  for (int v = 1; v < 16; v++) {  // ровно как put поверх чёрного: halo_blend от 0
+    const int a = v == 15 ? P.A : (v * 17 * P.A) >> 8;
+    P.blk[v] = a >= 256 ? P.c : a > 0 ? HALO_PX(((P.r5 * a + 128) >> 8) << 11 | ((P.g6 * a + 128) >> 8) << 5 | ((P.b5 * a + 128) >> 8)) : 0;
+  }
+}
+
+// Цвет маски: один на весь вызов (OnePaint) или свой у каждой строки экрана (RowPaints: градиент; nullptr — строку не
+// рисовать). Пути масок — шаблоны по нему: один и тот же код, у одного цвета — как был
+struct OnePaint {
+  const Paint &P;
+  static constexpr const uint8_t *full = nullptr;
+  inline const Paint *operator()(int) const { return &P; }
+};
+struct RowPaints {
+  const HaloPaint *rows;
+  int y0, n;
+  const uint8_t *full;  // the mask's solid runs (halo_mask_full) or nullptr
+  inline const HaloPaint *operator()(int y) const {
+    const int i = y - y0;
+    return i >= 0 && i < n && rows[i].A > 0 ? &rows[i] : nullptr;
+  }
+};
+#define HALO_INLINE inline __attribute__((always_inline))
+#define HALO_FULL_RUNS 4
+
+// Пиксели lo..hi со значением маски 15: цвет строки — ровно то, что дал бы pix(…, 15) каждому
+static inline bool full_fill(uint16_t *row, int lo, int hi, const Paint &) {
+  return false;  // (one color a call: as before)
+}
+static inline bool full_fill(uint16_t *row, int lo, int hi, const HaloPaint &P) {
+  if (P.A >= 256) {
+    halo_span(row, lo, hi, P.c);  // (black or not: 15 at full alpha is the color itself)
+    return true;
+  }
+  for (int x = lo; x <= hi; x++) pix(row + x, P, 15);
+  return true;
+}
+
+void halo_mask_full(const HaloMask &m, uint8_t *out) {
+  const int stride = (m.w + 1) / 2;
+  for (int r = 0; r < m.h; r++) {
+    uint8_t *o = out + r * 2 * HALO_FULL_RUNS;
+    for (int k = 0; k < HALO_FULL_RUNS; k++) o[2 * k] = 1, o[2 * k + 1] = 0;  // none
+    if (m.w > 255) continue;
+    const uint8_t *bits = m.bits + r * stride;
+    int n = 0;
+    for (int i = 0; i < m.w && n < HALO_FULL_RUNS;) {
+      if (nib(bits, i) != 15) {
+        i++;
+        continue;
+      }
+      int e = i;
+      while (e + 1 < m.w && nib(bits, e + 1) == 15) e++;
+      if (e - i >= 5) o[2 * n] = i, o[2 * n + 1] = e, n++;
+      i = e + 1;
+    }
+  }
+}
 
 // Готовые цвета краёв поверх сплошного фона bg: у маски всего 16 уровней — 16 цветов на вызов вместо смешивания
 // каждого пикселя (~40 тактов: распаковать, три умножения, упаковать)
@@ -543,10 +617,13 @@ static inline void ext_of(const HaloMask &m, int r, int &e0, int &e1) {
   if (r >= 0 && r < m.h && m.ext[2 * r] <= m.ext[2 * r + 1]) e0 = min(e0, (int)m.ext[2 * r]), e1 = max(e1, ext_end(m.ext, r, m.w));
 }
 
-static void HALO_HOT mask_1x(const HaloMask &m, int X, int Y, const Paint &P) {
+template <class PF> static HALO_INLINE void mask_1x_t(const HaloMask &m, int X, int Y, const PF &pf) {
   const int stride = (m.w + 1) / 2;
   const int ya = max(Y, hb.y), yb = min(Y + m.h - 1, hb.y + hb.rows - 1);
   for (int y = ya; y <= yb; y++) {
+    const auto *Pp = pf(y);
+    if (!Pp) continue;
+    const auto &P = *Pp;
     const int r = y - Y, e0 = m.ext[2 * r], e1 = ext_end(m.ext, r, m.w);
     if (e0 > e1) continue;
     const int xa = max(X + e0, hb.x0), xb = min(X + e1, hb.x1);
@@ -558,14 +635,27 @@ static void HALO_HOT mask_1x(const HaloMask &m, int X, int Y, const Paint &P) {
     }
   }
 }
+static void HALO_HOT mask_1x(const HaloMask &m, int X, int Y, const Paint &P) {
+  mask_1x_t(m, X, Y, OnePaint{P});
+}
+// (a call, not a second copy inlined: internal memory is tight)
+static inline void mask_1x_of(const HaloMask &m, int X, int Y, const OnePaint &pf) {
+  mask_1x(m, X, Y, pf.P);
+}
+static inline void mask_1x_of(const HaloMask &m, int X, int Y, const RowPaints &pf) {
+  mask_1x_t(m, X, Y, pf);
+}
 
 // Масштаб 1, но верх — с долей пикселя (лента едет вверх-вниз, буквы не дрожат относительно плашек): строка экрана —
 // смесь двух соседних строк маски, только там, где в них что-то есть (2 чтения на пиксель вместо 4 у масштаба)
-static void HALO_HOT mask_suby(const HaloMask &m, int X, float fy, const Paint &P) {
+template <class PF> static HALO_INLINE void mask_suby_t(const HaloMask &m, int X, float fy, const PF &pf) {
   const int stride = (m.w + 1) / 2, Y = halo_floor(fy), t = (int)((fy - Y) * 256 + 0.5f);  // t — вес строки выше
-  if (t <= 0 || t >= 256) return mask_1x(m, X, Y + (t >= 256), P);
+  if (t <= 0 || t >= 256) return mask_1x_of(m, X, Y + (t >= 256), pf);
   const int ya = max(Y, hb.y), yb = min(Y + m.h, hb.y + hb.rows - 1);
   for (int y = ya; y <= yb; y++) {
+    const auto *Pp = pf(y);
+    if (!Pp) continue;
+    const auto &P = *Pp;
     const int r = y - Y;
     int e0 = 1 << 14, e1 = -1;
     ext_of(m, r, e0, e1), ext_of(m, r - 1, e0, e1);
@@ -580,16 +670,22 @@ static void HALO_HOT mask_suby(const HaloMask &m, int X, float fy, const Paint &
     }
   }
 }
+static void HALO_HOT mask_suby(const HaloMask &m, int X, float fy, const Paint &P) {
+  mask_suby_t(m, X, fy, OnePaint{P});
+}
 
 // Масштаб: для пикселя экрана — точка маски (16.16) и среднее четырёх соседей (билинейно: без дрожи). По строке —
 // только столбцы, где в двух строках маски что-то есть (ext)
-static void HALO_HOT mask_scaled(const HaloMask &m, float fx, float fy, float s, const Paint &P) {
+template <class PF> static HALO_INLINE void mask_scaled_t(const HaloMask &m, float fx, float fy, float s, const PF &pf) {
   const int stride = (m.w + 1) / 2;
   const float inv = 1 / s;
   const int xa = max(hb.x0, halo_floor(fx)), xb = min(hb.x1, ceil_i(fx + m.w * s));
   const int ya = max(hb.y, halo_floor(fy)), yb = min(hb.y + hb.rows - 1, ceil_i(fy + m.h * s));
   const int32_t du = (int32_t)(inv * 65536);
   for (int y = ya; y <= yb; y++) {
+    const auto *Pp = pf(y);
+    if (!Pp) continue;
+    const auto &P = *Pp;
     const int32_t v = (int32_t)(((y + 0.5f - fy) * inv - 0.5f) * 65536);
     const int j = v >> 16, fj = (v >> 8) & 255;
     if (j < -1 || j >= m.h) continue;
@@ -599,8 +695,11 @@ static void HALO_HOT mask_scaled(const HaloMask &m, float fx, float fy, float s,
     const int xs = max(xa, halo_floor(fx + (e0 - 1) * s)), xe = min(xb, ceil_i(fx + (e1 + 2) * s));
     const uint8_t *r0 = j >= 0 ? m.bits + j * stride : ZERO, *r1 = j + 1 < m.h ? m.bits + (j + 1) * stride : ZERO;
     uint16_t *row = halo_row(y);
-    int32_t u = (int32_t)(((xs + 0.5f - fx) * inv - 0.5f) * 65536);
-    for (int x = xs; x <= xe; x++, u += du) {
+    const int32_t us = (int32_t)(((xs + 0.5f - fx) * inv - 0.5f) * 65536);  // u at xs; at x — us + (x − xs)·du
+    // Пиксели x0..x1 по одному (u — тот же, что шагом от xs: целые)
+    auto each = [&](int x0, int x1) {
+    int32_t u = us + (x0 - xs) * du;
+    for (int x = x0; x <= x1; x++, u += du) {
       const int i = u >> 16, fi = (u >> 8) & 255;
       int a00, a01, a10, a11;
       if (i >= 0 && i < m.w - 1) {  // внутри маски: две соседние точки — из одного байта или двух соседних
@@ -613,11 +712,44 @@ static void HALO_HOT mask_scaled(const HaloMask &m, float fx, float fy, float s,
         a00 = i0 ? nib(r0, i) : 0, a01 = i1 ? nib(r0, i + 1) : 0, a10 = i0 ? nib(r1, i) : 0, a11 = i1 ? nib(r1, i + 1) : 0;
       }
       if (!(a00 | a01 | a10 | a11)) continue;
+      if ((a00 & a01 & a10 & a11) == 15) {  // inside the letter: 15 whatever the weights (the same as the sum below)
+        pix(row + x, P, 15);
+        continue;
+      }
       const int top = (a00 << 8) + (a01 - a00) * fi, bot = (a10 << 8) + (a11 - a10) * fi;
       const int a = ((top << 8) + (bot - top) * fj) >> 16;  // 0..15
       if (a) pix(row + x, P, a);
     }
+    };
+    // Сплошная середина буквы (обе строки маски — 15 на отрезке столбцов [c0, c1]): там у пикселя все четыре точки —
+    // 15, его значение 15 при любых весах — отрезком, без выборки по точкам. Остальное — по одному, как было
+    int x = xs;
+    if (pf.full && j >= 0 && j + 1 < m.h) {
+      const uint8_t *fa = pf.full + j * (2 * HALO_FULL_RUNS), *fb = fa + 2 * HALO_FULL_RUNS;
+      for (int ka = 0, kb = 0; ka < HALO_FULL_RUNS && kb < HALO_FULL_RUNS && x <= xe;) {
+        const int a0 = fa[2 * ka], a1 = fa[2 * ka + 1], b0 = fb[2 * kb], b1 = fb[2 * kb + 1];
+        if (a0 > a1 || b0 > b1) break;  // (runs are packed from the first)
+        const int c0 = max(a0, b0), c1 = min(a1, b1);
+        if (a1 < b1) ka++;
+        else kb++;
+        if (c1 - c0 < 2) continue;
+        // pixels with c0 ≤ u >> 16 ≤ c1 − 1 (u = us + (x − xs)·du, du > 0)
+        const int32_t n0 = (c0 << 16) - us, n1 = (c1 << 16) - 1 - us;
+        if (n1 < 0) continue;
+        int lo = n0 <= 0 ? xs : xs + (n0 + du - 1) / du, hi = xs + n1 / du;
+        if (lo < x) lo = x;
+        if (hi > xe) hi = xe;
+        if (lo > hi) continue;
+        each(x, lo - 1);
+        if (full_fill(row, lo, hi, P)) x = hi + 1;
+        else x = lo;  // (cannot fill this paint at once: by one, as before)
+      }
+    }
+    each(x, xe);
   }
+}
+static void HALO_HOT mask_scaled(const HaloMask &m, float fx, float fy, float s, const Paint &P) {
+  mask_scaled_t(m, fx, fy, s, OnePaint{P});
 }
 
 bool halo_subpixel;
@@ -630,6 +762,17 @@ void HALO_HOT halo_mask(const HaloMask &m, float x, float y, uint32_t rgb, float
   if (fabsf(scale - 1) >= 0.002f) mask_scaled(m, x, y, scale, P);
   else if (halo_subpixel) mask_suby(m, halo_floor(x + 0.5f), y, P);
   else mask_1x(m, halo_floor(x + 0.5f), halo_floor(y + 0.5f), P);
+}
+
+// Те же пути, что у halo_mask, но цвет — у каждой строки свой: одним вызовом на пачку вместо вызова на строку. Во флеше:
+// внутренняя память тесна, а цикл маленький — живёт в кэше
+void halo_mask_rows(const HaloMask &m, float x, float y, float scale, const HaloPaint *rows, int y0, int n,
+                    const uint8_t *full) {
+  if (!halo_hits(x - 1, y - 1, x + m.w * scale + 1, y + m.h * scale + 1)) return;
+  const RowPaints pf{rows, y0, n, full};
+  if (fabsf(scale - 1) >= 0.002f) mask_scaled_t(m, x, y, scale, pf);
+  else if (halo_subpixel) mask_suby_t(m, halo_floor(x + 0.5f), y, pf);
+  else mask_1x_t(m, halo_floor(x + 0.5f), halo_floor(y + 0.5f), pf);
 }
 
 // ---------- Текст ----------
@@ -982,6 +1125,80 @@ struct PxStep {
   }
 };
 
+
+// Сюжет повёрнутой картинки (DU > 0) — строки пачки: горячий цикл — маленькой функцией во внутренней памяти (весь
+// pixels_sparse — почти 9 КБ во флеше: кэш команд, 16 КБ, его не держит между пачками; так — на ~10 % быстрее)
+struct PxRot {
+  const uint8_t *cells;
+  int rb, w, tp, trail, ulo, uhi, by0, by1;
+  uint16_t apart, hide;
+  const uint16_t *col;
+  const int *r5, *g6, *b5;
+  int A;
+  bool blend;
+  float x, y, c, n, inv, ax, ay, du, dv, inv_du, inv_dv;
+  int32_t DU, DV;
+};
+static void HALO_HOT px_rot_rows(const PxRot &R, int y0, int y1) {
+  for (int yy = y0; yy <= y1; yy++) {
+    const float fx = hb.x0 + 0.5f - R.x, fy = yy + 0.5f - R.y;
+    float lo = 0, hi = hb.x1 - hb.x0;
+    pixels_span((fx * R.c + fy * R.n) * R.inv + R.ax, R.du, R.inv_du, R.ulo, R.uhi, lo, hi);
+    pixels_span((fy * R.c - fx * R.n) * R.inv + R.ay, R.dv, R.inv_dv, R.by0, R.by1, lo, hi);
+    if (lo > hi) continue;
+    const int xa = hb.x0 + max(0, ceil_i(lo - 1)), xb = hb.x0 + min(hb.x1 - hb.x0, halo_floor(hi + 1));
+    int32_t U0, V0;
+    px_row(R.x, R.y, R.c, R.n, R.inv, R.ax, R.ay, yy, U0, V0);
+    uint16_t *row = halo_row(yy);
+    PxStep sv;
+    sv.init(V0 + xa * R.DV, R.DV, xa);
+    auto put = [&](int a, int b, int k) {
+      if (a > b || (R.hide >> k & 1)) return;
+      if (!R.blend) halo_span(row, a, b, R.col[k]);
+      else for (int q = a; q <= b; q++) halo_blend(row + q, R.r5[k], R.g6[k], R.b5[k], R.A);
+    };
+    // По отрезкам одного цвета (DU > 0 — картинка повёрнута меньше чем на 90°): в строке клеток — подряд, пока цвет
+    // тот же (поиск — одно чтение и сравнение на клетку), конец отрезка — одним делением: пиксель, где U дойдёт до
+    // следующей клетки. Клетка пикселя — та же, что у перебора по клеткам (те же U, V): пиксели те же. Перебор по
+    // клеткам с полным шагом на каждую стоил ~150 тактов на клетку: хвост радуги — 9,6 тыс. клеток на кадр
+    {
+      int rk = 0, ra = xa;
+      for (int xx = xa; xx <= xb;) {
+        const int i = (U0 + xx * R.DU) >> 16, j = (V0 + xx * R.DV) >> 16;
+        const int xe = min(sv.next, (int32_t)xb + 1);  // the end of this row of cells (v changes there)
+        int k = 0, xr = xe;
+        if (j >= R.by0 && j < R.by1) {
+          const int ilast = (U0 + (xe - 1) * R.DU) >> 16;  // the last cell before it
+          const uint8_t *cr = R.cells + j * R.rb;
+          int um = 0;  // u's column in the tail (u < 0): u mod tp, step by step
+          if (i < 0 && R.tp > 0) um = i % R.tp, um += um < 0 ? R.tp : 0;
+          auto cell = [&](int u) {
+            int c = 0;
+            if (u >= R.ulo && u < R.uhi) {
+              if (u >= 0 && u < R.w) c = u & 1 ? cr[u >> 1] & 15 : cr[u >> 1] >> 4;
+              else if (u < 0 && u >= -R.trail) c = um & 1 ? cr[um >> 1] & 15 : cr[um >> 1] >> 4;
+              if (!c || (R.apart >> c & 1)) c = 0;
+            }
+            return c;
+          };
+          k = cell(i);
+          int u = i;
+          while (u < ilast) {
+            if (u + 1 < 0 && R.tp > 0) um = um + 1 == R.tp ? 0 : um + 1;
+            if (cell(u + 1) != k) break;
+            u++;
+          }
+          if (u < ilast) xr = (((u + 1) << 16) - U0 + R.DU - 1) / R.DU;  // (in 32 bits: ±200 cells × 65536)
+        }
+        if (k != rk) put(ra, xx - 1, rk), rk = k, ra = xx;
+        xx = xr;
+        while (sv.next <= xx) sv.step();
+      }
+      put(ra, xb, rk);
+    }
+  }
+}
+
 // Картинка со списком искорок (halo_pixels.py пишет его с 2026-11-04): искорки — по одной клетке (с tile — в каждой
 // копии, которой касается пачка), сюжет с хвостом — перебором только своих клеток. Пустое небо не стоит ничего: кот с
 // искорками по экрану под углом на переходе стоил 7–9 мс на ядро — почти всё на перебор пустых клеток
@@ -1091,6 +1308,12 @@ static void pixels_sparse(const HaloPixels &p, const PxLook &look, int fr, float
     yl = fminf(yl, Y), yh = fmaxf(yh, Y);
   }
   const float inv_du = fabsf(du) > 1e-7f ? 1 / du : 0, inv_dv = fabsf(dv) > 1e-7f ? 1 / dv : 0;
+  if (DU > 0) {  // (turned less than 90°: by runs of one color — px_rot_rows)
+    const PxRot R{look.cells, look.rb, p.w, p.tp, trail, ulo, uhi, p.by0, p.by1, p.apart, hide, col, r5, g6, b5, A, blend,
+                  x, y, c, n, inv, p.ax, p.ay, du, dv, inv_du, inv_dv, DU, DV};
+    px_rot_rows(R, max(hb.y, halo_floor(yl) - 1), min(hb.y + hb.rows - 1, ceil_i(yh) + 1));
+    return;
+  }
   for (int yy = max(hb.y, halo_floor(yl) - 1); yy <= min(hb.y + hb.rows - 1, ceil_i(yh) + 1); yy++) {
     const float fx = hb.x0 + 0.5f - x, fy = yy + 0.5f - y;
     float lo = 0, hi = hb.x1 - hb.x0;
@@ -1103,16 +1326,21 @@ static void pixels_sparse(const HaloPixels &p, const PxLook &look, int fr, float
     uint16_t *row = halo_row(yy);
     PxStep su, sv;
     su.init(U0 + xa * DU, DU, xa), sv.init(V0 + xa * DV, DV, xa);
+    // Соседние клетки одного цвета — одним отрезком (полосы радуги — десятки клеток подряд): те же пиксели, вызовов
+    // в разы меньше. rk 0 — «ничего» (hide, бит 0): не рисуется
+    int rk = 0, ra = xa;
     for (int xx = xa; xx <= xb;) {
       const int i = (U0 + xx * DU) >> 16, j = (V0 + xx * DV) >> 16, e = min(min(su.next, sv.next), (int32_t)xb + 1);
-      if (i >= ulo && i < uhi && j >= p.by0 && j < p.by1) {
-        const int k = body(i, j);
-        if (!(hide >> k & 1)) put(row, xx, e - 1, k);
+      const int k = i >= ulo && i < uhi && j >= p.by0 && j < p.by1 ? body(i, j) : 0;
+      if (k != rk) {
+        if (!(hide >> rk & 1)) put(row, ra, xx - 1, rk);
+        rk = k, ra = xx;
       }
       xx = e;
       while (su.next <= xx) su.step();
       while (sv.next <= xx) sv.step();
     }
+    if (!(hide >> rk & 1)) put(row, ra, xb, rk);
   }
 }
 
@@ -1198,6 +1426,12 @@ void halo_pixels(const HaloPixels &p, int frame, float x, float y, float cell, f
     // Клетками, а не по пикселю: от пикселя — сколько пикселей подряд ещё в той же клетке (U, V растут на DU, DV за
     // пиксель — граница считается точно, в целых: те же пиксели, что и по одному), её цвет — одним отрезком, пустое
     // («ничего») — пропуском. До 2026-11-04 — по пикселю: кот с искорками по экрану под углом на переходе — 9 мс на ядро
+    int rk = 0, ra = xa;  // (соседние клетки одного цвета — одним отрезком, как в pixels_sparse)
+    auto flush = [&](int x1) {
+      if (hide >> rk & 1 || ra > x1) return;
+      if (!blend) halo_span(row, ra, x1, col[rk]);
+      else for (int q = ra; q <= x1; q++) halo_blend(row + q, r5[rk], g6[rk], b5[rk], A);
+    };
     for (int xx = xa; xx <= xb;) {
       const int i = U >> 16, j = V >> 16;  // (сдвиг отрицательного — вниз, как floor)
       int run = xb - xx + 1;
@@ -1205,14 +1439,10 @@ void halo_pixels(const HaloPixels &p, int frame, float x, float y, float cell, f
       else if (DU < 0) run = min(run, (int)((U - i * 65536) / -DU) + 1);
       if (DV > 0) run = min(run, (int)(((j + 1) * 65536 - V + DV - 1) / DV));
       else if (DV < 0) run = min(run, (int)((V - j * 65536) / -DV) + 1);
-      if (tile || !(i < -look.trail || i >= p.w || (unsigned)j >= (unsigned)p.h)) {
-        const int k = look(i, j);
-        if (!(hide >> k & 1)) {
-          if (!blend) halo_span(row, xx, xx + run - 1, col[k]);
-          else for (int q = xx; q < xx + run; q++) halo_blend(row + q, r5[k], g6[k], b5[k], A);
-        }
-      }
+      const int k = tile || !(i < -look.trail || i >= p.w || (unsigned)j >= (unsigned)p.h) ? look(i, j) : 0;
+      if (k != rk) flush(xx - 1), rk = k, ra = xx;
       xx += run, U += run * DU, V += run * DV;
     }
+    flush(xb);
   }
 }

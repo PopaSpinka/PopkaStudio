@@ -74,7 +74,17 @@ void halo_roll_set(HaloRoll &r, const char *s, bool animate) {
   float pen[HALO_ROLL_MAX], w = 0;
   for (int i = 0; i < n; i++) pen[i] = w, w += advance(r, code[i]) + r.spacing;
   if (n) w -= r.spacing;
-  const float left = -w * r.align / 2;
+  float left = -w * r.align / 2;
+  if (r.ink) {  // by the letters themselves: from the first one's ink to the last one's, their side bearings left out
+    float i0 = 1e9f, i1 = -1e9f;
+    for (int i = 0; i < n; i++) {
+      const HaloMask *g = halo_glyph(*r.font, code[i]);
+      if (!g || !g->w) continue;
+      const float a = pen[i] + ink_from_pen(r, code[i], *g);
+      i0 = fminf(i0, a), i1 = fmaxf(i1, a + g->w);
+    }
+    if (i0 <= i1) left = -(i0 + (i1 - i0) * r.align * 0.5f);
+  }
   const int m = max(n, r.n);
   // The cascade lasts at most 0.3 s: in a long line (a date) its neighbours already move to their new places, and the
   // letters still waiting their turn would drift apart for too long ("T HU")

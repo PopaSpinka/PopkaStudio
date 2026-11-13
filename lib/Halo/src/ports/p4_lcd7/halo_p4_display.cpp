@@ -1,4 +1,4 @@
-// The P4 board's display: EK79007 1024x600 over two-lane MIPI DSI, video mode. Measured on this board (docs/esp32-p4-7b.md):
+// The P4 board's display: EK79007 1024x600 over two-lane MIPI DSI, video mode. Measured on this board (boards/p4lcd7/hardware.md):
 // refresh 16562.5 us with +-1.5 us of jitter, a buffer swap costs 0.25 ms, no late frames.
 #include <sdkconfig.h>
 #if CONFIG_IDF_TARGET_ESP32P4
@@ -121,7 +121,7 @@ void hd_regs(char *out, int n) {
 // One line lasts 1354 clocks of 52 MHz = 26.04 us. The sync (1) and the back porch (23) as in hd_begin; only the blank rows
 // after the picture change. Written right after a boundary: the frame in progress finishes as it began. The frame task
 // writes it at its next start, right after the boundary it waits for (hd_rate_apply): it waited here for that boundary
-// itself — up to a whole refresh in the middle of a frame, and the frame after it came a refresh late (docs/p4-video.md)
+// itself — up to a whole refresh in the middle of a frame, and the frame after it came a refresh late (boards/p4lcd7/p4-video.md)
 static volatile float rate_req = -1;
 void hd_set_rate(float hz) {
   rate_req = hz;

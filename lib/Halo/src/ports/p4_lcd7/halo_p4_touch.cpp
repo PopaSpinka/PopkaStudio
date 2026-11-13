@@ -1,6 +1,6 @@
 // The P4 board's touch: GT911 on the shared I2C bus (GPIO7/8, also the sound chips).
 //
-// The chip's INT line does not reach the processor (docs/esp32-p4-7b.md), so reports are polled. They come exactly every
+// The chip's INT line does not reach the processor (boards/p4lcd7/hardware.md), so reports are polled. They come exactly every
 // 10 ms while a finger is down (measured: 98.7 a second, 10-11 ms apart, none lost), which is what the polling is built
 // around: after a report there is nothing to ask for 8 ms, then the task asks without pausing until the next one appears.
 // Each question is 175 us on the bus and the task sleeps through it, so a report's time is known to about 0.2 ms; the time
