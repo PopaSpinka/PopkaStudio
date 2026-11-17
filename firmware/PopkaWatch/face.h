@@ -205,6 +205,15 @@ struct FaceScreen {
 // RAM a project of ~40 layers left Wi-Fi nothing (3 KB free, the lowest 0, with Wi-Fi on). Static state can't be put
 // there by an attribute in this core, so it is allocated before setup() (PSRAM is ready by the global constructors) and
 // layers.h names it by a reference (as WearLab's lab_psa)
+// A small rectangle (HALO_COMPACT: 320 × 480 either way up) shows a rectangle's screens (the *_rect.h files, drawn for the
+// 7-inch 1024 × 600) at its own size: their paddings, radii and the places of words — times 0.7, as its fonts are
+// (studio.py: COMPACT_K); what follows the screen's width and height is counted from them. RK(v) on the 7-inch board
+// is v itself — its numbers stay as they are
+#ifdef HALO_COMPACT
+#define RK(v) ((v) * 0.7f)
+#else
+#define RK(v) (v)
+#endif
 #include <new>
 #ifndef __EMSCRIPTEN__
 #include <esp_heap_caps.h>
@@ -275,9 +284,15 @@ static float face_base_y(const FaceLayer &L) {
 #else
 // A rectangle's place of each kind (variant S2 of web/mockups/rect-screens.html): a status line along the top — the date
 // from the left edge, the weather up to the right one — and the clock in the middle
+#ifdef HALO_COMPACT  // a small rectangle (320 × 480 either way up): the same picture, by its own size
+#define RH_MARGIN 14.0f
+#define RH_LINE_Y 28.0f
+#define RH_CLOCK_Y (HALO_H * 0.47f)
+#else
 #define RH_MARGIN 36.0f
 #define RH_LINE_Y 47.0f   // the middle of the status line
 #define RH_CLOCK_Y 282.0f
+#endif
 static float face_base_x(const FaceLayer &L) {
   return L.kind == FL_DATE ? RH_MARGIN : L.kind == FL_WEATHER ? W - RH_MARGIN : CX;
 }

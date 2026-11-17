@@ -21,6 +21,9 @@
   "shape": "rect",
   "px": "le",
   "engine": "build/p4lcd7",
+  "engine_defines": [
+    "HALO_WEB_BOARD_P4"
+  ],
   "fqbn": "esp32:esp32:esp32p4:ChipVariant=prev3,PSRAM=enabled,USBMode=hwcdc,CDCOnBoot=cdc,FlashSize=32M,FlashMode=qio,FlashFreq=80,PartitionScheme=app13M_data7M_32MB,UploadSpeed=921600",
   "home": "Home",
   "faces_name": "Home",

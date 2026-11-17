@@ -404,6 +404,23 @@ RECT_APP_FONTS = {
     "device": ["font  gl_r_n110   GoogleSansFlex.ttf  110  digits \"%.,°−-\" @wght=660,ROND=100   # About: the big number",
                "font  gl_r_n36    GoogleSansFlex.ttf  36  digits punct \"KBdg\" @wght=660,ROND=100   # About: the list's values"],
 }
+# A small rectangle (a passport's "compact": the WT32-SC01 Plus, 320 x 480 either way up) shows a rectangle's screens at
+# 0.7 of their size (face.h: RK): the same fonts, under the same names, made at 0.7 of their sizes — and one more of its
+# own, the line under a card's title (the watch's 20 px would be as big as the title here)
+COMPACT_K = 0.7
+COMPACT_FONTS = ["font  gl_c_t14    GoogleSansFlex.ttf  14  latin punct  @wght=620,wdth=104,ROND=100   # the line under a card's title"]
+
+
+def compact_fonts(lines):
+    """A rectangle's font lines at a small rectangle's sizes (COMPACT_K; none under 10 px)."""
+    return [re.sub(r"^(font\s+\S+\s+\S+\s+)(\d+)(?=\s)", lambda m: m.group(1) + str(max(10, round(int(m.group(2)) * COMPACT_K))), line)
+            for line in lines]
+
+
+def is_compact(board):
+    return bool(passport(board).get("compact"))
+
+
 # The round board's apps of its own (shade_round.h): only in a firmware with them; the page's engine — always (build.sh)
 ROUND_APP_FONTS = {
     # The quick settings panel (Wear OS 6): Font Awesome's wifi, volume-xmark, clock, power-off, lock, volume-high, minus,
@@ -455,12 +472,14 @@ def new_layer(kind, n=0):
     return layer
 
 
-def default_project(board="amoled175"):
+def default_project(board="amoled175", way=None):
     """A new project (6 Nov 2026, the user's word): an empty watch face — a black screen, nothing on it — and the
     Functions off (FUNCTIONS): its first Load is the base Live needs; what the watch shows is added like Lego."""
-    return {"format": "popkastudio/2", "board": board,
-            "screens": [{"id": "face", "name": passport(board).get("home", "Watch face"), "x": 0, "y": 0, "layers": [],
-                         "face": "blankface"}]}
+    project = {"format": "popkastudio/2", "board": board,
+               "screens": [{"id": "face", "name": passport(board).get("home", "Watch face"), "x": 0, "y": 0, "layers": [],
+                            "face": "blankface"}]}
+    way = orientation_of({"board": board, "orientation": way})
+    return {**project, "orientation": way} if way else project
 
 
 def halowatch_project():
@@ -1436,11 +1455,13 @@ def write_sketch(project, folder, meta=None):
         conf.append(f"font  {name}  {spec}   # {used}")
     conf += GALLERY_FONTS
     if rect:
-        conf += RECT_FONTS
+        small = is_compact(project.get("board"))
+        fit = compact_fonts if small else (lambda lines: lines)
+        conf += fit(RECT_FONTS) + (COMPACT_FONTS if small else [])
         for kinds, lines in RECT_APP_FONTS.items():
             kinds = kinds if isinstance(kinds, tuple) else (kinds,)
             if any(layer["type"] in kinds for layer in all_layers):
-                conf += lines
+                conf += fit(lines)
     else:  # (the round board's own: only with their layer; not in the template — the page's engine builds them itself)
         for kind, lines in ROUND_APP_FONTS.items():
             if any(layer["type"] == kind or (kind == "radio" and (layer["type"] in RADIO_PARTS or layer["type"] in dict(RADIO_SCREENS))) for layer in all_layers):
@@ -1610,22 +1631,43 @@ def engine_sources():
     return [f for f in files if os.path.isfile(f)]
 
 
+def empp_env():
+    """Where Emscripten is: on the PATH, or the copy in .tools/emsdk (a developer's own) -> the environment to run it in
+    (None — there is none)."""
+    if shutil.which("em++"):
+        return dict(os.environ)
+    sdk = os.path.join(ROOT, ".tools", "emsdk")
+    if not os.path.exists(os.path.join(sdk, "upstream", "emscripten", "em++")):
+        return None
+    return {**os.environ, "PATH": os.path.join(sdk, "upstream", "emscripten") + os.pathsep + os.environ.get("PATH", ""),
+            "EM_CONFIG": os.path.join(sdk, ".emscripten"), "EMSDK": sdk}
+
+
 def build_engine(board, force=False):
+    """The page's engine of one board, one way up (a passport from variants()). -> False: there is none and nothing to
+    build it with."""
     out = os.path.join(WEB, board["engine"], "PopkaWatch.wasm")
+    env = empp_env()
     if not force and os.path.exists(out) and installed_copy():
-        return  # (an installed copy: the engine came with the release — rebuilt here it would differ from git's, and the
+        return True  # (an installed copy: the engine came with the release — rebuilt here it would differ from git's, and the
                 # update would see PopkaStudio's own files changed; found on a test update, 6 Nov 2026)
     if not force and os.path.exists(out):
         newest = max(os.path.getmtime(f) for f in engine_sources())
         if os.path.getmtime(out) >= newest:
-            return
-        if not shutil.which("em++"):  # (no Emscripten: the engine that came with PopkaStudio — only a developer rebuilds it)
-            return
-    if not shutil.which("em++"):
-        sys.exit(f"The page's engine is missing ({os.path.relpath(out, ROOT)}) and Emscripten (em++) is not installed "
-                 "to build it: get PopkaStudio again (git pull / install.sh), or install Emscripten.")
-    print(f"building the page's engine for {board['short']} (engine/build.sh) …", flush=True)
-    subprocess.run([os.path.join(HERE, "engine/build.sh"), board["id"]], check=True, env={**os.environ, "PY": PY})
+            return True
+        if not env:  # (no Emscripten: the engine that came with PopkaStudio — only a developer rebuilds it)
+            return True
+    if not env:  # (one board without its engine does not stop the others: it is shown as not ready)
+        print(f"The page's engine is missing ({os.path.relpath(out, ROOT)}) and Emscripten (em++) is not installed "
+              f"to build it: {board['short']} is off. Get PopkaStudio again (git pull / install.sh), or install Emscripten.",
+              flush=True)
+        return False
+    print(f"building the page's engine for {board['short']}{' (' + board['way'] + ')' if board.get('way') else ''} (engine/build.sh) …",
+          flush=True)
+    fonts = "round" if board.get("shape") == "round" else "compact" if board.get("compact") else "rect"
+    subprocess.run([os.path.join(HERE, "engine/build.sh"), board["id"], board["engine"], fonts,
+                    *board.get("engine_defines", board.get("defines", []))], check=True, env={**env, "PY": PY})
+    return True
 
 
 # ---------- Updates (6 Nov 2026): a newer PopkaStudio on GitHub — what changed since this one, and the update ----------
@@ -1812,6 +1854,42 @@ BOARDS = sorted((json.load(open(p, encoding="utf8")) for p in glob.glob(os.path.
 
 def passport(board):
     return next((b for b in BOARDS if b["id"] == board), BOARDS[0])
+
+
+def known_board(board):
+    return any(b["id"] == board for b in BOARDS)
+
+
+# A board whose screen is used either way up (its passport's "orientations": each one — what it changes in the passport:
+# w, h, engine, defines, looks…) is, for everything that builds, one board per way: a project picks the way when it is
+# made ("orientation"), and each way has its own firmware build and its own engine of the page.
+def orientation_of(project):
+    """The way up a project's screen is: its own, if its board has it; else the board's first (None — one way only)."""
+    p = passport((project or {}).get("board"))
+    ways = p.get("orientations") or {}
+    way = (project or {}).get("orientation")
+    return way if way in ways else p.get("orientation") if p.get("orientation") in ways else next(iter(ways), None)
+
+
+def variant(board, way=None):
+    """A board's passport for one way up: the passport with that way's changes over it ("looks", "places", "moves" —
+    key by key). A board with one way — the passport itself."""
+    p = passport(board)
+    over = (p.get("orientations") or {}).get(way)
+    if not over:
+        return p
+    out = {**p, **over}
+    for k in ("looks", "places", "moves"):
+        if k in p and k in over:
+            out[k] = {**p[k], **over[k]}
+    out["way"] = way
+    return out
+
+
+def variants(board):
+    """Every way up a board is built for: [(way or None, its passport)]."""
+    ways = board.get("orientations") or {}
+    return [(w, variant(board["id"], w)) for w in ways] or [(None, board)]
 
 
 def usb_ports():
@@ -2265,11 +2343,21 @@ def chip_fqbn(port, board):
     return (p["fqbn"].replace(*swap), "-v3") if int(m.group(1)) >= 3 else (p["fqbn"], "")
 
 
-def load_commands(port, board="amoled175"):
-    """How a board's firmware is built and written: its passport's fqbn; each board its own build folder."""
+def build_defines(board, way=None):
+    """What names a board to the compiler (its passport's "defines"): a chip family with more than one board is not told
+    by the chip (lib/Halo/src/halo_board.h). Both of the core's lists are empty by default — nothing of its own is lost."""
+    flags = " ".join(f"-D{d}" for d in variant(board, way).get("defines", []))
+    return ["--build-property", f"compiler.cpp.extra_flags={flags}", "--build-property", f"compiler.c.extra_flags={flags}"] if flags else []
+
+
+def load_commands(port, board="amoled175", way=None):
+    """How a board's firmware is built and written: its passport's fqbn; each board (and each way up) its own build folder."""
+    if not known_board(board):  # (the name goes into a folder's path)
+        raise RuntimeError("No such board")
     fqbn, tail = chip_fqbn(port, board)
-    cli, out = arduino_cli(), os.path.join(ROOT, "build", ("PopkaWatch" if board == "amoled175" else f"PopkaWatch-{board}") + tail)
-    return [[cli, "compile", "--fqbn", fqbn, "--libraries", os.path.join(ROOT, "lib"), "--build-path", out, SKETCH],
+    name = "PopkaWatch" if board == "amoled175" else f"PopkaWatch-{board}" + (f"-{way}" if way else "")
+    cli, out = arduino_cli(), os.path.join(ROOT, "build", name + tail)
+    return [[cli, "compile", "--fqbn", fqbn, *build_defines(board, way), "--libraries", os.path.join(ROOT, "lib"), "--build-path", out, SKETCH],
             [cli, "upload", "--fqbn", fqbn, "-p", port, "--input-dir", out, SKETCH]]
 
 
@@ -2451,7 +2539,7 @@ def flash_steps(project, port, meta=None):
         there = next((p.get("model") for p in boards.status() if p["port"] == port), "")
         if there and there != board:  # (known by its hello or from last time: a minute of compiling saved, the chip stays safe)
             raise RuntimeError(f"This project is for {passport(board)['short']}, the connected board is {passport(there)['short']}")
-        for cmd in load_commands(port, board):
+        for cmd in load_commands(port, board, orientation_of(project)):
             proc = subprocess.Popen(cmd, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
             for line in proc.stdout:
                 m = re.search(r"Writing at 0x[0-9a-f]+ (?:\[[^\]]*\]\s+|\.*\s*\()([\d.]+)\s*%", line)
@@ -2549,11 +2637,11 @@ def list_projects():
             continue
         thumb = project_path(pid, ".png")
         out.append({"id": pid, "name": project_name(pid, data), "board": data.get("board", "amoled175"),
-                    "edited": os.path.getmtime(path), "thumb": os.path.getmtime(thumb) if os.path.exists(thumb) else 0})
+                    "orientation": orientation_of(data), "edited": os.path.getmtime(path), "thumb": os.path.getmtime(thumb) if os.path.exists(thumb) else 0})
     return sorted(out, key=lambda p: -p["edited"])
 
 
-def new_project(board, name=""):
+def new_project(board, name="", way=None):
     """A new project for the board: HaloWatch's watch face, under the name given (none — Project 1, 2, …) -> its id:
     the name in small Latin letters and dashes (none of them — project-N), made unique."""
     with project_lock:
@@ -2569,7 +2657,7 @@ def new_project(board, name=""):
         pid, n = base, 2
         while pid in ids or os.path.exists(project_path(pid)):
             pid, n = f"{base}-{n}", n + 1
-        write_project(pid, {**default_project(board), "name": name, "rev": 0})
+        write_project(pid, {**default_project(board, way), "name": name, "rev": 0})
         return pid
 
 
@@ -2654,7 +2742,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if url.path == "/api/projects":
             return self.send(200, {"projects": list_projects()})
         if url.path == "/api/default":
-            return self.send(200, default_project((urllib.parse.parse_qs(url.query).get("board") or ["amoled175"])[0]))
+            board = (q.get("board") or ["amoled175"])[0]
+            if not known_board(board):
+                return self.send(400, {"error": "no such board"})
+            return self.send(200, default_project(board, (q.get("orientation") or [None])[0]))
         if url.path == "/api/wifi":
             return self.send(200, wifi_info())
         if url.path == "/api/geo":  # ?q= a city or a US ZIP
@@ -2811,7 +2902,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     board = data.get("board")
                     if not any(b["id"] == board and not b.get("soon") for b in BOARDS):
                         return self.send(400, {"error": "no such board"})
-                    return self.send(200, {"id": new_project(board, data.get("name", "")), "projects": list_projects()})
+                    return self.send(200, {"id": new_project(board, data.get("name", ""), data.get("orientation")),
+                                           "projects": list_projects()})
                 return self.send(200, {"projects": list_projects()})
             if url.path == "/api/weather":  # {"cities": [{lat, lon, name}], "units"} — what the page's copies show
                 wx = clean_weather({"weather": data})
@@ -2865,6 +2957,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 threading.Thread(target=backup_job, args=(port,), daemon=True).start()
                 return self.send(200, {"id": job["id"]})
             if url.path == "/api/flash":  # {"project", "port", "pid", "rev"}
+                if not isinstance(data.get("project"), dict) or not known_board(data["project"].get("board") or "amoled175"):
+                    return self.send(400, {"error": "no such board"})
                 if passport((data.get("project") or {}).get("board")).get("load") is False:
                     return self.send(409, {"error": "This board can't be loaded yet"})
                 port = data.get("port") or next((p["port"] for p in usb_ports()), "")
@@ -2915,6 +3009,10 @@ def main():
         with open(sys.argv[sys.argv.index("--rect-conf") + 1], "w", encoding="utf-8") as f:
             f.write("\n".join(RECT_FONTS + [line for lines in RECT_APP_FONTS.values() for line in lines]) + "\n")
         return
+    if "--compact-conf" in sys.argv:  # (engine/build.sh: a small rectangle's — the same, at its sizes, and its own)
+        with open(sys.argv[sys.argv.index("--compact-conf") + 1], "w", encoding="utf-8") as f:
+            f.write("\n".join(compact_fonts(RECT_FONTS + [line for lines in RECT_APP_FONTS.values() for line in lines]) + COMPACT_FONTS) + "\n")
+        return
     if "--round-conf" in sys.argv:  # (engine/build.sh: the round board's own, beyond the template's)
         with open(sys.argv[sys.argv.index("--round-conf") + 1], "w", encoding="utf-8") as f:
             f.write("\n".join(line for lines in ROUND_APP_FONTS.values() for line in lines) + "\n")
@@ -2922,8 +3020,12 @@ def main():
     if "--template" in sys.argv:
         print(write_sketch(halowatch_project(), FIRMWARE))
         return
+    only = sys.argv[sys.argv.index("--build") + 1:] if "--build" in sys.argv else []  # (--build [ID…]: these boards only)
     for b in BOARDS:
-        build_engine(b, force="--build" in sys.argv)
+        if only and b["id"] not in only:
+            continue
+        if not all([build_engine(v, force="--build" in sys.argv) for _, v in variants(b)]):
+            b["soon"] = True  # (no engine for its page: the start window shows it, a project can't be made)
     if "--build" in sys.argv:
         return
     global PORT, PROJECTS

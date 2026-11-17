@@ -170,6 +170,8 @@ if (!ROUND) {
 }
 // A whole face from the mockups: "Four sides" — the clock in the middle, the weekday, the date, the weather and the
 // steps along the four sides (mockup 2)
+// (a rectangle's sizes: the 7-inch board's; a small one's (its passport's "compact") — by its own clock)
+const FS = BOARD.compact ? { clock: Math.round((BOARD.looks?.clock?.size || 100) * 0.9), text: 17, gap: 3 } : { clock: 205, text: 34, gap: 6 };
 export const FOUR_SIDES = ROUND ? [
   ['clock', { size: 116, weight: 560, width: 96, dy: 13 }],
   ['curve', { name: 'Curved weekday', what: 'weekday', radius: 200, size: 20, spacing: 4 }],
@@ -177,11 +179,11 @@ export const FOUR_SIDES = ROUND ? [
   ['curve', { name: 'Curved weather', what: 'weather', angle: -90, radius: 200, size: 20, color: BLUE }],
   ['curve', { name: 'Curved steps', what: 'steps', angle: 90, radius: 200, size: 20, color: CORAL }],
 ] : [  // (variant Q1: straight at the top and the bottom, turned along the sides; the city where the watch has the steps)
-  ['clock', { own: true, size: 205 }],
-  ['curve', { own: true, name: 'Weekday line', what: 'weekday', size: 34, spacing: 6, color: '#C9CACF' }],
-  ['curve', { own: true, name: 'Date line', what: 'daymonth', angle: 180, size: 34, spacing: 6, color: '#C9CACF' }],
-  ['curve', { own: true, name: 'Weather line', what: 'weather', angle: -100, size: 34, spacing: 6, color: BLUE }],
-  ['curve', { own: true, name: 'City line', what: 'city', angle: 100, size: 34, spacing: 6, color: CORAL }],
+  ['clock', { own: true, size: FS.clock }],
+  ['curve', { own: true, name: 'Weekday line', what: 'weekday', size: FS.text, spacing: FS.gap, color: '#C9CACF' }],
+  ['curve', { own: true, name: 'Date line', what: 'daymonth', angle: 180, size: FS.text, spacing: FS.gap, color: '#C9CACF' }],
+  ['curve', { own: true, name: 'Weather line', what: 'weather', angle: -100, size: FS.text, spacing: FS.gap, color: BLUE }],
+  ['curve', { own: true, name: 'City line', what: 'city', angle: 100, size: FS.text, spacing: FS.gap, color: CORAL }],
 ];
 export const LOOK = ['size', 'weight', 'width', 'scale', 'spacing', 'radius', 'color', 'color2', 'color3', 'goal', 'count', 'twinkle', 'meteors', 'angle', 'sparkles', 'rainbow', 'pill', 'what', 'format', 'gap', 'look', 'span', 'span2', 'sides'];  // what a layer copies from its kind
 export const TEXTS = ['text', 'subtitle', 'icon'];  // and its text (a new layer only: "HaloWatch look" keeps it)
@@ -1060,7 +1062,7 @@ export async function saveAndRemember(pid) {
 export const projectName = () => state.project.name || state.pid.replace(/-/g, ' ').replace(/^./, (c) => c.toUpperCase());
 
 export async function resetToDefault() {
-  const r = await fetch(`/api/default?board=${BOARD.id}`, { cache: 'no-store' });
+  const r = await fetch(`/api/default?board=${BOARD.id}${BOARD.way ? `&orientation=${BOARD.way}` : ''}`, { cache: 'no-store' });
   const fresh = await r.json();
   change((p) => { p.screens = fresh.screens; }, { structure: true });
   state.screen = home().id;

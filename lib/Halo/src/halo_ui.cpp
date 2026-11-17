@@ -282,10 +282,18 @@ static void finger_commands() {
   halo_command("swipe", [](const char *a) {
     const bool edge = strstr(a, "edge");
     float x0 = HALO_W / 2, y0 = HALO_H / 2, x1 = HALO_W / 2, y1 = HALO_H / 2;
+#ifdef HALO_ROUND  // (the round watch's numbers, as they always were)
     if (strstr(a, "up")) y0 = edge ? 456 : 360, y1 = edge ? 200 : 110;
     else if (strstr(a, "down")) y0 = edge ? 10 : 110, y1 = edge ? 300 : 360;
     else if (strstr(a, "left")) x0 = edge ? 456 : 360, x1 = 110;
     else if (strstr(a, "right")) x0 = edge ? 10 : 110, x1 = 360;  // от левого края — жест назад
+#else  // a rectangle of any size: the same gestures by its own width and height (456 was past a 320 px screen's edge)
+    const float w = HALO_W, h = HALO_H;
+    if (strstr(a, "up")) y0 = edge ? h - 10 : h * 0.77f, y1 = edge ? h * 0.43f : h * 0.24f;
+    else if (strstr(a, "down")) y0 = edge ? 10 : h * 0.24f, y1 = edge ? h * 0.64f : h * 0.77f;
+    else if (strstr(a, "left")) x0 = edge ? w - 10 : w * 0.77f, x1 = w * 0.24f;
+    else if (strstr(a, "right")) x0 = edge ? 10 : w * 0.24f, x1 = w * 0.77f;  // from the left edge — the back gesture
+#endif
     else return (void)Serial.println("swipe up|down|left|right [edge]");
     syn_start(x0, y0, x1, y1, 0.28f);
   });

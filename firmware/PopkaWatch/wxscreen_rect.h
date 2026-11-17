@@ -5,6 +5,37 @@
 // stand in a row. A chart is a mask baked when its numbers change (a new hour, new weather), one page per tick.
 // Included from wxscreen.h in place of its layout when HALO_ROUND is not defined.
 
+#ifdef HALO_COMPACT  // a small rectangle (320 × 480 either way up): the same screen by its own width and height
+#define RW_WIDE (HALO_W > HALO_H)
+#define RW_CITY_X 16.0f
+#define RW_CITY_Y 40.0f
+#define RW_ICON_X 42.0f
+#define RW_ICON_Y (RW_WIDE ? 96.0f : 108.0f)
+#define RW_TEMP_X 78.0f
+#define RW_TEMP_Y (RW_ICON_Y - 4)
+#define RW_TEXT_R (W - 16.0f)
+#define RW_WORD_Y (RW_ICON_Y - 22)
+#define RW_HILO_Y (RW_ICON_Y)
+#define RW_FEELS_Y (RW_ICON_Y + 22)
+#define RW_TIME_R (W - 14.0f)
+#define RW_TIME_Y 22.0f
+#define RW_CHART_X 12
+#define RW_CHART_Y (RW_WIDE ? 150 : 190)
+#define RW_CHART_W (HALO_W - 24)
+#define RW_CHART_H (RW_WIDE ? 116 : 200)
+#define RW_LINE_X0 8.0f
+#define RW_LINE_X1 (RW_CHART_W - 10.0f)
+#define RW_LINE_TOP (RW_CHART_H * 0.2f)
+#define RW_LINE_BOTTOM (RW_CHART_H * 0.86f)
+#define RW_LINE_HALF 1.5f
+#define RW_MIN_RANGE 6.0f
+#define RW_LABEL_X (RW_CHART_X + RW_LINE_X0)
+#define RW_LABEL_STEP ((RW_LINE_X1 - RW_LINE_X0) * 0.93f / (RW_LABELS - 1))
+#define RW_LABEL_Y (RW_CHART_Y + RW_CHART_H + 12.0f)
+#define RW_DOTS_Y (HALO_H - 13.0f)
+#define RW_DOT_R 3.5f
+#define RW_DOT_STEP 12.0f
+#else
 #define RW_CITY_X 40.0f
 #define RW_CITY_Y 66.0f
 #define RW_ICON_X 100.0f
@@ -31,6 +62,9 @@
 #define RW_LABEL_STEP 215.0f
 #define RW_LABEL_Y 553.0f
 #define RW_DOTS_Y 584.0f
+#define RW_DOT_R 6.0f           // a page's dot
+#define RW_DOT_STEP 20.0f
+#endif
 
 // The next RW_POINTS hours of a page; 0 — no forecast
 static uint32_t rw_chart_numbers(int page, float *t) {
@@ -203,10 +237,10 @@ static void wx_layout_static(const FaceScreen &S, int i, float a, const HaloView
   const float pos = S.pager.x, P = halo_nav_pull(), lift = 26 * (1 - expf(-P / 140)), stretch = 30 * (1 - expf(-P / 120));
   const int n = screen_pages(S);
   if (n < 2) a = 0;
-  const float step = 20, x0 = CX - step * (n - 1) / 2, y = RW_DOTS_Y - lift;
+  const float step = RW_DOT_STEP, x0 = CX - step * (n - 1) / 2, y = RW_DOTS_Y - lift;
   for (int d = 0; d < WX_MAX; d++) {
     HaloItem &q = it[d];
-    q.kind = HI_CIRCLE, q.x = x0 + d * step, q.y = y, q.r = 6, q.scale = 1, q.color = L.color2;
+    q.kind = HI_CIRCLE, q.x = x0 + d * step, q.y = y, q.r = RW_DOT_R, q.scale = 1, q.color = L.color2;
     q.alpha = d < n ? 0.3f * a : 0, q.on_black = true;
     halo_view_commit(q, v);
   }
@@ -216,11 +250,11 @@ static void wx_layout_static(const FaceScreen &S, int i, float a, const HaloView
   const float xa = x0 + (i0 + tail) * step, xb = x0 + (i0 + head) * step;
   const bool pulled = stretch > 0.3f;
   HaloItem &worm = it[WX_MAX], &pull = it[WX_MAX + 1];
-  worm.kind = HI_RRECT, worm.x = (xa + xb) / 2, worm.y = y, worm.w = 12 + xb - xa, worm.h = 12, worm.r = 6, worm.scale = 1;
+  worm.kind = HI_RRECT, worm.x = (xa + xb) / 2, worm.y = y, worm.w = 2 * RW_DOT_R + xb - xa, worm.h = 2 * RW_DOT_R, worm.r = RW_DOT_R, worm.scale = 1;
   worm.color = L.color, worm.alpha = pulled ? 0 : a, worm.on_black = true;
   halo_view_commit(worm, v);
-  pull.kind = HI_RRECT, pull.x = x0 + lroundf(pc) * step, pull.y = y - stretch / 2, pull.w = 12, pull.h = 12 + stretch;
-  pull.r = 6, pull.scale = 1, pull.color = L.color, pull.alpha = pulled ? a : 0, pull.on_black = true;
+  pull.kind = HI_RRECT, pull.x = x0 + lroundf(pc) * step, pull.y = y - stretch / 2, pull.w = 2 * RW_DOT_R, pull.h = 2 * RW_DOT_R + stretch;
+  pull.r = RW_DOT_R, pull.scale = 1, pull.color = L.color, pull.alpha = pulled ? a : 0, pull.on_black = true;
   halo_view_commit(pull, v);
   R.ax = CX + L.dx, R.ay = RW_DOTS_Y + L.dy;
 }

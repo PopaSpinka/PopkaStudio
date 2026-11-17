@@ -31,7 +31,11 @@ enum : uint8_t { CV_WEEKDAY, CV_SHORTDATE, CV_DAYMONTH, CV_WEATHER, CV_STEPS, CV
 enum : uint8_t { IF_WORDS, IF_SHORT, IF_ICONS };
 #ifndef HALO_ROUND
 #define CV_CITY 7                 // (a rectangle's: the Four sides face has the city where the watch has the steps)
+#ifdef HALO_COMPACT
+#define WR_SIDE_X 20.0f
+#else
 #define WR_SIDE_X 56.0f           // a line along the left or the right side: its letters' middle from the edge
+#endif
 #define WR_SIDE_RAD 40000.0f      // baked as an arc so wide it is straight (halo_text_arc turns the letters)
 static bool wr_side(float angle) {  // the Place of a line: -100 — along the left side, 100 — along the right
   const float a = fabsf(angle);

@@ -11,7 +11,9 @@
 //   * trace dump выдаёт большой буфер в порт: заголовок с именами событий и команд, события, контрольная сумма.
 #include <sdkconfig.h>
 #if CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32P4  // nothing here depends on the board: the ESP32 family shares it
-#if CONFIG_IDF_TARGET_ESP32S3
+#if defined(HALO_BOARD_WT32SC01P)
+#include "../s3_wt32sc01p/halo_wt32.h"
+#elif CONFIG_IDF_TARGET_ESP32S3
 #include "../s3_amoled175/halo_s3.h"
 #else
 #include "../p4_lcd7/halo_p4.h"

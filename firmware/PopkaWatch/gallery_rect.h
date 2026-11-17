@@ -11,6 +11,30 @@ extern const HaloFont gl_r_title, gl_r_t28, gl_r_t32, gl_r_ic28, gl_r_n64;  // a
 static void games_mini_layout(uint8_t kind, const HaloView &page, float x, float y, float w, float h, float a);
 static void games_mini_draw(uint8_t kind);
 
+#ifdef HALO_COMPACT  // a small rectangle: two cards in a row when it is wide, one when it is tall
+#define RG_WIDE (HALO_W > HALO_H)
+#define RG_COLS (RG_WIDE ? 2 : 1)
+#define RG_PAD 12.0f
+#define RG_GAP_X 10.0f
+#define RG_TOP 58.0f
+#define RG_ITEM_H 72.0f
+#define RG_STACK_GAP 6.0f
+#define RG_BIG_H (2 * RG_ITEM_H + RG_STACK_GAP)
+#define RG_ROW_GAP 10.0f
+#define RG_END 14.0f
+#define RG_RADIUS 18.0f
+#define RG_RADIUS_DOWN 12.0f
+#define RG_TITLE_Y 30.0f
+#define RG_ICON_R 19.0f
+#define RG_GAME_COLS (RG_WIDE ? 3 : 2)
+#define RG_GAME_GAP 8.0f
+#define RG_GAME_W ((HALO_W - 2 * RG_PAD - (RG_GAME_COLS - 1) * RG_GAME_GAP) / RG_GAME_COLS)
+#define RG_GAME_H (RG_WIDE ? 246.0f : 236.0f)
+#define RG_GAME_STEP (RG_GAME_W + RG_GAME_GAP)
+#define RG_SCENE_H (RG_GAME_H - 84.0f)
+#define RG_FONT_SUB gl_c_t14     // the line under a card's title (the watch's 20 px is its title's size here)
+extern const HaloFont gl_c_t14;
+#else
 #define RG_PAD 32.0f        // the page's margin
 #define RG_GAP_X 24.0f      // between columns
 #define RG_TOP 96.0f        // the first row, under the title
@@ -27,6 +51,9 @@ static void games_mini_draw(uint8_t kind);
 #define RG_GAME_H 470.0f
 #define RG_GAME_STEP 325.0f
 #define RG_SCENE_H 350.0f     // the part of it the game shows in
+#define RG_GAME_COLS 3
+#define RG_FONT_SUB gl_t20       // the line under a card's title
+#endif
 
 static const char *const RW_WORD[4] = {"Partly cloudy", "Sunny", "Cloudy", "Rain"};  // by WX_PARTLY ...
 // The live card's glyph (gl_r_ic28 has the cards' icons): by WX_PARTLY ...
@@ -66,10 +93,26 @@ static int rg_game_of(const FaceLayer &L) {
 
 // Card number c in the flow
 static void rg_place(int c, bool big, bool games, RgCell &o) {
-  if (games) {  // tall cards, the game alive in them, three in a row
-    o.x = RG_PAD + (c % 3) * RG_GAME_STEP, o.y = RG_TOP + (c / 3) * (RG_GAME_H + RG_ROW_GAP), o.w = RG_GAME_W, o.h = RG_GAME_H;
+  if (games) {  // tall cards, the game alive in them, three in a row (a small tall screen: two)
+    o.x = RG_PAD + (c % RG_GAME_COLS) * RG_GAME_STEP, o.y = RG_TOP + (c / RG_GAME_COLS) * (RG_GAME_H + RG_ROW_GAP), o.w = RG_GAME_W, o.h = RG_GAME_H;
     return;
   }
+#ifdef HALO_COMPACT
+  {  // RG_COLS in a row; a live first card: half the width with two beside it (wide) or the whole width (tall)
+    const int cols = RG_COLS;
+    const float wn = (W - 2 * RG_PAD - (cols - 1) * RG_GAP_X) / cols;
+    if (big && c == 0) {
+      o.x = RG_PAD, o.y = RG_TOP, o.w = wn, o.h = RG_BIG_H;
+    } else if (big && cols > 1 && c <= 2) {
+      o.x = RG_PAD + wn + RG_GAP_X, o.y = RG_TOP + (c - 1) * (RG_ITEM_H + RG_STACK_GAP), o.w = wn, o.h = RG_ITEM_H;
+    } else {
+      const int k = big ? c - (cols > 1 ? 3 : 1) : c, r = k / cols, col = k % cols;
+      const float y0 = big ? RG_TOP + RG_BIG_H + RG_ROW_GAP : RG_TOP;
+      o.x = RG_PAD + col * (wn + RG_GAP_X), o.y = y0 + r * (RG_ITEM_H + RG_ROW_GAP), o.w = wn, o.h = RG_ITEM_H;
+    }
+    return;
+  }
+#endif
   const float w2 = (W - 2 * RG_PAD - RG_GAP_X) / 2, w3 = (W - 2 * RG_PAD - 2 * RG_GAP_X) / 3;
   if (big && c == 0) {
     o.x = RG_PAD, o.y = RG_TOP, o.w = w2, o.h = RG_BIG_H;
@@ -165,14 +208,14 @@ static void rg_card(const FaceScreen &S, int i, const GalRun &g, int c, float a,
   HaloItem &bg = it[0];
   bg.kind = HI_RRECT, bg.x = x0 + q.w / 2, bg.y = y0 + h / 2, bg.w = q.w, bg.h = h, bg.scale = 1;
   bg.r = RG_RADIUS + (RG_RADIUS_DOWN - RG_RADIUS) * p, bg.color = L.color2, bg.alpha = ac, bg.on_black = true;
-  const float ix = x0 + 24 + RG_ICON_R, iy = live ? y0 + 26 + RG_ICON_R : y0 + h / 2;
+  const float ix = x0 + RK(24) + RG_ICON_R, iy = live ? y0 + RK(26) + RG_ICON_R : y0 + h / 2;
   HaloItem &dc = it[1];
   dc.kind = HI_CIRCLE, dc.x = ix, dc.y = iy, dc.r = RG_ICON_R, dc.scale = 1, dc.color = L.color, dc.alpha = ac;
   dc.on_black = true;
   if (q.game) {  // the game alive at the top, its name under it
     dc.alpha = 0, it[2].kind = HI_TEXT, it[2].alpha = 0;
-    gl_text_base(it[3], gl_r_t32, gl_str(L.text), x0 + 24, y0 + 402, 1, GL_TEXT, ac, &bg);
-    gl_text_base(it[4], gl_t20, gl_str(L.sub), x0 + 24, y0 + 438, 1, GL_DIM, ac, &bg);
+    gl_text_base(it[3], gl_r_t32, gl_str(L.text), x0 + RK(24), y0 + h - RK(68), 1, GL_TEXT, ac, &bg);
+    gl_text_base(it[4], RG_FONT_SUB, gl_str(L.sub), x0 + RK(24), y0 + h - RK(32), 1, GL_DIM, ac, &bg);
     for (int j = 0; j < 5; j++) halo_view_commit(it[j], v);
     R.ax = bg.x, R.ay = bg.y;
     games_mini_layout((uint8_t)q.game, v, x0, y0, q.w, RG_SCENE_H, ac);
@@ -184,13 +227,13 @@ static void rg_card(const FaceScreen &S, int i, const GalRun &g, int c, float a,
     int n = snprintf(R.txt, 48, "%s, ", wx_city[0].name);
     snprintf(R.txt + n, 48 - n, "%s", RW_WORD[d.kind & 3]);
     R.txt[n] = tolower((unsigned char)R.txt[n]);
-    gl_text_base(it[3], gl_t20, R.txt, x0 + 24, y0 + 194, 1, GL_DIM, ac, &bg);
+    gl_text_base(it[3], RG_FONT_SUB, R.txt, x0 + RK(24), y0 + RK(194), 1, GL_DIM, ac, &bg);
     it[4].alpha = 0;
-    halo_roll_layout(R.roll, x0 + 24, y0 + 137, GL_TEXT, ac, &bg, v);
+    halo_roll_layout(R.roll, x0 + RK(24), y0 + RK(137), GL_TEXT, ac, &bg, v);
   } else {
-    const float tx = x0 + 24 + 2 * RG_ICON_R + 18;
-    gl_text_base(it[3], gl_r_t28, gl_str(L.text), tx, y0 + 52, 1, GL_TEXT, ac, &bg);
-    gl_text_base(it[4], gl_t20, gl_str(L.sub), tx, y0 + 84, 1, GL_DIM, ac, &bg);
+    const float tx = x0 + RK(24) + 2 * RG_ICON_R + RK(18);
+    gl_text_base(it[3], gl_r_t28, gl_str(L.text), tx, y0 + RK(52), 1, GL_TEXT, ac, &bg);
+    gl_text_base(it[4], RG_FONT_SUB, gl_str(L.sub), tx, y0 + RK(84), 1, GL_DIM, ac, &bg);
   }
   for (int j = 0; j < 5; j++) halo_view_commit(it[j], v);
   R.ax = bg.x, R.ay = bg.y;
@@ -224,11 +267,11 @@ static void gal_layout(const FaceScreen &S, int i, float a, const HaloView &v) {
       break;
     case FL_SCROLL: {  // at the right edge, while the page moves; nothing to scroll — none
       const float track = HALO_H - RG_TOP - RG_END, size = track * constrain(halo_list_visible(g->list), 0.2f, 1.0f);
-      const float y0 = RG_TOP + (track - size) * halo_clamp01(g->sc_pos.x), x = W - 11.0f;
+      const float y0 = RG_TOP + (track - size) * halo_clamp01(g->sc_pos.x), x = W - RK(11.0f);
       const float al = g->list.total > HALO_H && g->sc_vis.x > 0.01f ? g->sc_vis.x * a : 0;
       for (int j = 0; j < 2; j++) {
         HaloItem &s = it[j];
-        s.kind = HI_RRECT, s.x = x, s.y = j ? y0 + size / 2 : RG_TOP + track / 2, s.w = 6, s.h = j ? size : track, s.r = 3;
+        s.kind = HI_RRECT, s.x = x, s.y = j ? y0 + size / 2 : RG_TOP + track / 2, s.w = RK(6), s.h = j ? size : track, s.r = RK(3);
         s.scale = 1, s.color = j ? L.color : L.color2, s.alpha = al, s.on_black = !j;
         halo_view_commit(s, v);
       }

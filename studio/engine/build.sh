@@ -3,7 +3,10 @@
 # go in unchanged; halo_web.cpp stands in for the hardware half (the panel, the touch chip, the buttons), shim/ for
 # Arduino and ESP-IDF; studio_api.h — the editor's calls into the sketch.
 #
-#   studio/engine/build.sh      → studio/web/build/PopkaWatch.js + .wasm  (studio.py runs it when needed)
+#   studio/engine/build.sh                           → studio/web/build/PopkaWatch.js + .wasm (the round watch)
+#   studio/engine/build.sh ID ENGINE FONTS [DEFINE…]  → studio/web/ENGINE/ (studio.py runs it so, from the passport:
+#       its "engine" folder, the fonts its page has beyond the template's — round | rect | compact, and what names the board
+#       to the compiler)
 #
 # Needs Emscripten (em++): brew install emscripten. The Wi-Fi password never gets in: shim/HaloClock.h stands in for
 # the board's (the computer's clock), and no shared Wi-Fi file is on the include path.
@@ -12,14 +15,17 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 ENGINE="$ROOT/studio/engine"
 SKETCH="$ROOT/firmware/PopkaWatch"
-# Which board: none — the round one (web/build, as it always was); p4lcd7 — its own engine in web/build/p4lcd7
+# Which board: none — the round one (web/build, as it always was); else — as its passport says (studio.py)
 BOARD="${1:-amoled175}"
-OUT="$ROOT/studio/web/build"
-TMP="$ROOT/build/PopkaStudio/engine"
+ENGINE_DIR="${2:-build}"
+FONTS="${3:-round}"
 EXTRA=()
-if [ "$BOARD" = p4lcd7 ]; then
-  OUT="$OUT/p4lcd7" TMP="$TMP-p4lcd7" EXTRA=(-DHALO_WEB_BOARD_P4)
-fi
+for d in "${@:4}"; do EXTRA+=("-D$d"); done
+case "$BOARD$ENGINE_DIR" in *[!A-Za-z0-9_/-]*|*..*) echo "build.sh: a board's id and folder are letters, digits, - and /" >&2; exit 1 ;; esac
+case "$FONTS" in round|rect|compact) ;; *) echo "build.sh: fonts are round, rect or compact, not '$FONTS'" >&2; exit 1 ;; esac
+OUT="$ROOT/studio/web/$ENGINE_DIR"
+TMP="$ROOT/build/PopkaStudio/engine"
+[ "$ENGINE_DIR" = build ] || TMP="$TMP-$(basename "$ENGINE_DIR")"
 PY="${PY:-python3}"
 command -v em++ >/dev/null || { echo "em++ not found: brew install emscripten" >&2; exit 1; }
 
@@ -32,9 +38,9 @@ WRAP="$TMP/PopkaWatch.sketch.cpp"
 printf '#include <Arduino.h>\n#include <sys/time.h>\nstatic int st_time_shift;\nstatic inline time_t web_time(time_t *p) { time_t t = (time)(nullptr) + st_time_shift; if (p) *p = t; return t; }\n#define time(p) web_time(p)\n#include "%s"\n#include "%s"\n' "$SKETCH/PopkaWatch.ino" "$ENGINE/studio_api.h" > "$WRAP"
 SRCS=("$ENGINE/halo_web.cpp" "$HALO/halo_draw.cpp" "$HALO/halo_ui.cpp" "$HALO/halo_list.cpp" "$HALO/halo_nav.cpp"
       "$HALO/halo_roll.cpp" "$SKETCH/src/halo_assets.cpp" "$WRAP")
-if [ "$BOARD" = p4lcd7 ]; then  # a rectangle's own fonts (gallery_rect.h), beside the template's
+if [ "$FONTS" != round ]; then  # a rectangle's own fonts (gallery_rect.h), beside the template's; a small one's — at its sizes
   mkdir -p "$TMP/rect/assets"
-  "$PY" "$ROOT/studio/studio.py" --rect-conf "$TMP/rect/assets/halo.conf"
+  "$PY" "$ROOT/studio/studio.py" "--$FONTS-conf" "$TMP/rect/assets/halo.conf"
   "$PY" "$ROOT/tools/halo_assets.py" "$TMP/rect" >/dev/null
   SRCS+=("$TMP/rect/src/halo_assets.cpp")
 else  # the round board's own fonts (shade_round.h): only its firmwares with the layer have them, its page — always

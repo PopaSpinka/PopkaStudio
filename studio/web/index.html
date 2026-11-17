@@ -122,7 +122,10 @@
           <div class="start-ttl">Choose a board</div>
           <div class="start-boards" id="start-boards"></div>
           <div class="start-foot">
-            <span></span><span class="start-dots"><i class="on"></i><i></i></span>
+            <span class="more-wrap">
+              <button class="more-btn" id="start-more" aria-haspopup="listbox" aria-expanded="false" hidden><span>More boards</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></button>
+              <div class="more-list" id="start-more-list" role="listbox" aria-label="More boards" hidden></div>
+            </span><span class="start-dots"><i class="on"></i><i></i></span>
             <button class="primary" id="start-next">Continue</button>
           </div>
         </div>
@@ -144,6 +147,7 @@
             <span class="new-ring"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>
             <div class="start-ttl">New project</div>
             <input class="start-name" id="start-name" maxlength="40" spellcheck="false" autocomplete="off" aria-label="Name">
+            <div class="start-ways" id="start-ways" role="group" aria-label="Which way up the screen is" hidden></div>
             <button class="primary" id="start-create">Create</button>
           </div>
           <div class="start-foot">

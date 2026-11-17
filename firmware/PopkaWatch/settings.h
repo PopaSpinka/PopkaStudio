@@ -41,8 +41,9 @@
 #define HAS_RADIO 0
 #endif
 
-// The Video app (video.h): only a rectangular board has it — in a firmware with it and in that board's page
-#if !defined(HALO_ROUND) && (defined(__EMSCRIPTEN__) || (defined(FN_VIDEO) && FN_VIDEO))
+// The Video app (video.h): only the 7″ board has it (its JPEG decoder, its card slot) — in a firmware with it and in
+// that board's page. A small rectangle (HALO_COMPACT) is a rectangle too, but not that one
+#if !defined(HALO_ROUND) && !defined(HALO_COMPACT) && (defined(__EMSCRIPTEN__) || (defined(FN_VIDEO) && FN_VIDEO))
 #define HAS_VIDEO 1
 #else
 #define HAS_VIDEO 0

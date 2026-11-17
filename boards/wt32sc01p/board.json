@@ -1,0 +1,281 @@
+{
+  "id": "wt32sc01p",
+  "order": 3,
+  "name": "Wireless-Tag WT32-SC01 Plus",
+  "short": "WT32-SC01 Plus",
+  "maker": "Wireless-Tag",
+  "title": "ESP32-S3 LCD 3.5″",
+  "screen": "320 × 480",
+  "spec": "3.5″ · 320 × 480",
+  "drawn": "rect",
+  "usb": [
+    "303A:1001"
+  ],
+  "chip": "ESP32-S3",
+  "psram": 2,
+  "flash": 16,
+  "w": 320,
+  "h": 480,
+  "shape": "rect",
+  "compact": true,
+  "engine": "build/wt32sc01p",
+  "defines": [
+    "HALO_BOARD_WT32SC01P"
+  ],
+  "fqbn": "esp32:esp32:esp32s3:FlashSize=16M,PSRAM=enabled,FlashMode=qio,PartitionScheme=app3M_fat9M_16MB,USBMode=hwcdc,CDCOnBoot=cdc,UploadSpeed=460800",
+  "music_at": 6356992,
+  "home": "Home",
+  "faces_name": "Home",
+  "orientation": "portrait",
+  "orientations": {
+    "portrait": {
+      "name": "Tall",
+      "sub": "320 × 480",
+      "art": "img/board-wt32sc01p-tall.webp"
+    },
+    "landscape": {
+      "name": "Wide",
+      "sub": "480 × 320",
+      "w": 480,
+      "h": 320,
+      "screen": "480 × 320",
+      "engine": "build/wt32sc01p-land",
+      "defines": [
+        "HALO_BOARD_WT32SC01P",
+        "HALO_LANDSCAPE"
+      ],
+      "looks": {
+        "clock": {
+          "size": 128,
+          "color": "#FFF8EE"
+        },
+        "dateframe": {
+          "size": 17,
+          "weight": 620,
+          "width": 104,
+          "spacing": 4,
+          "gap": 132,
+          "color": "#C9CACF"
+        },
+        "sclock": {
+          "scale": 0.32,
+          "color2": "#FFF8EE"
+        },
+        "dotclock": {
+          "scale": 1.2
+        }
+      },
+      "places": {
+        "parrot": {
+          "dx": -96,
+          "dy": -102
+        }
+      },
+      "art": "img/board-wt32sc01p.webp",
+      "moves": {
+        "weekarc": {
+          "dy": -42,
+          "size": 104
+        },
+        "infoline": {
+          "dy": -22,
+          "size": 112
+        },
+        "forecast": {
+          "dy": -58,
+          "size": 92
+        },
+        "dotclock": {
+          "hidden": true
+        }
+      }
+    }
+  },
+  "layers": [
+    "date",
+    "clock",
+    "weather",
+    "curve",
+    "title",
+    "card",
+    "scroll",
+    "arc",
+    "city",
+    "wxicon",
+    "wxtemp",
+    "wxhilo",
+    "hourly",
+    "dots",
+    "wxscreen",
+    "display",
+    "about",
+    "device",
+    "snkdots",
+    "snkspace",
+    "snkiso",
+    "shade",
+    "weekarc",
+    "infoline",
+    "forecast",
+    "dateframe",
+    "dotclock",
+    "sclock",
+    "stars",
+    "parrot",
+    "feels"
+  ],
+  "screens": [
+    "face",
+    "blankface",
+    "empty",
+    "gallery",
+    "foursides"
+  ],
+  "functions": [
+    "aod",
+    "wifi"
+  ],
+  "without": [
+    "raise",
+    "shift",
+    "pwr",
+    "video"
+  ],
+  "looks": {
+    "date": {
+      "size": 17,
+      "weight": 620,
+      "width": 104,
+      "spacing": 1,
+      "color": "#C9CACF"
+    },
+    "clock": {
+      "size": 100,
+      "color": "#FFF8EE"
+    },
+    "weather": {
+      "scale": 0.36,
+      "pill": false,
+      "color2": "#C9CACF"
+    },
+    "stars": {
+      "count": 90,
+      "scale": 0.8
+    },
+    "dateframe": {
+      "size": 16,
+      "weight": 620,
+      "width": 104,
+      "spacing": 4,
+      "gap": 112,
+      "color": "#C9CACF"
+    },
+    "sclock": {
+      "scale": 0.25,
+      "color2": "#FFF8EE"
+    },
+    "parrot": {
+      "scale": 0.28
+    },
+    "dotclock": {
+      "scale": 0.9
+    },
+    "curve": {
+      "size": 17,
+      "weight": 620,
+      "width": 104,
+      "spacing": 1
+    },
+    "arc": {
+      "size": 14,
+      "weight": 620,
+      "width": 104,
+      "spacing": 0,
+      "color": "#9A9A9F"
+    },
+    "city": {
+      "size": 22
+    },
+    "wxicon": {
+      "scale": 0.8
+    },
+    "wxtemp": {
+      "size": 68,
+      "color": "#FFF8EE"
+    },
+    "wxhilo": {
+      "size": 15,
+      "weight": 620,
+      "width": 104,
+      "color": "#9A9A9F",
+      "color2": "#9A9A9F"
+    },
+    "hourly": {
+      "scale": 0.45,
+      "color": "#FFC247",
+      "color2": "#9A9A9F"
+    },
+    "feels": {
+      "size": 15,
+      "weight": 620,
+      "width": 104,
+      "color": "#FFF8EE"
+    },
+    "weekarc": {
+      "size": 13,
+      "weight": 620,
+      "width": 104,
+      "spacing": 0
+    },
+    "infoline": {
+      "size": 17,
+      "weight": 620,
+      "width": 104,
+      "spacing": 0
+    },
+    "forecast": {
+      "size": 17,
+      "weight": 660,
+      "width": 100,
+      "spacing": 0,
+      "scale": 0.45,
+      "color2": "#9A9A9F",
+      "color3": "#FFBE3D"
+    },
+    "card": {
+      "color2": "#2D3236"
+    }
+  },
+  "places": {
+    "parrot": {
+      "dx": -76,
+      "dy": -92
+    }
+  },
+  "art": "img/board-wt32sc01p.webp",
+  "art_size": [
+    480,
+    320
+  ],
+  "more": true,
+  "curves": [
+    "weekday",
+    "shortdate",
+    "daymonth",
+    "weather",
+    "city"
+  ],
+  "moves": {
+    "weekarc": {
+      "dy": -44,
+      "size": 92
+    },
+    "forecast": {
+      "dy": -78,
+      "size": 88
+    },
+    "dotclock": {
+      "hidden": true
+    }
+  }
+}

@@ -12,7 +12,7 @@
 // fast in light sleep (half a minute per hour asleep); the fast RC oscillator / 256 (~70 kHz) — 0.03 %. It is
 // switched over before the first sleep, kept running during sleep and measured against the crystal every 5 minutes.
 #include <sdkconfig.h>
-#if CONFIG_IDF_TARGET_ESP32S3  // this board's port: other boards build their own
+#if CONFIG_IDF_TARGET_ESP32S3 && !defined(HALO_BOARD_WT32SC01P)  // this board's port: other boards build their own
 #include "halo_s3.h"
 
 #include <driver/gpio.h>
