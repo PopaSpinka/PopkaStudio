@@ -97,8 +97,17 @@ enum : uint8_t {
   // The Radio's other screens, each its own (settings.h, radio.h): the catalog's folders (STATIONS opens it), a folder's
   // stations (a folder opens it), the volume screen (on the board VOLUME shows it over the main one; the editor's map
   // and Try — as a screen)
-  FL_RBROWSE, FL_RFOLDER, FL_RVOLUME
+  FL_RBROWSE, FL_RFOLDER, FL_RVOLUME,
+  // The weather widgets (wxwidgets.h, 14 Nov 2026), the round board's: the sky inside the digits, the next 12 hours'
+  // line, a barometer, what to wear, a buddy, pixel weather, the next five days
+  FL_WXDIGITS, FL_WXCURVE, FL_WXBARO, FL_WXWEAR, FL_WXBUDDY, FL_WXPIXEL, FL_WXWEEK
 };
+static inline bool fl_wxw(uint8_t k) {  // a weather widget (wxwidgets.h)
+  return k >= FL_WXDIGITS && k <= FL_WXWEEK;
+}
+// The weather widgets: in a firmware with one of them (FN_WXW, config.h: a bit a widget), always in the round board's
+// page (weather.h: WX_MORE — their numbers)
+#define HAS_WXW WX_MORE
 static inline bool fl_rpart(uint8_t k) {  // a part of the Radio's main screen
   return k >= FL_RTIME && k <= FL_RPLAY;
 }
@@ -186,6 +195,9 @@ struct FaceRun {
 #if HAS_SCLOCK
   struct ScRun *sc;        // a clock of sclock.h: its other rolls, items, what it draws itself
 #endif
+#if HAS_WXW
+  struct WwRun *ww;        // a weather widget: its items, lines, what it draws itself (wxwidgets.h)
+#endif
 };
 struct GalRun;  // gallery.h
 struct FaceScreen {
@@ -205,6 +217,15 @@ struct FaceScreen {
 // RAM a project of ~40 layers left Wi-Fi nothing (3 KB free, the lowest 0, with Wi-Fi on). Static state can't be put
 // there by an attribute in this core, so it is allocated before setup() (PSRAM is ready by the global constructors) and
 // layers.h names it by a reference (as WearLab's lab_psa)
+// A small rectangle (HALO_COMPACT: 320 × 480 either way up) shows a rectangle's screens (the *_rect.h files, drawn for the
+// 7-inch 1024 × 600) at its own size: their paddings, radii and the places of words — times 0.7, as its fonts are
+// (studio.py: COMPACT_K); what follows the screen's width and height is counted from them. RK(v) on the 7-inch board
+// is v itself — its numbers stay as they are
+#ifdef HALO_COMPACT
+#define RK(v) ((v) * 0.7f)
+#else
+#define RK(v) (v)
+#endif
 #include <new>
 #ifndef __EMSCRIPTEN__
 #include <esp_heap_caps.h>
@@ -275,9 +296,19 @@ static float face_base_y(const FaceLayer &L) {
 #else
 // A rectangle's place of each kind (variant S2 of web/mockups/rect-screens.html): a status line along the top — the date
 // from the left edge, the weather up to the right one — and the clock in the middle
+#ifdef HALO_COMPACT  // a small rectangle (320 × 480 either way up): the same picture, by its own size
+#define RH_MARGIN 14.0f
+#define RH_LINE_Y 28.0f
+#define RH_CLOCK_Y (HALO_H * 0.47f)
+#elif defined(HALO_P4_TALL)  // the 7″ board held tall (600 × 1024): the status line as wide, the clock a little above the middle
+#define RH_MARGIN 36.0f
+#define RH_LINE_Y 47.0f
+#define RH_CLOCK_Y 440.0f
+#else
 #define RH_MARGIN 36.0f
 #define RH_LINE_Y 47.0f   // the middle of the status line
 #define RH_CLOCK_Y 282.0f
+#endif
 static float face_base_x(const FaceLayer &L) {
   return L.kind == FL_DATE ? RH_MARGIN : L.kind == FL_WEATHER ? W - RH_MARGIN : CX;
 }
@@ -342,6 +373,9 @@ static inline void rd_part_free(FaceRun &) {}
 #include "device.h"    // About (live cards and their screens) and Power
 #include "stepscreen.h"  // the Steps screen
 #include "widgets.h"     // the face's widgets
+#if HAS_WXW
+#include "wxwidgets.h"   // the weather widgets
+#endif
 #if HAS_SCLOCK
 #include "sclock.h"      // the clocks of sixteen looks
 #endif
@@ -418,7 +452,7 @@ static void face_demo() {
 static inline bool fl_section(uint8_t k) {
   return k == FL_DISPLAY || k == FL_BATTERY || k == FL_MUSIC || k == FL_RECORDER || (k >= FL_SNKDOTS && k <= FL_SNKISO)
 #ifndef HALO_ROUND
-         || k == FL_VIDEO  // (a rectangle's only: the round board's code stays as it was)
+         || k == FL_VIDEO || k == FL_RADIO  // (a rectangle's: the Radio is one screen of one layer, radio_rect.h)
 #else
          || k == FL_RADIO || k == FL_RBROWSE || k == FL_RFOLDER || k == FL_RVOLUME  // (the round board's only)
 #endif
@@ -436,6 +470,9 @@ static void face_layer_build(const FaceScreen &S, int i) {
   rd_part_free(R);
 #if HAS_SCLOCK
   sc_layer_free(R);
+#endif
+#if HAS_WXW
+  ww_free(R);
 #endif
   // Afresh in its own place: no copy on the stack (it is ~4.8 KB; Live rebuilds a layer in the frame task — 6 KB)
   R.~FaceRun();
@@ -461,6 +498,9 @@ static void face_layer_build(const FaceScreen &S, int i) {
   if (fl_widget(L.kind)) return wg_layer_build(S, i);
 #if HAS_SCLOCK
   if (L.kind == FL_SCLOCK) return sc_layer_build(S, i);
+#endif
+#if HAS_WXW
+  if (fl_wxw(L.kind)) return ww_layer_build(S, i);
 #endif
 #if HAS_STARS
   if (L.kind == FL_STARS) return stars_layer_build(S, i);
@@ -662,6 +702,12 @@ static void screen_layout(int s, const HaloView &v) {
       continue;
     }
 #endif
+#if HAS_WXW
+    if (fl_wxw(L.kind)) {
+      ww_layout(S, i, L.hidden ? 0 : 1, v);
+      continue;
+    }
+#endif
 #if HAS_STARS
     if (L.kind == FL_STARS) {
       stars_layout(S, i, L.hidden ? 0 : 1, v);
@@ -811,6 +857,10 @@ static void screen_draw(int s) {
 #if HAS_SCLOCK
     } else if (L.kind == FL_SCLOCK) {
       sc_draw(S, i);
+#endif
+#if HAS_WXW
+    } else if (fl_wxw(L.kind)) {
+      ww_draw(S, i);
 #endif
     } else if (fl_paged(L.kind)) {
       if (paged) continue;

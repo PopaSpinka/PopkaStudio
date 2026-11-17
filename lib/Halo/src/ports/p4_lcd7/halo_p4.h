@@ -15,6 +15,29 @@
 bool hd_begin(uint8_t brightness);
 void hd_use_rgb888();  // before hd_begin: 3 bytes a pixel (experiments/P4Video; the frame engine itself is RGB565)
 uint16_t *hd_back();
+// Tall (board.h: HALO_P4_TALL) — the interface's point (x, y) is the panel's (HALO_P4_FB_X, HALO_P4_FB_Y): the board turned
+// a quarter clockwise, its left edge up (-DHALO_P4_TALL_CCW: the other way). Wide — the same point
+#if defined(HALO_P4_TALL) && defined(HALO_P4_TALL_CCW)
+#define HALO_P4_FB_X(x, y) (HALO_FB_W - 1 - (y))
+#define HALO_P4_FB_Y(x, y) (x)
+#elif defined(HALO_P4_TALL)
+#define HALO_P4_FB_X(x, y) (y)
+#define HALO_P4_FB_Y(x, y) (HALO_FB_H - 1 - (x))
+#else
+#define HALO_P4_FB_X(x, y) (x)
+#define HALO_P4_FB_Y(x, y) (y)
+#endif
+static inline void halo_p4_to_screen(int *x, int *y) {  // the panel's point (the touch) -> the interface's
+#if defined(HALO_P4_TALL) && defined(HALO_P4_TALL_CCW)
+  const int px = *x, py = *y;
+  *x = py, *y = HALO_FB_W - 1 - px;
+#elif defined(HALO_P4_TALL)
+  const int px = *x, py = *y;
+  *x = HALO_FB_H - 1 - py, *y = px;
+#else
+  (void)x, (void)y;
+#endif
+}
 uint16_t *hd_front();
 void hd_flip();
 bool hd_wait_te(uint32_t count, uint32_t timeout_ms);  // wait until the boundary counter reaches count

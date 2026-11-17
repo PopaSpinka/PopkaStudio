@@ -12,6 +12,7 @@ base; a thin black gap separates the cloud from the sun. Shapes are drawn 8x lar
 The Weather screen now follows design/weather2_mockup.webp, keeping these icons: they are scaled so that the drawing is
 as tall as the mockup's icons (BIG_SCALE, SMALL_SCALE).
 """
+import math
 import os
 import re
 import shlex
@@ -169,6 +170,11 @@ def weather_icon_img(kind, scale):
         fill(FACE_CLOUD_BACK, cloud_mask(-7, -8, 0.82, 0))
         cut(cloud_mask(3, 5, 1, GAP))
         fill(CLOUD, cloud_mask(3, 5, 1, 0))
+    elif kind == "snow":  # the weather widgets' fifth sky (wxwidgets.h): the rain's cloud, three flakes under it
+        fill(CLOUD, cloud_mask(0, -7, 1, 0))
+        for x, y in ((-10, 15), (0, 21), (10, 15)):
+            xx, yy, rr = (mx + x - left) * scale * SS, (my + y - top) * scale * SS, 2.9 * scale * SS
+            d.ellipse((xx - rr, yy - rr, xx + rr, yy + rr), fill=rgb(CLOUD) + (255,))
     elif kind == "rain":  # the cloud higher up, three slanted drops under it
         fill(CLOUD, cloud_mask(0, -7, 1, 0))
         for x in (-10, 0, 10):
@@ -254,6 +260,113 @@ def face_icon(kind, path):
     img = img.resize((out, out), Image.LANCZOS)
     img.save(path)
     print(f"{os.path.relpath(path)}: {out}x{out}")
+
+
+# ---------- What to wear (the weather widget Wear, wxwidgets.h; web/mockups/weather-widgets.html variant 7) ----------
+# Every one on the same canvas, 220 x 156 at scale 1, its point (0, 0) 110 px from the left and 90 from the top: the
+# firmware puts the canvas' middle 12 px over that point, so they swap in place. Shapes — the mockup's SVG paths.
+WEAR_W, WEAR_H, WEAR_OX, WEAR_OY = 220, 156, 110, 90
+WEAR_TXT = 0xFFF8EE
+WEAR_BODY = ("M-20,-52 L-50,-44 Q-60,-40 -63,-28 L-74,26 Q-75,32 -69,34 L-56,38 Q-50,39 -49,33 L-44,2 L-44,52 "
+             "Q-44,58 -38,58 L38,58 Q44,58 44,52 L44,2 L49,33 Q50,39 56,38 L69,34 Q75,32 74,26 L63,-28 Q60,-40 50,-44 "
+             "L20,-52 Q0,-36 -20,-52 Z")
+
+
+def path_points(path, k):
+    """An SVG path of M, L, Q (and Z) as points, the quadratic pieces sampled; k — pixels a unit."""
+    pts, cur, toks = [], (0.0, 0.0), re.findall(r"[MLQZ]|-?[\d.]+", path)
+    i, cmd = 0, None
+    num = lambda: float(toks[i])  # noqa: E731
+    while i < len(toks):
+        if toks[i] in "MLQZ":
+            cmd = toks[i]
+            i += 1
+            if cmd == "Z":
+                continue
+        if cmd in "ML":
+            cur = (float(toks[i]), float(toks[i + 1]))
+            i += 2
+            pts.append(cur)
+        elif cmd == "Q":
+            c, e = (float(toks[i]), float(toks[i + 1])), (float(toks[i + 2]), float(toks[i + 3]))
+            i += 4
+            for j in range(1, 13):
+                t = j / 12
+                pts.append(((1 - t) ** 2 * cur[0] + 2 * (1 - t) * t * c[0] + t * t * e[0],
+                            (1 - t) ** 2 * cur[1] + 2 * (1 - t) * t * c[1] + t * t * e[1]))
+            cur = e
+    return [((x + WEAR_OX) * k, (y + WEAR_OY) * k) for x, y in pts]
+
+
+def wear_icon_img(kind, scale):
+    """jacket, glasses, hoodie, umbrella or hat at this size (RGBA, the canvas above)."""
+    k = scale * SS
+    img = Image.new("RGBA", (int(WEAR_W * scale + 0.5) * SS, int(WEAR_H * scale + 0.5) * SS), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    P = lambda x, y: ((x + WEAR_OX) * k, (y + WEAR_OY) * k)  # noqa: E731
+    col = lambda c, a=255: rgb(c) + (a,)  # noqa: E731
+
+    def line(pts, c, w, a=255):
+        pts = [P(*q) for q in pts]
+        d.line(pts, fill=col(c, a), width=max(1, int(w * k)), joint="curve")
+        for q in (pts[0], pts[-1]):  # round ends
+            r = w * k / 2
+            d.ellipse((q[0] - r, q[1] - r, q[0] + r, q[1] + r), fill=col(c, a))
+
+    def rrect(x, y, w, h, r, fill=None, outline=None, width=0):
+        d.rounded_rectangle((*P(x, y), *P(x + w, y + h)), r * k, fill=col(fill) if fill else None,
+                            outline=col(outline) if outline else None, width=int(width * k))
+
+    def circle(x, y, r, c):
+        (cx, cy) = P(x, y)
+        d.ellipse((cx - r * k, cy - r * k, cx + r * k, cy + r * k), fill=col(c))
+
+    if kind == "umbrella":
+        pts = [P(64 * math.cos(math.pi * (1 - j / 48)), -56 * math.sin(math.pi * j / 48)) for j in range(49)]
+        scallops = "M64,0 " + " ".join(f"Q{64 - 32 * i - 16},-11 {64 - 32 * (i + 1)},0" for i in range(4))
+        d.polygon(pts + path_points(scallops, k)[1:], fill=col(0x5B9BFF))
+        for dx in (-32, 0, 32):
+            rib = path_points(f"M0,-56 Q{dx * 0.55},-40 {dx},0", k)
+            d.line(rib, fill=col(0x2E5FB0), width=int(2 * k), joint="curve")
+        line([(0, -56), (0, -66)], WEAR_TXT, 5)
+        line([(0, 0), (0, 50)], WEAR_TXT, 6)
+        (x0, y0), (x1, y1) = P(-22, 39), P(0, 61)
+        d.arc((x0, y0, x1, y1), 0, 180, fill=col(WEAR_TXT), width=int(6 * k))
+        line([(-22, 50), (-22, 50)], WEAR_TXT, 6)
+    elif kind == "glasses":
+        for i in range(9):
+            a = math.radians(-80 + i * 20)
+            line([(92 * math.sin(a), 30 - 92 * math.cos(a)), (106 * math.sin(a), 30 - 106 * math.cos(a))], SUN, 4, 140)
+        for x in (-66, 10):
+            rrect(x, -22, 56, 42, 17, fill=0x141414, outline=0xFFC94D, width=6)
+        d.line(path_points("M-10,-8 Q0,-17 10,-8", k), fill=col(0xFFC94D), width=int(6 * k), joint="curve")
+        line([(-66, -12), (-82, -19)], 0xFFC94D, 6)
+        line([(66, -12), (82, -19)], 0xFFC94D, 6)
+    elif kind in ("jacket", "hoodie"):
+        hood, body, dark = kind == "hoodie", 0xAEB8C8 if kind == "hoodie" else 0xFFB36B, 0x6F7A8C if kind == "hoodie" else 0xB5703A
+        if hood:
+            d.polygon(path_points("M-28,-48 Q-34,-82 0,-84 Q34,-82 28,-48 Z", k), fill=col(dark))
+        d.polygon(path_points(WEAR_BODY, k), fill=col(body))
+        if hood:
+            for sx in (-1, 1):
+                line([(sx * 8, -42), (sx * 10, -16)], WEAR_TXT, 3)
+                circle(sx * 10, -14, 3, WEAR_TXT)
+            rrect(-26, 18, 52, 26, 9, outline=dark, width=3)
+        else:
+            line([(0, -40), (0, 58)], dark, 3)
+            line([(-34, 24), (-16, 24)], dark, 3)
+            line([(16, 24), (34, 24)], dark, 3)
+            line([(-20, -52), (-8, -30)], dark, 3)
+            line([(20, -52), (8, -30)], dark, 3)
+    elif kind == "hat":
+        d.polygon(path_points("M-56,10 Q-58,-62 0,-64 Q58,-62 56,10 Z", k), fill=col(0xFF7B7B))
+        for dx in (-30, 0, 30):
+            line([(dx * 0.9, -52 + abs(dx) * 0.3), (dx * 1.15, 4)], 0xE25F5F, 3)
+        rrect(-62, 2, 124, 30, 12, fill=0xFFE4DF)
+        for i in range(11):
+            line([(-50 + i * 10, 9), (-50 + i * 10, 25)], 0xE8BDB6, 2.4)
+        circle(0, -70, 15, WEAR_TXT)
+    return img.resize((img.width // SS, img.height // SS), Image.LANCZOS)
 
 
 if __name__ == "__main__":

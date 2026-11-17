@@ -34,15 +34,17 @@
 #define HAS_RECORDER 0
 #endif
 
-// The Radio (radio.h): the round board's — in a firmware with it and in that board's page
-#if defined(HALO_ROUND) && (defined(__EMSCRIPTEN__) || (defined(FN_RADIO) && FN_RADIO))
+// The Radio (radio.h; a rectangle's screen — radio_rect.h): in a firmware with it and in the page
+#if defined(__EMSCRIPTEN__) || (defined(FN_RADIO) && FN_RADIO)
 #define HAS_RADIO 1
 #else
 #define HAS_RADIO 0
 #endif
 
-// The Video app (video.h): only a rectangular board has it — in a firmware with it and in that board's page
-#if !defined(HALO_ROUND) && (defined(__EMSCRIPTEN__) || (defined(FN_VIDEO) && FN_VIDEO))
+// The Video app (video.h): only the 7″ board has it (its JPEG decoder, its card slot) — in a firmware with it and in
+// that board's page. A small rectangle (HALO_COMPACT) is a rectangle too, but not that one; nor the 7″ board held tall
+// (HALO_P4_TALL: a video picture is the panel's way up)
+#if !defined(HALO_ROUND) && !defined(HALO_COMPACT) && !defined(HALO_P4_TALL) && (defined(__EMSCRIPTEN__) || (defined(FN_VIDEO) && FN_VIDEO))
 #define HAS_VIDEO 1
 #else
 #define HAS_VIDEO 0
@@ -524,8 +526,11 @@ static bool st_has(const FaceScreen &S, uint8_t kind) {
 
 // Before halo_begin: the saved brightness (the panel starts at it), the battery's history
 static void settings_load() {
-#if HAS_VIDEO && !defined(__EMSCRIPTEN__) && FN_WIFI
-  hf_tiles(2);  // (Wi-Fi, the card and the JPEG decoder leave the speaker's DMA buffers no room otherwise: measured, boards/p4lcd7/p4-video.md)
+#if (HAS_VIDEO || HAS_RADIO) && CONFIG_IDF_TARGET_ESP32P4 && !defined(__EMSCRIPTEN__) && FN_WIFI
+  void hf_tiles(int n);  // (the P4 port's, ports/p4_lcd7/halo_p4.h: only video_hw.h includes that, and a Radio without Video
+                         // did not build — 17 Nov 2026)
+  hf_tiles(2);  // (Wi-Fi, the card and the JPEG decoder leave the speaker's DMA buffers no room otherwise: measured, boards/p4lcd7/p4-video.md;
+                // the Radio's stream too: "i2s channel not enabled", 6 KB of internal memory left — 15 Nov 2026)
 #endif
 #if HAS_DISPLAY
   dp_prefs.begin("popkawatch", false);
@@ -652,9 +657,11 @@ static void settings_enter(const FaceScreen &S) {
 #endif
 #if HAS_RADIO
   if (st_has(S, FL_RADIO)) radio_enter();
+#ifdef HALO_ROUND  // (the round board's other Radio screens)
   if (st_has(S, FL_RBROWSE)) rb_enter();
   if (st_has(S, FL_RFOLDER)) rs_enter();
   if (st_has(S, FL_RVOLUME)) rv_enter();
+#endif
 #endif
 #if HAS_VIDEO
   if (st_has(S, FL_VIDEO)) video_enter();
@@ -672,9 +679,11 @@ static void settings_update(const FaceScreen &S, float dt) {
 #endif
 #if HAS_RADIO
   if (st_has(S, FL_RADIO)) radio_update(S, dt);
+#ifdef HALO_ROUND
   if (st_has(S, FL_RBROWSE)) rb_update_on(S, dt);
   if (st_has(S, FL_RFOLDER)) rs_update(dt);
   if (st_has(S, FL_RVOLUME)) rv_update(dt);
+#endif
 #endif
 #if HAS_VIDEO
   if (st_has(S, FL_VIDEO)) video_update(dt);
@@ -695,9 +704,11 @@ static void settings_layout(FaceRun &R, uint8_t kind, const HaloView &v) {
 #endif
 #if HAS_RADIO
   if (kind == FL_RADIO) radio_layout(v);
+#ifdef HALO_ROUND
   if (kind == FL_RBROWSE) rb_layout_on(v);
   if (kind == FL_RFOLDER) rs_layout_on(v);
   if (kind == FL_RVOLUME) rv_layout(v);
+#endif
 #endif
 #if HAS_VIDEO
   if (kind == FL_VIDEO) video_layout(v);
@@ -726,10 +737,12 @@ static void settings_draw(uint8_t kind) {
   if (kind == FL_RECORDER) recorder_draw();
 #endif
 #if HAS_RADIO
-  if (kind == FL_RADIO) radio_draw();  // (its parts draw themselves, the volume screen goes over them: face.h)
+  if (kind == FL_RADIO) radio_draw();  // (round: its parts draw themselves, the volume screen goes over them: face.h)
+#ifdef HALO_ROUND
   if (kind == FL_RBROWSE) rb_draw();
   if (kind == FL_RFOLDER) rs_draw();
   if (kind == FL_RVOLUME) vol_draw();
+#endif
 #endif
 #if HAS_VIDEO
   if (kind == FL_VIDEO) video_draw();

@@ -74,6 +74,15 @@ export const KINDS = {
   forecast: { group: 'widget', name: 'Forecast', sub: 'The next five hours along the edge', angle: 0, scale: 0.5, radius: 168, size: 15, weight: 700, width: 100, spacing: 0, color: '#FFF8EE', color2: '#5E5F64' },
   dateframe: { group: 'widget', name: 'Date frame', sub: 'The weekday and the date with lines round the clock', gap: 160, size: 15, weight: 650, width: 100, spacing: 4, color: '#9E9E9E', color2: '#3A3B40' },
   dotclock: { group: 'widget', name: 'Dot clock', sub: 'The time in dots, as a station\'s board', scale: 1, color: '#FFF8EE', color2: '#1E1F23', color3: '#FF8A80' },
+  // The weather widgets (wxwidgets.h; web/mockups/weather-widgets.html, the variants the user kept on 14 Nov 2026): the
+  // round board's; size2 — their small words; scale — the icons' or the picture's size
+  wxdigits: { group: 'widget', look: 'side', name: 'Weather digits', sub: 'The temperature huge, the sky moving inside its digits', size: 214, weight: 760, width: 100, spacing: -6, size2: 16, color: '#FFF8EE', color2: '#9E9E9E', lines: true },
+  wxcurve: { group: 'widget', look: 'band', name: 'Temperature curve', sub: 'The next 12 hours as a line colored by the degrees', scale: 0.48, size: 18, weight: 660, width: 100, spacing: 0, size2: 13, color: '#FFF8EE', color2: '#9E9E9E' },
+  wxbaro: { group: 'widget', look: 'side', name: 'Barometer', sub: 'An old barometer: the pressure now and in 3 hours', size: 13, weight: 620, width: 104, spacing: 0, size2: 19, color: '#FF8A80', color2: '#5E5F64', color3: '#C8A464' },
+  wxwear: { group: 'widget', look: 'side', name: 'What to wear', sub: 'A jacket, sunglasses, an umbrella or a warm hat — by the weather', scale: 1, size: 24, weight: 620, width: 104, spacing: 1, size2: 17, color: '#9E9E9E' },
+  wxbuddy: { group: 'widget', look: 'side', name: 'Weather buddy', sub: 'A little character dressed for the weather', scale: 1, size: 30, weight: 660, width: 100, spacing: 0, size2: 20, color: '#2D2F2F', color2: '#FFF8EE' },
+  wxpixel: { group: 'widget', look: 'whole', name: 'Pixel weather', sub: 'The sky as in an old game, cell by cell', scale: 1, size: 14, weight: 620, width: 104, spacing: 3, color: '#9E9E9E', color3: '#FFF8EE', clock: true },
+  wxweek: { group: 'widget', look: 'band', name: 'Week ahead', sub: 'The next five days: the sky, the low and the high', scale: 0.55, size: 16, weight: 660, width: 100, spacing: 0, size2: 14, color: '#FFF8EE', color2: '#9E9E9E', color3: '#FF8A80' },
   stfoot: { group: 'steps', name: 'Footer', sub: 'What is left to the goal, the days at the goal', size: 20, weight: 620, width: 104, spacing: 0, color: '#FF8A80', goal: 10000 },
   feels: { group: 'weather', name: 'Feels like', sub: 'What it feels like, under the hourly pill', size: 20, weight: 620, width: 104, spacing: 0, color: '#A2A2A2' },
   dots: { group: 'weather', name: 'Page dots', sub: 'A dot a city, the worm', color: '#FFFFFF', color2: '#FFFFFF' },
@@ -123,7 +132,30 @@ export const clockLook = (l) => CLOCK_LOOKS.find(([k]) => k === l.look) || CLOCK
 // What a live card or a device screen shows (device.h: DV_CPU …)
 export const DEVS = [['cpu', 'Processor'], ['mem', 'Memory'], ['bat', 'Battery'], ['temp', 'Temperature'], ['snd', 'Sound'], ['mot', 'Motion']];
 export const KIND_INDEX = { date: 0, clock: 1, weather: 2, arc: 3, city: 4, wxicon: 5, wxtemp: 6, wxhilo: 7, hourly: 8, dots: 9, title: 10, card: 11, edge: 12, scroll: 13, steps: 14, stars: 15, feels: 17, display: 18, battery: 19, stnum: 20, stcap: 21, stfoot: 22, stchart: 23, curve: 24, stepring: 25, weekarc: 26, infoline: 27, forecast: 28, dateframe: 29, dotclock: 30, music: 31, recorder: 32, snkdots: 33, snkspace: 34, snkiso: 35, batring: 36, parrot: 37, devcard: 38, device: 39, charge: 40, video: 41, shade: 42, sclock: 43, radio: 44,
-  rtime: 45, rname: 46, rsong: 47, rbtn: 48, rline: 49, rrays: 50, rplay: 51, rbrowse: 52, rfolder: 53, rvolume: 54 };
+  rtime: 45, rname: 46, rsong: 47, rbtn: 48, rline: 49, rrays: 50, rplay: 51, rbrowse: 52, rfolder: 53, rvolume: 54,
+  wxdigits: 55, wxcurve: 56, wxbaro: 57, wxwear: 58, wxbuddy: 59, wxpixel: 60, wxweek: 61 };
+export const WXW = ['wxdigits', 'wxcurve', 'wxbaro', 'wxwear', 'wxbuddy', 'wxpixel', 'wxweek'];  // the weather widgets
+// Their layouts on the 7-inch board (studio.py WXLOOKS — the same names, in the same order: wxwidgets.h p3;
+// web/mockups/weather-widgets-rect.html 1A; 2A, 2B; 3A, 3B; 4A, 4B; 5A, 5B; 6A, 6B; 7A, 7B). A third element true — a
+// board's own layout, offered only where its passport's "wxlooks" lists it (wxLooksOf): the digits under the clock — the
+// WT32-SC01 Plus held wide's 1B (web/mockups/wt32-widgets.html), not drawn on the 7-inch board
+export const WXLOOKS = {
+  wxdigits: [['side', 'Beside the clock'], ['band', 'Under the clock', true]],
+  wxcurve: [['band', 'Under the clock'], ['side', 'Beside the clock']],
+  wxbaro: [['side', 'Dial'], ['band', 'Ruler']],
+  wxwear: [['side', 'Beside the clock'], ['band', 'In a row']],
+  wxbuddy: [['side', 'Beside the clock'], ['peek', 'Peeking']],
+  wxpixel: [['whole', 'Whole screen'], ['band', 'Under the clock']],
+  wxweek: [['band', 'Seven days'], ['side', 'Five days']],
+};
+// The layouts this board offers a widget: its passport's "wxlooks" ({widget: {layout: {name — what it is called here,
+// the rest — its sizes over the looks}}}) — the ones it lists, by their names there (the 7-inch board held tall: under /
+// over, across / upright); a widget it doesn't list (or a board without the key) — all but the boards' own
+export const wxLooksOf = (type) => {
+  const by = BOARD.wxlooks?.[type];
+  return (WXLOOKS[type] || []).filter(([v, , own]) => (by ? v in by : !own)).map(([v, t]) => [v, by?.[v]?.name || t]);
+};
+const lookSizes = (type, look) => { const { name, ...sizes } = BOARD.wxlooks?.[type]?.[look] || {}; return sizes; };
 // The pixel art layers (pixelart.h): what is around the picture, its trail
 export const PIXEL_ART = ['parrot'];
 export const CURVES = [['weekday', 'Weekday'], ['shortdate', 'Day and date'], ['daymonth', 'Date'], ['weather', 'Weather'], ['steps', 'Steps'], ['datesteps', 'Date and steps'], ['battery', 'Battery']];
@@ -170,6 +202,10 @@ if (!ROUND) {
 }
 // A whole face from the mockups: "Four sides" — the clock in the middle, the weekday, the date, the weather and the
 // steps along the four sides (mockup 2)
+// (a rectangle's sizes: the 7-inch board's; a small one's (its passport's "compact") — by its own clock)
+// (the 7-inch board held tall: 1C of web/mockups/rect-tall.html — the clock 156 px in the very middle, the words as wide)
+const FS = BOARD.compact ? { clock: Math.round((BOARD.looks?.clock?.size || 100) * 0.9), text: 17, gap: 3 }
+  : BOARD.h > BOARD.w ? { clock: 156, text: 34, gap: 6, dy: 72 } : { clock: 205, text: 34, gap: 6 };
 export const FOUR_SIDES = ROUND ? [
   ['clock', { size: 116, weight: 560, width: 96, dy: 13 }],
   ['curve', { name: 'Curved weekday', what: 'weekday', radius: 200, size: 20, spacing: 4 }],
@@ -177,13 +213,13 @@ export const FOUR_SIDES = ROUND ? [
   ['curve', { name: 'Curved weather', what: 'weather', angle: -90, radius: 200, size: 20, color: BLUE }],
   ['curve', { name: 'Curved steps', what: 'steps', angle: 90, radius: 200, size: 20, color: CORAL }],
 ] : [  // (variant Q1: straight at the top and the bottom, turned along the sides; the city where the watch has the steps)
-  ['clock', { own: true, size: 205 }],
-  ['curve', { own: true, name: 'Weekday line', what: 'weekday', size: 34, spacing: 6, color: '#C9CACF' }],
-  ['curve', { own: true, name: 'Date line', what: 'daymonth', angle: 180, size: 34, spacing: 6, color: '#C9CACF' }],
-  ['curve', { own: true, name: 'Weather line', what: 'weather', angle: -100, size: 34, spacing: 6, color: BLUE }],
-  ['curve', { own: true, name: 'City line', what: 'city', angle: 100, size: 34, spacing: 6, color: CORAL }],
+  ['clock', { own: true, size: FS.clock, ...(FS.dy && { dy: FS.dy }) }],
+  ['curve', { own: true, name: 'Weekday line', what: 'weekday', size: FS.text, spacing: FS.gap, color: '#C9CACF' }],
+  ['curve', { own: true, name: 'Date line', what: 'daymonth', angle: 180, size: FS.text, spacing: FS.gap, color: '#C9CACF' }],
+  ['curve', { own: true, name: 'Weather line', what: 'weather', angle: -100, size: FS.text, spacing: FS.gap, color: BLUE }],
+  ['curve', { own: true, name: 'City line', what: 'city', angle: 100, size: FS.text, spacing: FS.gap, color: CORAL }],
 ];
-export const LOOK = ['size', 'weight', 'width', 'scale', 'spacing', 'radius', 'color', 'color2', 'color3', 'goal', 'count', 'twinkle', 'meteors', 'angle', 'sparkles', 'rainbow', 'pill', 'what', 'format', 'gap', 'look', 'span', 'span2', 'sides'];  // what a layer copies from its kind
+export const LOOK = ['size', 'weight', 'width', 'scale', 'spacing', 'radius', 'color', 'color2', 'color3', 'goal', 'count', 'twinkle', 'meteors', 'angle', 'sparkles', 'rainbow', 'pill', 'what', 'format', 'gap', 'look', 'span', 'span2', 'sides', 'size2', 'lines', 'clock'];  // what a layer copies from its kind
 export const TEXTS = ['text', 'subtitle', 'icon'];  // and its text (a new layer only: "HaloWatch look" keeps it)
 // The gallery: a screen with any of these is a list, in the order of its layers (gallery.h); a tap on these opens
 export const LISTED = new Set(['title', 'card', 'devcard']);
@@ -499,14 +535,40 @@ export function newLayer(type, at, screen = activeScreen()) {
   }
   if (at) Object.assign(layer, at);
   Object.assign(layer, BOARD.looks?.[type]);  // (this screen's sizes win over a piece's watch-sized ones)
+  Object.assign(layer, lookSizes(type, layer.look));  // (a weather widget's own sizes in its layout: wxlooks)
   if (!at || !('dx' in at)) Object.assign(layer, BOARD.places?.[type]);  // (where it stands when not dropped somewhere)
   return layer;
 }
 // Some widgets take room the big clock has (a rectangle: its passport's `moves`, as on the mockups): adding one moves the
 // clock of that screen — if it is still where it stands by default. Returns what to do inside the change, one undo step
-export function roomFor(type, s) {
-  const m = BOARD.moves?.[type], c = m && s.layers.find((l) => l.type === 'clock');
-  return c && !c.dx && !c.dy && !c.hidden && c.size === BOARD.looks?.clock?.size ? () => Object.assign(c, m) : () => {};
+// (a passport's move may be by the widget's layout: {"side": {…}, "band": {…}} — the weather widgets on the 7-inch board)
+const moveOf = (type, look) => {
+  const m = BOARD.moves?.[type];
+  return m && Object.values(m).some((v) => v && typeof v === 'object') ? m[look] : m;
+};
+export function roomFor(type, s, look = KINDS[type]?.look) {
+  const m = moveOf(type, look), c = m && s.layers.find((l) => l.type === 'clock');
+  return c && !c.dx && !c.dy && !c.hidden && c.size === (BOARD.looks?.clock?.size ?? KINDS.clock.size) ? () => Object.assign(c, m) : () => {};
+}
+// A widget's layout changed (l.look already the new one): the clock goes where the new layout has it — if it stands
+// where the old one put it (or where it stands by default). Returns what to do inside the change
+export function relayClock(l, s, from) {
+  const c = s.layers.find((q) => q.type === 'clock');
+  if (!c || !BOARD.moves?.[l.type]) return () => {};
+  const base = { dx: 0, dy: 0, size: BOARD.looks?.clock?.size ?? KINDS.clock.size, hidden: false };
+  const was = { ...base, ...(moveOf(l.type, from) || {}) }, now = { ...base, ...(moveOf(l.type, l.look) || {}) };
+  const at = (m) => ['dx', 'dy', 'size', 'hidden'].every((k) => (c[k] ?? base[k]) === m[k]);
+  return at(was) || at(base) ? () => Object.assign(c, now) : () => {};
+}
+// … and the widget's own sizes (the passport's "wxlooks": a layout's over its looks — the WT32 wide's digits are smaller
+// under the clock than beside it): each still as the old layout had it takes the new layout's
+export function relaySizes(l, from) {
+  const by = BOARD.wxlooks?.[l.type];
+  if (!by) return () => {};
+  const old = lookSizes(l.type, from), neu = lookSizes(l.type, l.look);
+  const was = { ...BOARD.looks?.[l.type], ...old }, now = { ...BOARD.looks?.[l.type], ...neu };
+  const keys = [...new Set([...Object.keys(old), ...Object.keys(neu)])].filter((k) => k in now);
+  return () => { for (const k of keys) if (l[k] === was[k]) l[k] = now[k]; };
 }
 
 // A new screen to the right of the others on the map: empty, HaloWatch's watch face or Weather screen (all their
@@ -661,7 +723,7 @@ export function radioTarget(s, what) {
 }
 // What a section's screen is made of: the Steps and Weather screens — their parts; the others — the one layer
 // (a part may be [type, look]); About's — the look of its gallery, for its tile
-const RECT_PARTS = { display: ['display', 'arc'], music: ['music', 'arc'], recorder: ['recorder', 'arc'],
+const RECT_PARTS = { display: ['display', 'arc'], music: ['music', 'arc'], recorder: ['recorder', 'arc'], radio: ['radio'],
   about: [['device', { what: 'cpu', color: '#8AD6F0' }], 'arc'] };
 export const sectionParts = (kind) => (!ROUND && RECT_PARTS[kind]) || ({ stepscreen: STEPS_SCREEN, wxscreen: WEATHER_SCREEN, charge: POWER_SCREEN, radio: RADIO_SCREEN,
   about: [['title', { text: 'About' }], ...ABOUT_CARDS.slice(0, 3).map((c) => ['devcard', { ...c }]), 'arc'] }[kind] || [kind]);
@@ -727,7 +789,7 @@ export function addSection(g, kind, key = null) {
   const d = SECTIONS[kind], live = !ROUND && kind === 'wxscreen';
   // (Power made by About already: the new card opens that one)
   const own = kind === 'charge' && screens().find((s) => s.layers.some((l) => l.type === 'charge'));
-  if (!own && screens().length + (kind === 'radio' ? RADIO_SCREENS.length : 0) >= MAX_SCREENS) return null;  // (the Radio: 4 screens)
+  if (!own && screens().length + (kind === 'radio' && ROUND ? RADIO_SCREENS.length : 0) >= MAX_SCREENS) return null;  // (the round Radio: 4 screens)
   const card = newLayer('card', null, g);
   Object.assign(card, { name: d.text, text: d.text, subtitle: d.subtitle, icon: d.icon, color: d.color });
   if (own) {
@@ -742,7 +804,7 @@ export function addSection(g, kind, key = null) {
     const scr = { id: nextId('screen'), name, x, y, layers: [] };
     for (const [type, look] of sectionParts(kind).map(partOf)) scr.layers.push(newLayer(type, look, scr));
     p.screens.push(scr);
-    if (kind === 'radio') {  // (its other screens to the right of it on the map, linked: STATIONS, a folder, VOLUME)
+    if (kind === 'radio' && ROUND) {  // (its other screens to the right of it on the map, linked: STATIONS, a folder, VOLUME; a rectangle's — one screen)
       const made = {};
       let from = scr;
       for (const [type, nm] of RADIO_SCREENS) {
@@ -998,6 +1060,7 @@ async function poll() {
 // how many screens got them
 function radioParts(p) {
   let n = 0;
+  if (!ROUND) return n;  // (a rectangle's Radio is one layer: radio_rect.h)
   for (const s of p.screens) {
     const at = s.layers.findIndex((l) => l.type === 'radio');
     if (at < 0 || s.layers.some((l) => RADIO_PARTS.has(l.type))) continue;
@@ -1060,7 +1123,7 @@ export async function saveAndRemember(pid) {
 export const projectName = () => state.project.name || state.pid.replace(/-/g, ' ').replace(/^./, (c) => c.toUpperCase());
 
 export async function resetToDefault() {
-  const r = await fetch(`/api/default?board=${BOARD.id}`, { cache: 'no-store' });
+  const r = await fetch(`/api/default?board=${BOARD.id}${BOARD.way ? `&orientation=${BOARD.way}` : ''}`, { cache: 'no-store' });
   const fresh = await r.json();
   change((p) => { p.screens = fresh.screens; }, { structure: true });
   state.screen = home().id;

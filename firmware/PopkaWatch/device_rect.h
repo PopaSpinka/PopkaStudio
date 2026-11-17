@@ -5,6 +5,54 @@
 
 extern const HaloFont gl_r_n110, gl_r_n36, gl_r_t32, gl_r_ic36, gl_r_title;
 
+#ifdef HALO_COMPACT  // a small rectangle: wide — the list at the right; tall — the list under the card. No microphones
+                     // here: three rows
+#define DA_WIDE (HALO_W > HALO_H)
+#define DA_CARD_X 12.0f
+#define DA_CARD_Y 58.0f
+#define DA_CARD_W (DA_WIDE ? 298.0f : HALO_W - 24.0f)
+#define DA_CARD_H (DA_WIDE ? 250.0f : 200.0f)
+#define DA_ROW_X (DA_WIDE ? 320.0f : 12.0f)
+#define DA_ROW_Y0 (DA_WIDE ? DA_CARD_Y : DA_CARD_Y + DA_CARD_H + 10)
+#define DA_ROW_W (DA_WIDE ? 148.0f : HALO_W - 24.0f)
+#define DA_ROW_H (DA_WIDE ? 76.0f : 64.0f)
+#define DA_ROW_STEP (DA_WIDE ? 84.0f : 70.0f)
+#define DA_CH_W (DA_WIDE ? 256 : 254)
+#define DA_CH_H (DA_WIDE ? 108 : 70)
+#define DA_CH_Y (DA_WIDE ? 128.0f : 120.0f)   // the chart's top from the card's
+#define DA_LAB_X 150.0f                       // the two lines beside the number: not nearer than this
+#define DA_ROW_NAME_Y (DA_WIDE ? 26.0f : 21.0f)  // a row: its name and its value from its top
+#define DA_ROW_VAL_Y (DA_WIDE ? 52.0f : 43.0f)
+#define DA_ROW_IN 46.0f                       // and from its left edge
+#define DA_FONT_LAB gl_c_t14
+#define DA_CHIP "ESP32-S3 chip"
+#define DA_CARD 0x2D3236
+#define DA_ROWS 3
+extern const HaloFont gl_c_t14;
+#elif defined(HALO_P4_TALL)  // the 7″ board held tall (rect-tall.html 6A): the big card across the top, the four rows the
+                             // whole width under it — a row's name at the left, its value at the right
+#define DA_CARD_X 32.0f
+#define DA_CARD_Y 96.0f
+#define DA_CARD_W 536.0f
+#define DA_CARD_H 430.0f
+#define DA_ROW_X 32.0f
+#define DA_ROW_W 536.0f
+#define DA_ROW_H 96.0f
+#define DA_ROW_STEP 108.0f
+#define DA_CH_W 476
+#define DA_CH_H 170
+#define DA_CARD 0x2D3236
+#define DA_ROWS 4
+#define DA_ROW_Y0 544.0f
+#define DA_CH_Y 230.0f
+#define DA_LAB_X 300.0f
+#define DA_ROW_NAME_Y 48.0f     // (the name and the value on one line, in the row's middle)
+#define DA_ROW_VAL_Y 48.0f
+#define DA_ROW_IN 80.0f
+#define DA_ROW_VAL_R 30.0f      // the value: its right end this far from the row's
+#define DA_FONT_LAB gl_t24
+#define DA_CHIP "ESP32-P4 chip"
+#else
 #define DA_CARD_X 32.0f
 #define DA_CARD_Y 96.0f
 #define DA_CARD_W 620.0f
@@ -17,11 +65,20 @@ extern const HaloFont gl_r_n110, gl_r_n36, gl_r_t32, gl_r_ic36, gl_r_title;
 #define DA_CH_H 220
 #define DA_CARD 0x2D3236
 #define DA_ROWS 4
+#define DA_ROW_Y0 DA_CARD_Y     // the list: from the card's top
+#define DA_CH_Y 220.0f          // the chart's top from the card's
+#define DA_LAB_X 300.0f         // the two lines beside the number: not nearer than this
+#define DA_ROW_NAME_Y 34.0f     // a row: its name and its value from its top
+#define DA_ROW_VAL_Y 74.0f
+#define DA_ROW_IN 76.0f         // and from its left edge
+#define DA_FONT_LAB gl_t24      // the two lines, the rows' names
+#define DA_CHIP "ESP32-P4 chip"
+#endif
 
-static const uint8_t DA_WHAT[DA_ROWS] = {DV_CPU, DV_MEM, DV_TEMP, DV_SND};
-static const uint32_t DA_COL[DA_ROWS] = {0x8AD6F0, 0xC9A7E8, 0xFFAB91, 0x8FDCAE};
-static const char *const DA_NAME[DA_ROWS] = {"Processor", "Memory", "Temperature", "Sound"};
-static const char *const DA_ICON[DA_ROWS] = {"\xEF\x8B\x9B", "\xEF\x94\xB8", "\xEF\x8B\x89", "\xEF\x84\xB0"};
+static const uint8_t DA_WHAT[4] = {DV_CPU, DV_MEM, DV_TEMP, DV_SND};
+static const uint32_t DA_COL[4] = {0x8AD6F0, 0xC9A7E8, 0xFFAB91, 0x8FDCAE};
+static const char *const DA_NAME[4] = {"Processor", "Memory", "Temperature", "Sound"};
+static const char *const DA_ICON[4] = {"\xEF\x8B\x9B", "\xEF\x94\xB8", "\xEF\x8B\x89", "\xEF\x84\xB0"};
 static int da_sel = -1;      // the row shown large (-1 — the layer's own, from the editor)
 static int da_armed = -1;
 static HaloSpring da_m[DA_ROWS];
@@ -42,7 +99,7 @@ static void da_build() {
   da_ready = true;
   K_DA = halo_spring(HALO_M3X_FAST);
   da_mid_title = halo_text_mid(gl_r_title, "About"), da_mid_big = halo_text_mid(gl_r_n110, "0123456789");
-  da_mid_t32 = halo_text_mid(gl_r_t32, "Processor"), da_mid_t24 = halo_text_mid(gl_t24, "Core 0");
+  da_mid_t32 = halo_text_mid(gl_r_t32, "Processor"), da_mid_t24 = halo_text_mid(DA_FONT_LAB, "Core 0");
   da_mid_val = halo_text_mid(gl_r_n36, "0123456789"), da_mid_ic = halo_text_mid(gl_r_ic36, DA_ICON[0]);
 }
 
@@ -55,7 +112,7 @@ static void dv_rect_update(const FaceScreen &S, float dt) {
   if (f.pressed) {
     da_armed = -1;
     for (int i = 0; i < DA_ROWS; i++)
-      if (!f.owner && f.x0 >= DA_ROW_X && f.x0 <= DA_ROW_X + DA_ROW_W && f.y0 >= DA_CARD_Y + i * DA_ROW_STEP && f.y0 <= DA_CARD_Y + i * DA_ROW_STEP + DA_ROW_H) da_armed = i;
+      if (!f.owner && f.x0 >= DA_ROW_X && f.x0 <= DA_ROW_X + DA_ROW_W && f.y0 >= DA_ROW_Y0 + i * DA_ROW_STEP && f.y0 <= DA_ROW_Y0 + i * DA_ROW_STEP + DA_ROW_H) da_armed = i;
   }
   if (f.dragging) da_armed = -1;
   if (f.tap && da_armed >= 0) da_sel = da_armed;
@@ -78,7 +135,7 @@ static void da_big(DvRun &d, int what, char *l0, char *l1) {  // the number and 
       break;
     case DV_TEMP:
       snprintf(d.big, sizeof d.big, "%.1f\xC2\xB0", t);
-      snprintf(l0, 32, "ESP32-P4 chip"), snprintf(l1, 32, "%d MHz", dv_mhz);
+      snprintf(l0, 32, DA_CHIP), snprintf(l1, 32, "%d MHz", dv_mhz);
       break;
     default:
       snprintf(d.big, sizeof d.big, "\xE2\x88\x92%d", (int)lroundf(fminf(90, -dv_db)));
@@ -95,7 +152,9 @@ static void dv_detail_layout(const FaceLayer &L, DvRun &d, const HaloView &v) {
   const uint32_t acc = DA_COL[da_sel];
   const float dt = 1 / 60.0f;
   for (int i = 0; i < DA_ROWS; i++) da_m[i].target = i == da_sel, halo_spring_run(da_m[i], K_DA, dt);
+#ifndef HALO_COMPACT
   if (v.a > 0.01f) dv_seen(DV_SND);  // (the list shows the sound's level too: the microphones are on while this is open)
+#endif
   if (!d.text_at || (!fc_calm && halo_ms() - d.text_at >= 500)) {
     d.text_at = halo_ms() | 1;
     da_big(d, what, d.lab_s[0], d.lab_s[1]);
@@ -112,15 +171,15 @@ static void dv_detail_layout(const FaceLayer &L, DvRun &d, const HaloView &v) {
     q.kind = HI_RRECT, q.x = cx, q.y = cy, q.w = w, q.h = h, q.r = r, q.scale = 1, q.color = c, q.alpha = a, q.on_black = black, q.on = nullptr;
     return q;
   };
-  text(gl_r_title, "About", da_mid_title, 0, 32, 45, DV_TEXT, &halo_black);
+  text(gl_r_title, "About", da_mid_title, 0, RG_PAD, RG_TITLE_Y, DV_TEXT, &halo_black);
   // The big card
-  HaloItem &card = bar(DA_CARD_X + DA_CARD_W / 2, DA_CARD_Y + DA_CARD_H / 2, DA_CARD_W, DA_CARD_H, 26, DA_CARD, true);
-  text(gl_r_t32, DA_NAME[da_sel], da_mid_t32, 0, DA_CARD_X + 30, DA_CARD_Y + 44, DV_TEXT, &card);
-  text(gl_r_n110, d.big, da_mid_big, 0, DA_CARD_X + 30, DA_CARD_Y + 130, DV_TEXT, &card);
-  const float bw = halo_text_width(gl_r_n110, d.big), lx = DA_CARD_X + fmaxf(300, 30 + bw + 36);
-  text(gl_t24, d.lab_s[0], da_mid_t24, 0, lx, DA_CARD_Y + 108, DV_DIM, &card);
-  text(gl_t24, d.lab_s[1], da_mid_t24, 0, lx, DA_CARD_Y + 148, DV_DIM, &card);
-  const float cx0 = DA_CARD_X + 30, cy0 = DA_CARD_Y + 220, cw = DA_CH_W, ch = DA_CH_H;
+  HaloItem &card = bar(DA_CARD_X + DA_CARD_W / 2, DA_CARD_Y + DA_CARD_H / 2, DA_CARD_W, DA_CARD_H, RG_RADIUS, DA_CARD, true);
+  text(gl_r_t32, DA_NAME[da_sel], da_mid_t32, 0, DA_CARD_X + RK(30), DA_CARD_Y + RK(44), DV_TEXT, &card);
+  text(gl_r_n110, d.big, da_mid_big, 0, DA_CARD_X + RK(30), DA_CARD_Y + RK(130), DV_TEXT, &card);
+  const float bw = halo_text_width(gl_r_n110, d.big), lx = DA_CARD_X + fmaxf(DA_LAB_X, RK(30) + bw + RK(36));
+  text(DA_FONT_LAB, d.lab_s[0], da_mid_t24, 0, lx, DA_CARD_Y + RK(108), DV_DIM, &card);
+  text(DA_FONT_LAB, d.lab_s[1], da_mid_t24, 0, lx, DA_CARD_Y + RK(148), DV_DIM, &card);
+  const float cx0 = DA_CARD_X + RK(30), cy0 = DA_CARD_Y + DA_CH_Y, cw = DA_CH_W, ch = DA_CH_H;
   if (what == DV_SND) {  // the spectrum: a bar a band, its peak a dot above
     const float pitch = cw / DV_NB;
     for (int j = 0; j < DV_NB; j++) {
@@ -143,11 +202,15 @@ static void dv_detail_layout(const FaceLayer &L, DvRun &d, const HaloView &v) {
   }
   // The list
   for (int i = 0; i < DA_ROWS; i++) {
-    const float y = DA_CARD_Y + i * DA_ROW_STEP, cy = y + DA_ROW_H / 2, p = halo_clamp01(da_press[i].s.x), m = halo_clamp01(da_m[i].x);
-    HaloItem &b = bar(DA_ROW_X + DA_ROW_W / 2, cy, DA_ROW_W, DA_ROW_H, 26 + (18 - 26) * p, dv_mix(DA_CARD, DA_COL[i], 0.22f * m), true);
-    text(gl_r_ic36, DA_ICON[i], da_mid_ic, 1, DA_ROW_X + 42, cy, DA_COL[i], &b);
-    text(gl_t24, DA_NAME[i], da_mid_t24, 0, DA_ROW_X + 76, y + 34, DV_DIM, &b);
-    text(gl_r_n36, d.row[i], da_mid_val, 0, DA_ROW_X + 76, y + 74, DV_TEXT, &b);
+    const float y = DA_ROW_Y0 + i * DA_ROW_STEP, cy = y + DA_ROW_H / 2, p = halo_clamp01(da_press[i].s.x), m = halo_clamp01(da_m[i].x);
+    HaloItem &b = bar(DA_ROW_X + DA_ROW_W / 2, cy, DA_ROW_W, DA_ROW_H, RG_RADIUS + (RG_RADIUS_DOWN - RG_RADIUS) * p, dv_mix(DA_CARD, DA_COL[i], 0.22f * m), true);
+    text(gl_r_ic36, DA_ICON[i], da_mid_ic, 1, DA_ROW_X + RK(42) - (DA_ROW_IN < 76 ? 6 : 0), cy, DA_COL[i], &b);
+    text(DA_FONT_LAB, DA_NAME[i], da_mid_t24, 0, DA_ROW_X + DA_ROW_IN, y + DA_ROW_NAME_Y, DV_DIM, &b);
+#ifdef DA_ROW_VAL_R
+    text(gl_r_n36, d.row[i], da_mid_val, 2, DA_ROW_X + DA_ROW_W - DA_ROW_VAL_R, y + DA_ROW_VAL_Y, DV_TEXT, &b);
+#else
+    text(gl_r_n36, d.row[i], da_mid_val, 0, DA_ROW_X + DA_ROW_IN, y + DA_ROW_VAL_Y, DV_TEXT, &b);
+#endif
   }
   dv_commit(d, n, v, nullptr);
 }

@@ -31,8 +31,17 @@ static void dot_make(DotGame &g, int cols, int rows, float pitch, float w, float
 }
 
 static void dots_build() {
+#ifdef HALO_COMPACT  // a small rectangle: dots 24 px apart over the whole screen; in a card — 10 px
+  dot_make(dt_full, HALO_W / 24, HALO_H / 24, 24, HALO_W, HALO_H, 0.12f, 40, 11, 18, 21);
+  dot_make(dt_mini, (int)(RG_GAME_W / 10), (int)(RG_SCENE_H / 10), 10, RG_GAME_W, RG_SCENE_H, 0.1f, 24, 7, 8, 10);
+#elif defined(HALO_P4_TALL)  // the 7″ board held tall: the same 36-px dots, the board turned — 16 across, 28 down; in the
+                             // card's wide band (536 × 176) — 14 px apart (rect-tall.html 13A, 3A)
+  dot_make(dt_full, 16, 28, 36, HALO_W, HALO_H, 0.11f, 48, 11, 26, 30);
+  dot_make(dt_mini, (int)(RG_GAME_W / 14), (int)(RG_SCENE_H / 14), 14, RG_GAME_W, RG_SCENE_H, 0.1f, 30, 7, 12, 14);
+#else
   dot_make(dt_full, 28, 16, 36, HALO_W, HALO_H, 0.11f, 48, 11, 26, 30);
   dot_make(dt_mini, 22, 25, 14, 309, 350, 0.1f, 30, 7, 12, 14);
+#endif
 }
 
 static void dot_tick(DotGame &g, float dt) {

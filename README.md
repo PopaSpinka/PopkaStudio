@@ -6,8 +6,8 @@
 
 ![PopkaStudio](docs/screenshots/editor.png)
 
-PopkaStudio is a visual editor for screen interfaces on ESP32 boards — a round 1.75″ watch and, new in 2.0, a 7″
-ESP32-P4 display. You put together a watch face, apps and screens from ready parts, link them like frames in Figma, and
+PopkaStudio is a visual editor for screen interfaces on ESP32 boards — a round 1.75″ watch, a 7″ ESP32-P4 display
+and, from the community, the 3.5″ WT32-SC01 Plus. You put together a watch face, apps and screens from ready parts, link them like frames in Figma, and
 press **Load** — the board gets firmware built from exactly what you made, running smoothly at 60 frames per second.
 
 The preview is not a mock-up: it is **the board's own code**, compiled to WebAssembly. What you see in the editor is
@@ -22,10 +22,14 @@ what the watch shows, pixel for pixel — the same fonts, the same animations, t
   motion chip's own pedometer), Display brightness, Battery, a Music player, a voice Recorder, three self-playing
   snake games, and About and Power — live cards about the board itself (processor, memory, battery, temperature,
   sound, motion; voltages).
-- **Radio** (round watch, new in 2.1) — internet radio over Wi-Fi: tens of thousands of free stations from the
-  [Radio Browser](https://www.radio-browser.info) catalog in folders (Top, genres, countries), favorites with a heart,
-  the song that's playing, and an equalizer of rays along the edge that dances to the real sound. In the editor its
-  screen is made of layers — move, recolor, resize or hide every part.
+- **Weather widgets** (new in 2.2) — the temperature huge with the sky moving inside its digits, the next 12 hours
+  as a curve, an old barometer, what to wear, a little weather buddy, pixel weather, the week ahead. The big clock
+  makes room for them by itself; on the rectangular boards each has two layouts.
+- **Radio** (round watch; 7″ board new in 2.2) — internet radio over Wi-Fi: tens of thousands of free stations from
+  the [Radio Browser](https://www.radio-browser.info) catalog in folders (Top, genres, countries), favorites with a
+  heart, the song that's playing. On the round watch — an equalizer of rays along the edge that dances to the real
+  sound, and a screen made of layers you can move, recolor, resize or hide; on the 7″ board — one screen with two
+  knobs like a real receiver, volume and tuning.
 - **Quick settings** — swipe down on the home screen: brightness, volume, Wi-Fi, Always On, lock, screen off — all
   real. One look on the round watch, four on the 7″ board, with app shortcuts and the player.
 - **Video** (7″ board) — clips from a microSD card, decoded in hardware, or straight from your computer over Wi-Fi with
@@ -53,9 +57,18 @@ what the watch shows, pixel for pixel — the same fonts, the same animations, t
   screen, 1024 × 600, touch, Wi-Fi 6 through its ESP32-C6, a speaker, microphones and a microSD card slot. Its
   screens are laid out for a wide display — a grid gallery, weather with a chart, a home screen with the date and the
   weather along the top — and its transitions are short and calm. Both chip revisions (v1.x and v3) are recognized by
-  themselves.
+  themselves. New in 2.2: hold it **tall** too (600 × 1024, USB at the bottom) — every screen has its own tall layout;
+  wide or tall is picked when you create a project (Video is wide only for now).
+- [Wireless-Tag WT32-SC01 Plus](https://www.seeedstudio.com/ESP32-Development-board-WT32-SC01-p-4735.html) (new in 2.2,
+  **community board** by [dimonmontana](https://github.com/dimonmontana)): a 3.5″ screen, 320 × 480, touch, ESP32-S3.
+  Tall or wide — picked when you create a project. Faces, Weather, the gallery, Settings, About, quick settings and the
+  games, and the weather widgets when it's wide; no sound, radio or video yet. Under **More boards** when you choose a
+  board.
 
 Choose the board when you create a project; each project is for one board.
+
+Boards that other people add are listed here as **community boards**: their authors tested them, I haven't — often I
+don't have that board ([CONTRIBUTING.md](CONTRIBUTING.md)).
 
 ![The board](studio/web/img/board-amoled175.webp)
 
@@ -164,11 +177,23 @@ free and helps a lot — there's a button for it in the heart's window too.
 **Board makers:** want your board in PopkaStudio and the Halo library, tuned for smooth 60+ fps? Write to
 **lastmail.sk@gmail.com**.
 
+**Want to help?** Pull requests are welcome, a new board too — see [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## License
 
-[PolyForm Noncommercial 1.0.0](LICENSE): **free for personal, hobby, educational and other noncommercial use.**
-Selling devices, firmware, faces or services made with PopkaStudio or Halo needs a commercial license — see
-[COMMERCIAL.md](COMMERCIAL.md). The watches you design are yours.
+[MIT](LICENSE): **free for everyone and for anything** — for yourself, for learning, for work, for selling devices
+with firmware made in PopkaStudio. Keep the copyright notice and the license text with the code. It comes as is,
+with no warranty. The watches you design are yours. Earlier versions (up to 2.1) were published under PolyForm
+Noncommercial 1.0.0; they are under MIT now too.
+
+Third-party parts keep their own licenses (see Credits). Two things the code's license doesn't cover:
+
+- **Weather.** [Open-Meteo](https://open-meteo.com)'s free API is for noncommercial use only. A product you sell needs
+  its own Open-Meteo plan, or another weather source.
+- **Radio.** No rights to the stations' streams, names or logos, or to the [Radio Browser](https://www.radio-browser.info)
+  directory's data, and no promise that any station may be played on a product you sell. A company that ships the
+  radio chooses its own default stations, gets whatever permissions the broadcasters and the collecting societies of
+  its markets require, and names its own product in the radio's User-Agent (`firmware/PopkaWatch/radio_net.h`).
 
 ## Credits
 
@@ -176,6 +201,9 @@ Selling devices, firmware, faces or services made with PopkaStudio or Halo needs
 
 Made by **[PopaSpinka](https://github.com/PopaSpinka)** together with **Claude Opus 5.5** (Anthropic) — every screen,
 every spring, every pixel. Thank you, Claude.
+
+The WT32-SC01 Plus board — its Halo port, its passport and the screens laid out for its small display — is by
+**[dimonmontana](https://github.com/dimonmontana)**, the first community board. Thank you!
 
 The code is written from scratch. The motion follows published open-source numbers, no firmware or app was
 decompiled, and no code was taken from GPL projects:
@@ -208,6 +236,6 @@ Third-party parts:
 | Music — 20-second excerpts of [Musopen](https://musopen.org) recordings | see [firmware/music](firmware/music/README.md) | public domain, CC0 |
 | The board photo | PopaSpinka | part of this repository |
 
-PopkaStudio is an independent project, not affiliated with or endorsed by Google, Espressif or Waveshare. Wear OS and
-Android are trademarks of Google LLC; ESP32 is a trademark of Espressif Systems; Waveshare is a trademark of Waveshare
-Electronics.
+PopkaStudio is an independent project, not affiliated with or endorsed by Google, Espressif, Waveshare or Wireless-Tag.
+Wear OS and Android are trademarks of Google LLC; ESP32 is a trademark of Espressif Systems; Waveshare is a trademark of
+Waveshare Electronics; Wireless-Tag is a trademark of its owner.

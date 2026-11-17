@@ -22,17 +22,28 @@ static void wx_fetch() {
   for (int i = 0; i < n; i++) k += snprintf(path + k, sizeof(path) - k, "%s%.4f", i ? "," : "", wx_city[i].lat);
   k += snprintf(path + k, sizeof(path) - k, "&longitude=");
   for (int i = 0; i < n; i++) k += snprintf(path + k, sizeof(path) - k, "%s%.4f", i ? "," : "", wx_city[i].lon);
+#if WX_MORE  // (the weather widgets': the pressure, the next days)
+  snprintf(path + k, sizeof(path) - k,
+           "&current=temperature_2m,apparent_temperature,weather_code,pressure_msl"
+           "&hourly=weather_code,temperature_2m,pressure_msl&daily=weather_code,temperature_2m_max,temperature_2m_min"
+           "&timezone=auto&forecast_days=%d&forecast_hours=%d&timeformat=unixtime%s",
+           WX_DAYS, WX_AHEAD, WXD_F ? "&temperature_unit=fahrenheit" : "");
+#else
   snprintf(path + k, sizeof(path) - k,
            "&current=temperature_2m,apparent_temperature,weather_code&hourly=weather_code,temperature_2m"
            "&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=2&forecast_hours=%d"
            "&timeformat=unixtime%s",
            WX_AHEAD, WXD_F ? "&temperature_unit=fahrenheit" : "");
+#endif
   // Only what the screens use (one city — an object, several — an array of them)
   JsonDocument filter, doc(HaloPsram::instance());
   JsonObject f = n > 1 ? filter.add<JsonObject>() : filter.to<JsonObject>();
   f["current"]["temperature_2m"] = f["current"]["apparent_temperature"] = f["current"]["weather_code"] = true;
   f["hourly"]["time"] = f["hourly"]["weather_code"] = f["hourly"]["temperature_2m"] = true;
   f["daily"]["temperature_2m_max"] = f["daily"]["temperature_2m_min"] = true;
+#if WX_MORE
+  f["current"]["pressure_msl"] = f["hourly"]["pressure_msl"] = f["daily"]["weather_code"] = true;
+#endif
   if (!halo_http_get_json("api.open-meteo.com", path, doc, &filter)) return;
   for (int i = 0; i < n; i++) {
     const JsonVariantConst e = n > 1 ? doc[i].as<JsonVariantConst>() : doc.as<JsonVariantConst>();
@@ -47,6 +58,23 @@ static void wx_fetch() {
       const JsonVariantConst ht = e["hourly"]["temperature_2m"][j];
       w.ht[j] = ht.isNull() ? WX_NONE : wx_round(ht);
     }
+#if WX_MORE  // (the weather widgets': the pressure now and by the hour, snow, the next days)
+    w.snow = wx_snow_of(e["current"]["weather_code"] | 3);
+    w.pres = wx_round(e["current"]["pressure_msl"]);
+    w.hsnow = 0;
+    for (int j = 0; j < WX_AHEAD; j++) {
+      if (wx_snow_of(e["hourly"]["weather_code"][j] | 3)) w.hsnow |= 1u << j;
+      const JsonVariantConst hp = e["hourly"]["pressure_msl"][j];
+      w.hp[j] = hp.isNull() ? 0 : (uint8_t)constrain(wx_round(hp) - 900, 1, 255);
+    }
+    w.dsnow = 0;
+    for (int j = 0; j < WX_DAYS; j++) {
+      const int dw = e["daily"]["weather_code"][j] | 3;
+      w.dk[j] = wx_kind_of(dw);
+      if (wx_snow_of(dw)) w.dsnow |= 1 << j;
+      w.dhi[j] = wx_round(e["daily"]["temperature_2m_max"][j]), w.dlo[j] = wx_round(e["daily"]["temperature_2m_min"][j]);
+    }
+#endif
   }
   portENTER_CRITICAL(&wx_mux);
   wx_fresh = true;

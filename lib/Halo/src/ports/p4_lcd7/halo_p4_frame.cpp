@@ -86,7 +86,11 @@ static volatile HaloUnder m_under;
 static bool job_under;  // this frame: the back buffer holds a whole new picture, the interface goes over it
 
 void halo_under(HaloUnder fn) {
+#ifdef HALO_P4_TALL
+  (void)fn;  // (a video picture is the panel's way up: not under a tall interface — Video is wide only)
+#else
   m_under = fn;
+#endif
 }
 static SemaphoreHandle_t help_go, help_done;
 
@@ -105,6 +109,24 @@ struct Send {
   int16_t y, rows, x0, w;
 };
 static QueueHandle_t free_tiles, to_send;
+#ifdef HALO_P4_TALL
+// Tall: a band (rows × w, the interface's way up) is a strip of the panel's frame w tall and rows wide. Drawn in a tile as
+// always, then turned a quarter into a buffer of its own while still in internal memory (the processor reads 16 rows and
+// writes one line of the strip at a time), and the tile is free again at once: the copy waits on the turned one.
+// Two tiles (one a core) and tiles_n turned buffers — the same internal memory as three wide tiles
+static QueueHandle_t free_turned;
+static void rotate_band(const uint16_t *t, uint16_t *r, int w, int rows) {
+  for (int x = 0; x < w; x++) {
+#ifdef HALO_P4_TALL_CCW
+    uint16_t *d = r + x * rows + rows - 1;  // (the panel's x = 1023 - y: the band's last row first)
+    for (int y = 0; y < rows; y++) d[-y] = t[y * w + x];
+#else
+    uint16_t *d = r + (w - 1 - x) * rows;  // (the panel's y = 599 - x: the band's right end at the top)
+    for (int y = 0; y < rows; y++) d[y] = t[y * w + x];
+#endif
+  }
+}
+#endif
 static esp_async_fbcpy_handle_t fbcpy;
 static SemaphoreHandle_t copy_done, frame_sent;
 static volatile int copies_left;
@@ -122,14 +144,27 @@ static void send_task(void *) {
     xQueueReceive(to_send, &s, portMAX_DELAY);
     esp_async_fbcpy_trans_desc_t t = {};
     t.src_buffer = s.tile, t.dst_buffer = job_fb;
+    t.dst_buffer_size_x = HALO_FB_W, t.dst_buffer_size_y = HALO_FB_H;
+#ifdef HALO_P4_TALL  // (a turned band: s.rows wide, s.w tall; its corner — where the band's (x0 + w - 1, y) or (x0, y + rows - 1) lands)
+    t.src_buffer_size_x = t.copy_size_x = s.rows, t.src_buffer_size_y = t.copy_size_y = s.w;
+#ifdef HALO_P4_TALL_CCW
+    t.dst_offset_x = HALO_P4_FB_X(s.x0, s.y + s.rows - 1), t.dst_offset_y = HALO_P4_FB_Y(s.x0, s.y);
+#else
+    t.dst_offset_x = HALO_P4_FB_X(s.x0, s.y), t.dst_offset_y = HALO_P4_FB_Y(s.x0 + s.w - 1, s.y);
+#endif
+#else
     t.src_buffer_size_x = t.copy_size_x = s.w, t.src_buffer_size_y = t.copy_size_y = s.rows;
-    t.dst_buffer_size_x = HALO_W, t.dst_buffer_size_y = HALO_H;
     t.dst_offset_x = s.x0, t.dst_offset_y = s.y;
+#endif
     t.pixel_format_unique_id.color_type_id = COLOR_TYPE_ID(COLOR_SPACE_RGB, COLOR_PIXEL_RGB565);
     const uint32_t t0 = trace_now();
     if (esp_async_fbcpy(fbcpy, &t, on_copied, nullptr) == ESP_OK) xSemaphoreTake(copy_done, pdMS_TO_TICKS(100));
     trace_span(TR_DMA, t0, s.y / HALO_ROWS);
+#ifdef HALO_P4_TALL
+    xQueueSend(free_turned, &s.tile, portMAX_DELAY);
+#else
     xQueueSend(free_tiles, &s.tile, portMAX_DELAY);
+#endif
     if (__atomic_sub_fetch(&copies_left, 1, __ATOMIC_ACQ_REL) == 0) xSemaphoreGive(frame_sent);
   }
 }
@@ -139,7 +174,17 @@ static bool tiles_begin() {
   to_send = xQueueCreate(TILES, sizeof(Send));
   copy_done = xSemaphoreCreateBinary();
   frame_sent = xSemaphoreCreateBinary();
+#ifdef HALO_P4_TALL
+  free_turned = xQueueCreate(TILES, sizeof(uint16_t *));
   for (int i = 0; i < tiles_n; i++) {
+    uint16_t *t = (uint16_t *)heap_caps_aligned_alloc(64, TILE_BYTES, MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA);
+    if (!t) return false;
+    xQueueSend(free_turned, &t, 0);
+  }
+  for (int i = 0; i < 2; i++) {  // (a tile a core: a tile is free again as soon as its band is turned)
+#else
+  for (int i = 0; i < tiles_n; i++) {
+#endif
     uint16_t *t = (uint16_t *)heap_caps_aligned_alloc(64, TILE_BYTES, MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA);
     if (!t) return false;
     xQueueSend(free_tiles, &t, 0);
@@ -176,6 +221,13 @@ static void run_jobs() {
     if (job_under) under_part();
     else clear_part();
     m_draw();
+#ifdef HALO_P4_TALL
+    uint16_t *turned;
+    xQueueReceive(free_turned, &turned, portMAX_DELAY);
+    rotate_band(tile, turned, w, j.rows);
+    xQueueSend(free_tiles, &tile, portMAX_DELAY);
+    tile = turned;
+#endif
     esp_cache_msync(tile, w * j.rows * 2, ESP_CACHE_MSYNC_FLAG_DIR_C2M | ESP_CACHE_MSYNC_FLAG_UNALIGNED);  // (DMA reads memory)
     const Send s = {tile, j.y, j.rows, j.x0, (int16_t)w};
     xQueueSend(to_send, &s, portMAX_DELAY);
@@ -244,12 +296,21 @@ static void film_take(uint32_t te, bool drawn, int jobs, uint32_t us) {
   const int s = film_step, w = HALO_W / s, h = HALO_H / s;
   uint16_t *dst = film_buf + (size_t)film_i * w * h;
   const uint16_t *src = hd_front();
+#ifdef HALO_P4_TALL  // (the interface's rows are the panel's columns: the whole frame from memory, then point by point)
+  esp_cache_msync((void *)src, HALO_FB_W * HALO_FB_H * 2, ESP_CACHE_MSYNC_FLAG_DIR_M2C);
+  for (int y = 0; y < h; y++)
+    for (int x = 0; x < w; x++) {
+      const int ix = x * s + s / 2, iy = y * s + s / 2;
+      dst[y * w + x] = src[HALO_P4_FB_Y(ix, iy) * HALO_FB_W + HALO_P4_FB_X(ix, iy)];
+    }
+#else
   for (int y = 0; y < h; y++) {
     const uint16_t *row = src + (size_t)(y * s + s / 2) * HALO_W;
     const uintptr_t a = (uintptr_t)row & ~(uintptr_t)127, b = ((uintptr_t)(row + HALO_W) + 127) & ~(uintptr_t)127;
     esp_cache_msync((void *)a, b - a, ESP_CACHE_MSYNC_FLAG_DIR_M2C);  // (DMA wrote it behind the cache)
     for (int x = 0; x < w; x++) dst[y * w + x] = row[x * s + s / 2];
   }
+#endif
   uint32_t *m = film_meta + film_i * 3;
   m[0] = te, m[1] = (drawn ? 1u : 0u) | (job_under ? 2u : 0u) | (uint32_t)min(jobs, 65535) << 8, m[2] = us;
   film_i++;
@@ -402,8 +463,18 @@ static void frame_task(void *) {
     }
 
     if (shot_req) {
-      esp_cache_msync(hd_front(), HALO_W * HALO_H * 2, ESP_CACHE_MSYNC_FLAG_DIR_M2C);  // (DMA wrote it behind the cache)
+      esp_cache_msync(hd_front(), HALO_FB_W * HALO_FB_H * 2, ESP_CACHE_MSYNC_FLAG_DIR_M2C);  // (DMA wrote it behind the cache)
+#ifdef HALO_P4_TALL  // (the picture the way the interface is up: the panel's frame read in its own order, put turned)
+      const uint16_t *f = hd_front();
+      for (int y = 0; y < HALO_FB_H; y++)
+        for (int x = 0; x < HALO_FB_W; x++) {
+          int ix = x, iy = y;
+          halo_p4_to_screen(&ix, &iy);
+          shot_buf[iy * HALO_W + ix] = f[y * HALO_FB_W + x];
+        }
+#else
       memcpy(shot_buf, hd_front(), HALO_W * HALO_H * 2);
+#endif
       shot_req = false, shot_ready = true;
     }
     if (film_n && film_i < film_n) film_take(te, job_n || job_under, job_n, trace_now() - p0);

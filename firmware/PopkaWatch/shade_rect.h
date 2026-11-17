@@ -16,6 +16,8 @@
 //               280 px for the whole way, the rest 380 ms × what is left; back — the same, mirrored
 // The accent — the layer's color. Material 3 Expressive's parts: a tile off is a pill, on — a rounded square in the
 // accent (the shape glides); a slider is a thick track, a gap, a thin handle, its icon inside, a stop dot at the end.
+// The 7″ board held tall (HALO_P4_TALL, 600 × 1024) — the same four looks and motions, laid out again: variants 7A, 7C,
+// 7E and 7G of web/mockups/rect-tall.html (Two cards: both at once, stacked); every target at least 66 px.
 //
 // What works — the same on the board as in the editor: Brightness — Display's (settings.h: its steps, saved; without
 // Display the panel keeps its own, under the same flash key); Volume and Mute — the speaker's (volume.h, brought in with
@@ -39,7 +41,14 @@
 #define SH_MAX 120  // items in the pool
 #define SH_STEPS 20 // brightness steps (Display's on a rectangle)
 enum : uint8_t { SH_FULL, SH_DUAL, SH_CORNER, SH_STRIP };
+#ifdef HALO_COMPACT  // a small rectangle has one look — the whole screen (sh_full: its own layout there)
+static const float SH_TRAVEL[4] = {HALO_H, HALO_H, HALO_H, HALO_H};
+#elif defined(HALO_P4_TALL)  // the 7″ board held tall: Full — the screen's height (the veil's edge stays under the finger);
+// the two cards, stacked, come down further — a longer way; Corner and Strip — the landscape's
+static const float SH_TRAVEL[4] = {HALO_H, 600, 300, 280};
+#else
 static const float SH_TRAVEL[4] = {600, 380, 300, 280};  // the finger's way, px: the whole way open (Strip: the gallery's)
+#endif
 // What a tile or a button is (also the hit's "what"); sliders — SL_*
 enum : uint8_t { SI_WIFI, SI_AOD, SI_MUTE, SI_LOCK, SI_OFF, SI_MUSIC, SI_REC, SI_VIDEO, SI_DISPLAY, SI_GEAR, SI_PLAY,
                  SI_N, SL_BRIGHT = 100, SL_VOL };
@@ -214,7 +223,7 @@ static void sh_sun(float cx, float cy, float k, uint32_t c, float a = 1) {
   for (int i = 0; i < 8; i++) sh_circle(cx + DX[i] * 10.5f * k, cy + DY[i] * 10.5f * k, 1.9f * k, c, a);
 }
 static void sh_icon(const char *g, float cx, float cy, uint32_t c, float a = 1, const HaloFont &f = gl_sh_ic26) {
-  if (g == SH_IC_SUN || g == SH_WX_IC[1] || g == SI_ICON[SI_DISPLAY]) return sh_sun(cx, cy, &f == &gl_sh_ic44 ? 1.6f : 1, c, a);
+  if (g == SH_IC_SUN || g == SH_WX_IC[1] || g == SI_ICON[SI_DISPLAY]) return sh_sun(cx, cy, RK(&f == &gl_sh_ic44 ? 1.6f : 1.0f), c, a);
   const int k = &f == &gl_sh_ic26 ? sh_ic_index(g) : -1;
   const float mid = k >= 0 ? sh_mid_ic[k] : halo_text_mid(f, g);
   sh_text(f, mid, g, cx, cy, c, 1, a);
@@ -232,16 +241,16 @@ static void sh_hit(float x0, float y0, float x1, float y1, uint8_t what, bool li
 // A Material 3 Expressive slider: track (inactive) — gap — handle — gap — the active part from the left; its icon inside
 static void sh_slider_put(uint8_t id, float x, float y, float w, float h, float v, const char *icon, uint32_t acc,
                           uint32_t on_acc, uint32_t trk, bool live) {
-  const float hw = 6, g = 5, R = fminf(h / 2, roundf(h * 0.32f)), r = 4;
+  const float hw = RK(6), g = RK(5), R = fminf(h / 2, roundf(h * 0.32f)), r = RK(4);
   const float hx = x + halo_clamp01(v) * (w - hw), aw = fmaxf(0, hx - g - x), ix = hx + hw + g, iw = fmaxf(0, x + w - ix);
   // the inactive track: round outer corners, small inner ones (two plates)
   sh_rrect(ix, y, iw, h, R, trk);
   sh_rrect(ix, y, fminf(iw, R), h, r, trk);
   sh_rrect(x, y, aw, h, R, acc);
   sh_rrect(x + aw - fminf(aw, R), y, fminf(aw, R), h, r, acc);
-  sh_rrect(hx, y - 7, hw, h + 14, 3, acc);
-  sh_circle(x + w - 13, y + h / 2, 3, acc, ix < x + w - 30 ? 1 : 0);
-  const float s = 26, pad = (h - s) / 2;
+  sh_rrect(hx, y - RK(7), hw, h + RK(14), RK(3), acc);
+  sh_circle(x + w - RK(13), y + h / 2, RK(3), acc, ix < x + w - RK(30) ? 1 : 0);
+  const float s = RK(26), pad = (h - s) / 2;
   const bool fits = aw >= pad * 2 + s;
   sh_icon(icon, (fits ? x : ix) + pad + s / 2, y + h / 2, fits ? on_acc : acc);
   sh_hit(x, y - 10, x + w, y + h + 10, id, live);
@@ -283,20 +292,20 @@ static const char *sh_sub(uint8_t what) {  // the line under a tile's label
 static void sh_tile(uint8_t what, int kind, float x, float y, float w, float h, uint32_t acc, uint32_t on_acc, bool live) {
   const float k = sh_on[what].x;
   const uint32_t bg = sh_mix(SH_TILE, acc, k), fg = sh_mix(SH_TEXT, on_acc, k);
-  const float r1 = kind == 3 ? h * 0.3f : kind == 0 ? 24 : 22;
+  const float r1 = kind == 3 ? h * 0.3f : kind == 0 ? RK(24) : RK(22);
   sh_rrect(x, y, w, h, h / 2 + (r1 - h / 2) * k, bg);
   if (kind >= 2) {
     sh_icon(SI_ICON[what], x + w / 2, y + h / 2, fg);
   } else {
-    const float c = kind == 0 ? 52 : 44, m = kind == 0 ? 20 : 13, cx = x + m + c / 2, cy = y + h / 2;
+    const float c = kind == 0 ? RK(52) : RK(44), m = kind == 0 ? RK(20) : RK(13), cx = x + m + c / 2, cy = y + h / 2;
     sh_circle(cx, cy, c / 2, sh_mix(0x383C40, sh_mix(acc, 0x000000, 0.09f), k));
     sh_icon(SI_ICON[what], cx, cy, fg);
     const char *sub = sh_sub(what);
-    const float tx = x + m + c + 14;
+    const float tx = x + m + c + RK(14);
     const HaloFont &f1 = kind == 0 ? gl_sh_t22 : gl_sh_t20, &f2 = kind == 0 ? gl_sh_t18 : gl_sh_t16;
     const float m1 = kind == 0 ? sh_mid_t22 : sh_mid_t20, m2 = kind == 0 ? sh_mid_t18 : sh_mid_t16;
-    sh_text(f1, m1, SI_LABEL[what], tx, *sub ? cy - (kind == 0 ? 11 : 10) : cy, fg);
-    sh_text(f2, m2, sub, tx, cy + (kind == 0 ? 15 : 13), sh_mix(fg, bg, 0.3f));
+    sh_text(f1, m1, SI_LABEL[what], tx, *sub ? cy - (kind == 0 ? RK(11) : RK(10)) : cy, fg);
+    sh_text(f2, m2, sub, tx, cy + (kind == 0 ? RK(15) : RK(13)), sh_mix(fg, bg, 0.3f));
   }
   sh_hit(x, y, x + w, y + h, what, live);
 }
@@ -363,13 +372,55 @@ static void sh_status(float right, float cy) {  // the weather and Wi-Fi at the 
   const WxDay d = wx_day(0);
   wx_deg(sh_temp, sizeof(sh_temp), d.now);
   float x = right;
-  if (sh_wifi) sh_icon(SI_ICON[SI_WIFI], x - 15, cy, SH_TEXT), x -= 30 + 22;
+  if (sh_wifi) sh_icon(SI_ICON[SI_WIFI], x - RK(15), cy, SH_TEXT), x -= RK(30 + 22);
   sh_text(gl_sh_n32, sh_mid_n32, sh_temp, x, cy, SH_TEXT, 2);
-  x -= halo_text_width(gl_sh_n32, sh_temp) + 10;
-  sh_icon(SH_WX_IC[d.kind & 3], x - 16, cy, (d.kind & 3) == 1 ? 0xFFC94D : 0xE8E8EC);
+  x -= halo_text_width(gl_sh_n32, sh_temp) + RK(10);
+  sh_icon(SH_WX_IC[d.kind & 3], x - RK(16), cy, (d.kind & 3) == 1 ? 0xFFC94D : 0xE8E8EC);
 }
 
 static void sh_full(float p, uint32_t acc, uint32_t on_acc, uint32_t trk, bool live, bool all) {
+#ifdef HALO_COMPACT
+  {  // a small rectangle, either way up: the clock and the date, the weather at the right; brightness across the screen;
+     // the switches two in a row (no speaker yet: no volume, no Mute); the gear at the top right opens Settings
+    const float M = 14, ty = -(1 - p) * 40, a = sh_seg(p, 0.08f, 0.6f), w2 = (HALO_W - 2 * M - 10) / 2;
+    sh_group(0, ty, 1, 0, 0, a);
+    sh_text(gl_sh_n64, sh_mid_n64, fc_time, M, 36, SH_TEXT);
+    sh_text(gl_sh_t22, sh_mid_t22, HALO_W > HALO_H ? sh_date_l : sh_date_s, M + 2, 72, SH_DATE);
+    const bool gear = sh_app_screen(SI_DISPLAY) >= 0;  // (Settings in this project: its button at the top right)
+    sh_status(HALO_W - M - (gear ? 50 : 0), 36);
+    if (gear) sh_tile(SI_GEAR, 3, HALO_W - M - 40, 16, 40, 40, acc, on_acc, live);
+    sh_slider_put(SL_BRIGHT, M, 96, HALO_W - 2 * M, 44, sh_value(SL_BRIGHT), SH_IC_SUN, acc, on_acc, trk, live);
+    static const uint8_t SW[4] = {SI_WIFI, SI_AOD, SI_LOCK, SI_OFF};
+    for (int i = 0; i < 4; i++) sh_tile(SW[i], 1, M + (i % 2) * (w2 + 10), 156 + (i / 2) * 66, w2, 58, acc, on_acc, live);
+    sh_rrect(CX - 18, HALO_H - 10, 36, 4, 2, 0x5D6067);
+    sh_card[0] = 0, sh_card[1] = 0, sh_card[2] = HALO_W, sh_card[3] = HALO_H;
+    (void)all;
+    return;
+  }
+#endif
+#ifdef HALO_P4_TALL
+  {  // the 7″ board held tall (variant 7A of web/mockups/rect-tall.html): the clock, the date and the status on top, the
+     // two sliders stacked the full width, the wide tiles two in a row, then the apps' small ones; the gear under them
+    const float ty = -(1 - p) * 60, a = sh_seg(p, 0.08f, 0.6f);
+    sh_group(0, ty, 1, 0, 0, a);
+    sh_text(gl_sh_n64, sh_mid_n64, fc_time, 40, 76, SH_TEXT);
+    sh_text(gl_sh_t22, sh_mid_t22, sh_date_l, 44, 132, SH_DATE);
+    sh_status(560, 76);
+    sh_slider_put(SL_BRIGHT, 40, 172, 520, 66, sh_value(SL_BRIGHT), SH_IC_SUN, acc, on_acc, trk, live);
+    sh_slider_put(SL_VOL, 40, 256, 520, 66, sh_value(SL_VOL), SH_IC_VOL, acc, on_acc, trk, live);
+    uint8_t sw[6], ap[4];
+    const int ns = sh_switches(sw, all), na = sh_apps(ap, all);
+    // a row is four quarters of 121 px, 12 apart: a wide tile takes two, an app one
+    int q = 0;
+    for (int i = 0; i < ns; i++, q += 2) sh_tile(sw[i], 0, 40 + (q % 4) * 133, 352 + (q / 4) * 108, 254, 96, acc, on_acc, live);
+    for (int i = 0; i < na; i++, q++) sh_tile(ap[i], 2, 40 + (q % 4) * 133, 352 + (q / 4) * 108, 121, 96, acc, on_acc, live);
+    const float gy = 352 + ((q + 3) / 4) * 108 - 12 + 26;  // (26 under the last row)
+    if (sh_app_screen(SI_DISPLAY) >= 0) sh_tile(SI_GEAR, 3, 494, gy, 66, 66, acc, on_acc, live);
+    sh_rrect(274, 1000, 52, 5, 2.5f, 0x5D6067);
+    sh_card[0] = 0, sh_card[1] = 0, sh_card[2] = HALO_W, sh_card[3] = HALO_H;
+    return;
+  }
+#endif
   const float ty = -(1 - p) * 60, a = sh_seg(p, 0.08f, 0.6f);
   sh_group(0, ty, 1, 0, 0, a);
   sh_text(gl_sh_n64, sh_mid_n64, fc_time, 48, 62, SH_TEXT);
@@ -399,6 +450,40 @@ static void sh_dual(float p, uint32_t acc, uint32_t on_acc, uint32_t trk, bool l
   const bool music = mu_n > 0 && sh_app_screen(SI_MUSIC) >= 0;  // (the Music app in this project: the board has its player)
 #else
   const bool music = false;
+#endif
+#ifdef HALO_P4_TALL
+  {  // the 7″ board held tall (variant 7C): half-width cards would be 280 px — one pull, wherever it starts, brings both,
+     // the Now card over the settings card; they come down together over the darkened face
+    uint8_t it[10];
+    int n = sh_switches(it, all);
+    n = min(n + sh_apps(it + n, all), 8);
+    const float LH = music ? 340 : 224, Y2 = 16 + LH + 16, RH = 206 + ((n + 1) / 2) * 96;
+    sh_group(0, -(1 - p) * (Y2 + RH + 40));
+    sh_rrect(16, 16, 568, LH, 32, card);
+    sh_text(gl_sh_n64, sh_mid_n64, fc_time, 44, 76, SH_TEXT);
+    sh_text(gl_sh_t22, sh_mid_t22, sh_date_l, 48, 130, SH_GRAY);
+    if (sh_app_screen(SI_DISPLAY) >= 0) sh_tile(SI_GEAR, 3, 494, 42, 66, 66, acc, on_acc, live);
+#if HAS_MUSIC
+    if (music) {  // the player's row: the cover, the title and the artist, play
+      const MuTrack &t = mu_tracks[pl_cur];
+      sh_rrect(36, 166, 528, 100, 22, SH_TILE);
+      sh_rrect(50, 180, 72, 72, 12, 0x5F4A96);
+      sh_icon(SH_IC_NOTE, 86, 216, 0xE9DCF7);
+      sh_text(gl_sh_t18, sh_mid_t18, t.title, 136, 204, SH_TEXT);
+      sh_text(gl_sh_t16, sh_mid_t16, t.artist, 137, 229, SH_GRAY);
+      sh_circle(517, 216, 33, acc);
+      sh_icon(pl_playing ? SH_IC_PAUSE : SI_ICON[SI_PLAY], 517, 216, on_acc);
+      sh_hit(484, 183, 550, 249, SI_PLAY, live);
+    }
+#endif
+    sh_weather_row(40, music ? 308 : 192, true);
+    sh_rrect(16, Y2, 568, RH, 32, card);
+    sh_slider_put(SL_BRIGHT, 40, Y2 + 28, 520, 66, sh_value(SL_BRIGHT), SH_IC_SUN, acc, on_acc, trk, live);
+    sh_slider_put(SL_VOL, 40, Y2 + 112, 520, 66, sh_value(SL_VOL), SH_IC_VOL, acc, on_acc, trk, live);
+    for (int i = 0; i < n; i++) sh_tile(it[i], 1, 40 + (i & 1) * 266, Y2 + 200 + (i >> 1) * 96, 254, 84, acc, on_acc, live);
+    sh_card[0] = 16, sh_card[1] = 16, sh_card[2] = 584, sh_card[3] = Y2 + RH;
+    return;
+  }
 #endif
   const float LH = music ? 352 : 252, RH = 528;
   if (sh_side == 0) {
@@ -445,6 +530,42 @@ static void sh_corner(float p, uint32_t acc, uint32_t on_acc, uint32_t trk, bool
 #else
   const bool music = false;
 #endif
+#ifdef HALO_P4_TALL
+  {  // the 7″ board held tall (variant 7E): the landscape card, its targets grown to 66 px — the date under the time, three
+     // buttons beside them; it grows from the screen's top right corner as there
+    const float H = music ? 562 : 460;
+    sh_group(0, -(1 - p) * 24, 0.86f + 0.14f * p, 584, 14, halo_clamp01(p * 1.7f));
+    sh_rrect(136, 14, 448, H, 30, 0x202428);
+    sh_text(gl_sh_n32, sh_mid_n32, fc_time, 160, 56, SH_TEXT);
+    sh_text(gl_sh_t18, sh_mid_t18, sh_date_s, 160, 92, SH_GRAY);
+    const bool gear = sh_app_screen(SI_DISPLAY) >= 0;
+    sh_tile(SI_LOCK, 3, gear ? 346 : 420, 38, 66, 66, acc, on_acc, live);
+    sh_tile(SI_OFF, 3, gear ? 420 : 494, 38, 66, 66, acc, on_acc, live);
+    if (gear) sh_tile(SI_GEAR, 3, 494, 38, 66, 66, acc, on_acc, live);
+    uint8_t it[10];
+    int n = 0;
+    it[n++] = SI_WIFI, it[n++] = SI_AOD, it[n++] = SI_MUTE;
+    n += sh_apps(it + n, all);
+    for (int i = 0; i < min(n, 4); i++) sh_tile(it[i], 1, 160 + (i & 1) * 206, 124 + (i >> 1) * 86, 194, 76, acc, on_acc, live);
+    sh_slider_put(SL_VOL, 160, 306, 400, 66, sh_value(SL_VOL), SH_IC_VOL, acc, on_acc, trk, live);
+    sh_slider_put(SL_BRIGHT, 160, 388, 400, 66, sh_value(SL_BRIGHT), SH_IC_SUN, acc, on_acc, trk, live);
+#if HAS_MUSIC
+    if (music) {
+      const MuTrack &t = mu_tracks[pl_cur];
+      sh_rrect(160, 472, 400, 84, 22, SH_TILE);
+      sh_rrect(174, 488, 52, 52, 12, 0x5F4A96);
+      sh_icon(SH_IC_NOTE, 200, 514, 0xE9DCF7);
+      sh_text(gl_sh_t18, sh_mid_t18, t.title, 240, 502, SH_TEXT);
+      sh_text(gl_sh_t16, sh_mid_t16, t.artist, 241, 527, SH_GRAY);
+      sh_circle(513, 514, 33, acc);
+      sh_icon(pl_playing ? SH_IC_PAUSE : SI_ICON[SI_PLAY], 513, 514, on_acc);
+      sh_hit(480, 481, 546, 547, SI_PLAY, live);
+    }
+#endif
+    sh_card[0] = 136, sh_card[1] = 14, sh_card[2] = 584, sh_card[3] = 14 + H;
+    return;
+  }
+#endif
   const float H = music ? 496 : 410;
   sh_group(0, -(1 - p) * 24, 0.86f + 0.14f * p, 1010, 14, halo_clamp01(p * 1.7f));
   sh_rrect(590, 14, 420, H, 30, 0x202428);
@@ -482,6 +603,19 @@ static void sh_strip(float p, uint32_t acc, uint32_t on_acc, uint32_t trk, bool 
   // the strip comes 40 px and fades in — never two half-seen things on top of each other
   const float b = sh_seg(p, 0.35f, 1);
   sh_group(0, -(1 - b) * 40, 1, 0, 0, b);
+#ifdef HALO_P4_TALL
+  {  // the 7″ board held tall (variant 7G): two rows — the sliders side by side, the five round buttons under them
+    sh_rrect(0, -28, HALO_W, 252, 28, 0x181C20);  // (to y 224: SH_STRIP_H)
+    sh_slider_put(SL_BRIGHT, 28, 34, 264, 66, sh_value(SL_BRIGHT), SH_IC_SUN, acc, on_acc, trk, live);
+    sh_slider_put(SL_VOL, 308, 34, 264, 66, sh_value(SL_VOL), SH_IC_VOL, acc, on_acc, trk, live);
+    static const uint8_t IT[5] = {SI_WIFI, SI_AOD, SI_LOCK, SI_MUTE, SI_OFF};
+    for (int i = 0; i < 5; i++) sh_tile(IT[i], 3, 28 + i * 119.5f, 122, 66, 66, acc, on_acc, live);
+    sh_rrect(274, 208, 52, 5, 2.5f, 0x5D6067);
+    sh_card[0] = 0, sh_card[1] = 0, sh_card[2] = HALO_W, sh_card[3] = 224;
+    (void)all;
+    return;
+  }
+#endif
   sh_rrect(0, -28, HALO_W, 164, 28, 0x181C20);
   const bool vol = true;
   sh_slider_put(SL_BRIGHT, 28, 36, vol ? 280 : 576, 64, sh_value(SL_BRIGHT), SH_IC_SUN, acc, on_acc, trk, live);
@@ -503,6 +637,9 @@ static int shade_index(const FaceScreen &S) {
   return -1;
 }
 static uint8_t sh_look_of(const FaceLayer &L) {
+#ifdef HALO_COMPACT
+  return SH_FULL;  // (the other looks are drawn for a 7-inch screen)
+#endif
   return (uint8_t)constrain((int)lroundf(L.p2), 0, 3);
 }
 // How far the panel of screen s is out: the home — the live one; any other screen — open (the editor's tile pictures)
@@ -531,7 +668,11 @@ static HaloView shade_under(int s, const FaceScreen &S, const HaloView &v) {
 // taken when it leaves zero (sh_mask_take: where each was drawn then, backgrounds aside); in the editor's still pictures
 // — the status line by its place
 static uint32_t sh_fade_mask;
+#ifdef HALO_P4_TALL
+#define SH_STRIP_H 224.0f  // (held tall: two rows)
+#else
 #define SH_STRIP_H 136.0f
+#endif
 static void sh_mask_take() {
   sh_fade_mask = 0;
   const FaceScreen &S = face_scr[0];

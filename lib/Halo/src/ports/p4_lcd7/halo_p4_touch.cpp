@@ -104,7 +104,8 @@ static void touch_task(void *) {
       release("finger changed");
       continue;
     }
-    const int x = HALO_W - 1 - (p[i * 8 + 1] | (p[i * 8 + 2] << 8)), y = HALO_H - 1 - (p[i * 8 + 3] | (p[i * 8 + 4] << 8));
+    int x = HALO_FB_W - 1 - (p[i * 8 + 1] | (p[i * 8 + 2] << 8)), y = HALO_FB_H - 1 - (p[i * 8 + 3] | (p[i * 8 + 4] << 8));
+    halo_p4_to_screen(&x, &y);  // (the panel's point -> the interface's: turned when the board is held tall)
     const HaloTouchSample s = {(int16_t)constrain(x, 0, HALO_W - 1), (int16_t)constrain(y, 0, HALO_H - 1), t};
     portENTER_CRITICAL(&hist_mux);
     hist_head = (hist_head + 1) % HIST;

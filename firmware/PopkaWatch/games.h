@@ -180,6 +180,24 @@ static uint32_t gm_full[FL_SNKISO - FL_SNKDOTS + 1];     // (the screen itself s
 
 #ifndef HALO_ROUND
 // Where the worlds stand on this screen (their middle — at this y — and their scale): full size, and in a card of the gallery
+#ifdef HALO_COMPACT  // a small rectangle: the same worlds, smaller
+#define GM_SPACE_CY CX      // Comet: the hole, at (CX, CX) as on the watch
+#define GM_SPACE_S 0.75f
+#define GM_SPACE_MINI 0.33f
+#define GM_ISO_CY 250.0f    // Voxel Snake: the board's middle on the watch
+#define GM_ISO_S (HALO_W > HALO_H ? 0.78f : 0.68f)
+#define GM_ISO_Y (HALO_H * 0.52f)
+#define GM_ISO_MINI 0.36f
+#elif defined(HALO_P4_TALL)  // the 7″ board held tall (600 × 1024): the round fields across its width in the middle of its
+                             // height, the stars to the top and bottom; in a card — a wide, short band (rect-tall.html 3A)
+#define GM_SPACE_CY CX      // Comet: the hole, at (CX, CX) as on the watch
+#define GM_SPACE_S 1.4f     // (the outer orbit as near the sides as landscape's is to its top and bottom)
+#define GM_SPACE_MINI 0.54f // (the band is short: the outer orbits leave it at the top and bottom)
+#define GM_ISO_CY 250.0f    // Voxel Snake: the board's middle on the watch
+#define GM_ISO_S 1.4f
+#define GM_ISO_Y 510.0f     // … and on this screen (the board with its towers in the middle)
+#define GM_ISO_MINI 0.46f
+#else
 #define GM_SPACE_CY 512.0f  // Comet: the hole, at (CX, CX) as on the watch
 #define GM_SPACE_S 1.4f
 #define GM_SPACE_MINI 0.7f
@@ -187,6 +205,7 @@ static uint32_t gm_full[FL_SNKISO - FL_SNKDOTS + 1];     // (the screen itself s
 #define GM_ISO_S 1.5f
 #define GM_ISO_Y 310.0f     // … and on this screen
 #define GM_ISO_MINI 0.78f
+#endif
 #endif
 
 #if HAS_SNKDOTS

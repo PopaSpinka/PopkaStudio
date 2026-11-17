@@ -5,13 +5,13 @@
 // is its watch face: the picture the page makes a while after each save (thumbSoon), kept next to the project by
 // studio.py.
 import { state, on, openProject, closeProject, change, projectName, home, screens, newLayer, FACE_SCREEN, saveAndRemember } from './state.js';
-import { BOARD, TW, TH } from './screen.js';
+import { BOARD, WAY, TW, TH } from './screen.js';
 import { engines } from './engine.js';
 import { preview } from './previews.js';
 import { justUpdated } from './update.js';
 
 const $ = (id) => document.getElementById(id);
-let boards = [], projects = [], board = 'amoled175', opened = false, onOpen = null, ready = null;
+let boards = [], projects = [], board = null, added = null, way = null, opened = false, onOpen = null, ready = null;
 
 const ICON = {
   check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>',
@@ -30,6 +30,8 @@ function picture(b, cls = '') {
     const el = document.createElement('div');
     el.className = 'rectboard ' + cls;
     el.append(Object.assign(new Image(), { src: b.art, alt: '', draggable: false }));
+    const [w, h] = b.art_size || [b.w, b.h];  // (the glass round the screen: 1/16 of its width, 0.14 of its height)
+    el.style.aspectRatio = `${w * 1.0625} / ${h * 1.14}`;
     return el;
   }
   if (b.drawn === 'round' && b.art) {  // the round board, drawn as the rectangular one: black glass round its round screen
@@ -38,7 +40,11 @@ function picture(b, cls = '') {
     el.append(Object.assign(new Image(), { src: b.art, alt: '', draggable: false }));
     return el;
   }
-  if (b.drawn !== 'round') return Object.assign(document.createElement('div'), { className: 'drawn ' + cls });
+  if (b.drawn !== 'round') {  // a screen and nothing round it, in its own proportions
+    const el = Object.assign(document.createElement('div'), { className: 'drawn ' + cls });
+    if (b.w && b.h) el.style.aspectRatio = `${b.w} / ${b.h}`, el.classList.toggle('tall', b.h > b.w);
+    return el;
+  }
   const el = document.createElement('div');
   el.className = 'rboard ' + cls;
   el.innerHTML = '<i class="rb-btn pwr"></i><i class="rb-btn boot"></i><span class="rb-scr"></span>';
@@ -73,12 +79,36 @@ function names(b) {
   t.children[0].textContent = (b.maker || '').toUpperCase();
   t.children[1].textContent = b.title || b.name;
   t.children[2].textContent = b.spec || b.screen || '';
+  if (b.community?.by) {  // a board someone else added (its passport's "community"): they tested it on the real board, not PopaSpinka
+    const by = Object.assign(document.createElement('span'), { className: 'by', textContent: `Community · by ${b.community.by}` });
+    t.append(by);
+  }
   return t;
 }
 
 // ---------- Step 1: the board ----------
+// Two boards as cards, as it always was; the others (a passport's "more") — a list under More boards, at the bottom left.
+// One picked in the list becomes a third card, to the right of the two (the window grows for it), and is the picked one.
+// No board is picked when the window opens: Continue waits for a card
 function renderBoards() {
-  $('start-boards').replaceChildren(...boards.map((b) => {
+  const others = boards.filter((b) => b.more);
+  if (others.some((b) => b.id === board)) added = board;  // (the one just picked in the list)
+  const extra = others.find((b) => b.id === added);
+  const more = $('start-more'), list = $('start-more-list');
+  more.hidden = !others.length;
+  $('start-win').classList.toggle('wide', !!extra && step() === 1);
+  list.replaceChildren(...others.map((b) => {
+    const el = document.createElement('button');
+    el.className = 'more-row' + (b.soon ? ' off' : '');
+    el.disabled = !!b.soon;
+    el.setAttribute('role', 'option');
+    el.append(picture(b, 'mini'), names(b));
+    if (b.soon) el.insertAdjacentHTML('beforeend', '<span class="soon">SOON</span>');
+    el.onclick = () => { board = b.id, moreOpen(false), renderBoards(); };
+    el.ondblclick = () => go(2);
+    return el;
+  }));
+  $('start-boards').replaceChildren(...[...boards.filter((b) => !b.more), ...(extra ? [extra] : [])].map((b) => {
     const el = document.createElement('button');
     el.className = 'bcard' + (b.id === board ? ' picked' : '') + (b.soon ? ' off' : '');
     el.disabled = !!b.soon;
@@ -89,7 +119,7 @@ function renderBoards() {
     el.ondblclick = () => go(2);
     return el;
   }));
-  $('start-next').disabled = !!current()?.soon;
+  $('start-next').disabled = !current() || !!current().soon;
 }
 
 // ---------- Step 2: its projects ----------
@@ -106,6 +136,8 @@ function renderProjects() {
 function tile(p) {
   const el = document.createElement('div');
   el.className = 'ptile' + (opened && p.id === state.pid ? ' cur' : '');
+  const pw = current()?.orientations?.[p.orientation];  // (a board used either way up: the picture in this project's shape)
+  if (pw || current()?.orientations) el.style.setProperty('--th-ratio', `${pw?.w || current().w} / ${pw?.h || current().h}`), el.classList.add('shaped');
   el.tabIndex = 0;
   el.innerHTML = `<span class="ring">${p.thumb ? `<img class="th" alt="" draggable="false" src="${thumbUrl(p)}">` : '<span class="th ini"></span>'}
     <button class="pen" title="Rename" aria-label="Rename">${ICON.pen}</button>
@@ -149,11 +181,13 @@ function tile(p) {
 
 // The step shown: slid to (instant — put there at once: the window opening)
 function go(n, instant = false) {
-  if (n > 1 && current()?.soon) return;
+  if (n > 1 && (!current() || current().soon)) return;
   if (n === 2) renderProjects();
   const win = $('start-win');
   if (instant) win.classList.add('instant');
   win.dataset.step = n;
+  win.classList.toggle('wide', n === 1 && boards.some((b) => b.more && b.id === added));
+  moreOpen(false);
   if (instant) win.getBoundingClientRect(), win.classList.remove('instant');
   if (n === 3) {  // the name: the first free Project N, picked so typing replaces it
     const taken = new Set(projects.map((p) => p.name));
@@ -162,9 +196,34 @@ function go(n, instant = false) {
     const input = $('start-name');
     input.value = `Project ${k}`;
     input.focus({ preventScroll: true }), input.select();
+    renderWays();
   }
 }
+
+// Step 3, a board used either way up: which way this project's screen is (picked once, here)
+function renderWays() {
+  const ways = current()?.orientations, box = $('start-ways');
+  box.hidden = !ways;
+  if (!ways) return (way = null);
+  if (!ways[way]) way = current().orientation in ways ? current().orientation : Object.keys(ways)[0];
+  box.replaceChildren(...Object.entries(ways).map(([key, w]) => {
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'way' + (key === way ? ' picked' : '');
+    const pic = document.createElement('i');
+    pic.style.aspectRatio = `${w.w || current().w} / ${w.h || current().h}`;
+    const nm = document.createElement('b'), sub = document.createElement('span');
+    nm.textContent = w.name || key, sub.textContent = w.sub || '';
+    el.append(pic, nm, sub);
+    el.onclick = () => { way = key, renderWays(); };
+    return el;
+  }));
+}
 const step = () => Number($('start-win').dataset.step);
+function moreOpen(open) {
+  $('start-more-list').hidden = !open;
+  $('start-more').setAttribute('aria-expanded', String(open));
+}
 
 // ---------- What the buttons do (studio.py: /api/projects) ----------
 async function api(body) {
@@ -181,7 +240,8 @@ async function refresh() {
     projects = (await (await fetch('/api/projects', { cache: 'no-store' })).json()).projects;
   } catch (e) { /* studio.py is not running: what was there stays */ }
   const cur = projects.find((p) => p.id === state.pid);
-  if (cur && boards.some((b) => b.id === cur.board && !b.soon)) board = cur.board;
+  // The open project's board: picked at its projects (step 2); at the boards (step 1) nothing is
+  if (cur && step() !== 1 && boards.some((b) => b.id === cur.board && !b.soon)) board = cur.board;
   renderBoards();
   renderProjects();
 }
@@ -189,7 +249,7 @@ async function refresh() {
 async function create() {
   const name = $('start-name').value.trim().replace(/\s+/g, ' ');
   if (!name) return $('start-name').focus();
-  const { id } = await api({ board, name });
+  const { id } = await api({ board, name, ...(way && { orientation: way }) });
   await pick(id, true);
 }
 
@@ -220,8 +280,9 @@ async function remove(p) {
 
 // fresh — a project just made: the editor opens it in Edit (its watch face in the middle), whatever mode was on
 async function pick(pid, fresh = false) {
-  const other_board = projects.find((p) => p.id === pid)?.board;
-  if (other_board && other_board !== BOARD.id) {  // the page serves one board: back for this project, for that board
+  const that = projects.find((p) => p.id === pid), other_board = that?.board;
+  // the page serves one board, one way up: back for this project, for that board
+  if (other_board && (other_board !== BOARD.id || (that.orientation || null) !== WAY)) {
     await saveAndRemember(pid);
     try { sessionStorage.setItem('popka.opening', fresh ? 'fresh' : 'open'); } catch (e) { /* the start window then */ }
     return location.reload();
@@ -237,6 +298,8 @@ async function pick(pid, fresh = false) {
 
 // n — the step it opens at (1 the boards, 2 the projects)
 export function showStart(n = 1) {
+  board = n === 1 ? null : BOARD.id;  // (the boards: none picked; the projects: the open project's board — this page's)
+  if (n === 1) added = null;          // (and the two cards alone: a third comes only from More boards)
   go(n, true);
   $('start').classList.add('on');
   $('start').setAttribute('aria-hidden', 'false');
@@ -262,6 +325,8 @@ export function initStart(open, built) {
   $('brand').onclick = () => showStart(1);
   $('proj-name').onclick = () => showStart(2);
   $('start-next').onclick = () => go(2);
+  $('start-more').onclick = (e) => { e.stopPropagation(), moreOpen($('start-more-list').hidden); };
+  $('start-win').addEventListener('pointerdown', (e) => { if (!e.target.closest('.more-wrap')) moreOpen(false); });
   $('start-back').onclick = () => go(1);
   $('start-back2').onclick = () => go(2);
   $('start-create').onclick = create;
@@ -272,7 +337,7 @@ export function initStart(open, built) {
   $('start').addEventListener('pointerdown', (e) => { if (e.target === $('start')) hideStart(); });
   document.addEventListener('keydown', (e) => {  // (the editor's own keys wait while it is open: startOpen)
     if (!startOpen() || e.target.closest?.('input')) return;
-    if (e.key === 'Escape') step() === 3 ? go(2) : hideStart();
+    if (e.key === 'Escape') !$('start-more-list').hidden ? moreOpen(false) : step() === 3 ? go(2) : hideStart();
     if (e.key === 'Enter' && step() === 1 && !e.target.closest?.('button, .ptile')) go(2);
   });
   let resumed = null;  // (reloaded for another board's project: straight into it)

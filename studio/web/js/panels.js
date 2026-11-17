@@ -10,7 +10,7 @@ import {
   LISTED, listed, moveInList, newLayer, FACE_SCREEN, FUNCTIONS, fnOf, setFn, ZONES, timeOf, setTime, citiesOf, unitsOf,
   setWeather, WX_MAX, moveCity, isGallery, galleryFor, SECTIONS, sectionParts, sectionPart, addSection, addAbout, DEVS, SECTION_PATH, titleOf, subGallery, keepHead, gamesGallery, newList, stepsSet, STEP_FAMILY,
   savedFaces, saveFace, removeFace, faceLayers,
-  roomFor, FACE_PRESETS, FOUR_SIDES, CURVES, INFOS, PIXEL_ART, SHADE_LOOKS, CLOCK_LOOKS, clockLook,
+  roomFor, relayClock, relaySizes, WXW, wxLooksOf, FACE_PRESETS, FOUR_SIDES, CURVES, INFOS, PIXEL_ART, SHADE_LOOKS, CLOCK_LOOKS, clockLook,
   RADIO_PARTS, isRadio, allowedOn, RADIO_LINKED, radioTarget,
 } from './state.js';
 import { thumb } from './previews.js';
@@ -67,6 +67,13 @@ const ICON = {
   forecast: '<svg viewBox="0 0 16 16"><path d="M3 11a2 2 0 0 1 .4-4 3 3 0 0 1 5.8.9A1.6 1.6 0 1 1 9.6 11z"/><path d="M11.5 3.5v1M14 6h-1M13.3 4.2l-.7.7"/></svg>',
   dateframe: '<svg viewBox="0 0 16 16"><path d="M4 4.5h8M4 11.5h8M6 2.5h4M6 13.5h4"/></svg>',
   dotclock: '<svg viewBox="0 0 16 16"><path d="M3 5h.01M3 8h.01M3 11h.01M6 5h.01M6 11h.01M8 6.5h.01M8 9.5h.01M10 5h.01M10 8h.01M10 11h.01M13 5h.01M13 8h.01M13 11h.01"/></svg>',
+  wxdigits: '<svg viewBox="0 0 16 16"><path d="M1.5 6a2 2 0 1 1 3.4 1.4L1.5 12h4M10 12V4L7.5 9.5H12"/><circle cx="14" cy="4.5" r="1.2"/></svg>',
+  wxcurve: '<svg viewBox="0 0 16 16"><path d="M1.5 11c2-4 3.5-6 5.5-6s2.5 3 4.5 3 2.5-1.5 3-2.5M1.5 14h13"/></svg>',
+  wxbaro: '<svg viewBox="0 0 16 16"><path d="M2.5 11a5.5 5.5 0 1 1 11 0M8 11l3-4"/><circle cx="8" cy="11" r="1"/></svg>',
+  wxwear: '<svg viewBox="0 0 16 16"><path d="M5.5 2.5L2 4.5l1.5 3 1.5-.8v6.8h6V6.7l1.5.8 1.5-3-3.5-2a2.6 2.6 0 0 1-5 0z"/></svg>',
+  wxbuddy: '<svg viewBox="0 0 16 16"><path d="M4 12.5a2.5 2.5 0 0 1-.2-5A4 4 0 0 1 11.6 6a3.2 3.2 0 0 1 .4 6.5z"/><path d="M6.5 9.5h.01M9.5 9.5h.01"/></svg>',
+  wxpixel: '<svg viewBox="0 0 16 16"><path d="M3 3h3v3H3zM7 7h3v3H7zM11 3h2v2h-2zM2.5 12.5h11"/></svg>',
+  wxweek: '<svg viewBox="0 0 16 16"><path d="M3 6v6M6.5 4v7M10 7v6M13.5 5v5"/></svg>',
   stnum: '<svg viewBox="0 0 16 16"><path d="M3 12V4l-1.5 1.2M6.5 5.5a2 2 0 1 1 3.2 1.6L6.5 12h3.6M12 4.5h2.3l-1.6 2.6a1.9 1.9 0 1 1-1.6 3"/></svg>',
   stcap: '<svg viewBox="0 0 16 16"><path d="M2.5 6.5h11M2.5 9.5h7"/></svg>',
   stfoot: '<svg viewBox="0 0 16 16"><path d="M3 11.5h10M5.5 8.5h5"/></svg>',
@@ -182,7 +189,7 @@ const SHELVES = {
   face: [
     { name: 'Clock', icon: 'clock', items: ['clock', 'pDotClock', ...CLOCK_LOOKS.map(([k]) => 'pc' + k[0].toUpperCase() + k.slice(1))] },
     { name: 'Date', icon: 'date', items: ['date', 'pDateArc', 'pWeekday', 'pDayMonth', 'pWeek', 'pDateFrame'] },
-    { name: 'Weather', icon: 'weather', items: ['weather', 'pWxArc', 'pForecast'] },
+    { name: 'Weather', icon: 'weather', items: ['weather', 'pWxArc', 'pForecast', ...WXW] },
     { name: 'Steps', icon: 'steps', items: ['steps', 'pStepsRing', 'pStepsArc'] },
     { name: 'Battery', icon: 'battery', items: ['pBatRing', 'pBatArc'] },
     { name: 'Combined', icon: 'infoline', items: ['pDateSteps', 'pInfoWords', 'pInfoShort', 'pInfoIcons'] },  // (several at once)
@@ -1434,6 +1441,45 @@ function layerProps(stage, l) {
       color('Lit', () => l.color, upd('color'), 'color'),
       ROUND ? color('Dark', () => l.color2, upd('color2'), 'color2') : null,
       color('Colon', () => l.color3, upd('color3'), 'color3')));
+  } else if (WXW.includes(l.type)) {  // the weather widgets (wxwidgets.h): their own colors, the small words' size
+    const small = (label) => h('div', { class: 'group' }, h('h3', {}, label),
+      slider('Size', () => l.size2, (v, k) => upd('size2')(Math.round(v), k), { min: 8, max: 60, unit: 'px', key: 'size2' }));
+    const sw = (label, prop, on) => h('div', { class: 'switch-row' }, h('label', {}, label),
+      toggle(on, (v) => change(() => { l[prop] = v; }, { structure: true }), label));
+    const looks = wxLooksOf(l.type);  // (the board's layouts: its passport's "wxlooks")
+    if (!ROUND && looks.length > 1)  // (a rectangle's layouts; the clock follows: relayClock; the sizes: relaySizes)
+      groups.push(h('div', { class: 'group' }, h('h3', {}, 'Layout'), segmented('Layout', () => l.look, looks, (v) => {
+        const from = l.look;
+        change(() => { l.look = v; relayClock(l, scr, from)(); relaySizes(l, from)(); }, { structure: true });
+      })));
+    if (l.type === 'wxdigits') {
+      groups.push(text('Digits'), h('div', { class: 'group' }, h('h3', {}, 'Lines'), sw('Under the digits', 'lines', l.lines !== false),
+        color('Sky', () => l.color, upd('color'), 'color'), color('High and low', () => l.color2, upd('color2'), 'color2')), small('Lines'));
+    } else if (l.type === 'wxcurve') {
+      groups.push(h('div', { class: 'group' }, h('h3', {}, 'Curve'), scale('Icons'),
+        color('Degrees', () => l.color, upd('color'), 'color'), color('Hours', () => l.color2, upd('color2'), 'color2')),
+      text('Degrees'), small('Hours'));
+    } else if (l.type === 'wxbaro') {
+      groups.push(h('div', { class: 'group' }, h('h3', {}, 'Barometer'),
+        color('Needle', () => l.color, upd('color'), 'color'), color('Scale', () => l.color2, upd('color2'), 'color2'),
+        color('In 3 hours', () => l.color3, upd('color3'), 'color3')), text('Words'), small('Pressure'));
+    } else if (l.type === 'wxwear') {
+      groups.push(h('div', { class: 'group' }, h('h3', {}, 'Picture'), scale('Size'),
+        color('Degrees', () => l.color, upd('color'), 'color')), text('Advice'), small('Degrees'));
+    } else if (l.type === 'wxbuddy') {
+      groups.push(h('div', { class: 'group' }, h('h3', {}, 'Buddy'), scale('Size'),
+        color('Bubble', () => l.color, upd('color'), 'color'), color('Degrees', () => l.color2, upd('color2'), 'color2')),
+      text('Degrees'));
+    } else if (l.type === 'wxpixel') {
+      const own = ROUND || l.look !== 'band';  // (6B: the big clock is the screen's own)
+      groups.push(h('div', { class: 'group' }, h('h3', {}, 'Pixels'), scale('Size'), own ? sw('Clock', 'clock', l.clock !== false) : null,
+        own && l.clock !== false ? color('Clock', () => l.color3, upd('color3'), 'color3') : null,
+        color('Sky word', () => l.color, upd('color'), 'color')), text('Sky word'));
+    } else {
+      groups.push(h('div', { class: 'group' }, h('h3', {}, 'Week'), scale('Icons'),
+        color('Highs', () => l.color, upd('color'), 'color'), color('Lows and days', () => l.color2, upd('color2'), 'color2'),
+        color('Today', () => l.color3, upd('color3'), 'color3')), text('Degrees'), small('Days'));
+    }
   } else if (l.type === 'stnum' || l.type === 'stcap') {
     groups.push(text('Text', color('Color', () => l.color, upd('color'), 'color')));
   } else if (l.type === 'stfoot') {

@@ -25,7 +25,9 @@
 // section, as the Music). Their items live in PSRAM; the rays and the marquee are drawn by this file straight into the
 // band. The sound and the catalog: radio_net.h (the board). The editor's page has no network and no sound: the stations
 // play made-up songs and levels, a folder shows the favourites of its tag or country after a short "loading".
-// Included from settings.h after recorder.h (sound.h and volume.h first).
+// Included from settings.h after recorder.h (sound.h and volume.h first). A rectangle has its own one screen in place of
+// these three (radio_rect.h: two knobs and a tuning window); the stations, the favourites and the stream are this
+// file's for both.
 
 #define RD_NAME 48
 #define RD_URL 200
@@ -63,7 +65,11 @@
 #define RD_ERR 0xFF8A80
 #define RD_PINK 0xFF8BCB
 
+#ifdef HALO_ROUND
 extern const HaloFont gl_ra_n52, gl_ra_n32, gl_ra_t24, gl_ra_t20, gl_ra_t14, gl_ra_ic24;  // ROUND_APP_FONTS in studio.py
+#else
+extern const HaloFont gl_rr_n48, gl_rr_t24, gl_rr_t18, gl_rr_t15, gl_rr_t12, gl_rr_ic48, gl_r_n24;  // RECT_APP_FONTS
+#endif
 static const char RD_PLAY[] = "\xEF\x81\x8B", RD_STOP[] = "\xEF\x81\x8D", RD_BARS[] = "\xEF\x83\x89", RD_HEART[] = "\xEF\x80\x84",
                   RD_VOL[] = "\xEF\x80\xA8";
 
@@ -163,7 +169,11 @@ static void rd_station_make(RdSt &o, const char *name, const char *url, const ch
   o.kbps = kbps > 0 ? kbps : 128;
   o.col = col ? col : RD_PAL[rd_hash(o.name) % 12];
   rd_mono(o.mono, sizeof(o.mono), o.name);
+#ifdef HALO_ROUND
   rd_fit(gl_ra_t14, o.name, 116, o.lab, sizeof(o.lab));
+#else
+  rd_fit(gl_rr_t18, o.name, 170, o.lab, sizeof(o.lab));  // (its name under the scale: radio_rect.h)
+#endif
 }
 static uint32_t rd_light(uint32_t c) {  // a station's colour, halfway to white (the playing one's name)
   return (((c >> 16 & 255) + 255) / 2) << 16 | (((c >> 8 & 255) + 255) / 2) << 8 | ((c & 255) + 255) / 2;
@@ -202,6 +212,20 @@ static void rn_title_copy(char *out, size_t n) { strlcpy(out, rn_title, n); }
 #include "radio_net.h"
 static void rn_fetch(const char *path, int) { rn_fetch(path); }
 #endif
+
+// A folder's question to the catalog: its MP3 stations over plain http, the most listened first (%-encoded). Plain http
+// only: HTTPS needs ~47 KB of internal memory the round board lacks
+static void rd_folder_path(const RdFolder &f, char *out, size_t cap) {
+  char arg[60] = "";
+  const char *src = f.arg;
+  for (int o = 0; *src && o < (int)sizeof(arg) - 4; src++) {
+    const uint8_t ch = *src;
+    if (isalnum(ch) || ch == '-' || ch == '_' || ch == '.') arg[o++] = ch;
+    else o += snprintf(arg + o, sizeof(arg) - o, "%%%02X", ch);
+  }
+  snprintf(out, cap, "/json/stations/search?codec=MP3&is_https=false&hidebroken=true&order=clickcount&reverse=true&limit=%d%s%s",
+           RD_RES + 6, f.kind == RF_TAG ? "&tag=" : f.kind == RF_CC ? "&countrycode=" : "", f.kind == RF_TOP ? "" : arg);
+}
 
 // ---------- The favourites, the dial (the folder the swipes go through) ----------
 static RdSt *rd_fav, *rd_list;  // PSRAM: RD_FAV_MAX, RD_RES + 1
@@ -389,6 +413,9 @@ static float rp_fa = 1, rp_drag_x, rp_lv_t;
 static int rp_owner;
 
 // ---------- Build, every frame ----------
+#ifndef HALO_ROUND
+static void rt_build();  // (radio_rect.h: the screen's folder and its stations at start)
+#endif
 static void radio_build() {
   ru = (RdUi *)heap_caps_malloc(sizeof(RdUi), MALLOC_CAP_SPIRAM);
   rd_fav = (RdSt *)heap_caps_malloc(RD_FAV_MAX * sizeof(RdSt), MALLOC_CAP_SPIRAM);
@@ -396,9 +423,11 @@ static void radio_build() {
   if (!ru || !rd_fav || !rd_list) return (void)(ru = nullptr);
   memset(ru, 0, sizeof(RdUi)), memset(rd_fav, 0, RD_FAV_MAX * sizeof(RdSt)), memset(rd_list, 0, (RD_RES + 1) * sizeof(RdSt));
   K_RP_SLIDE = halo_spring(HALO_M3X_DEFAULT);
+#ifdef HALO_ROUND
   rd_mid_n52 = halo_text_mid(gl_ra_n52, "Radio"), rd_mid_n32 = halo_text_mid(gl_ra_n32, "Radio");
   rd_mid_t24 = halo_text_mid(gl_ra_t24, "Radio"), rd_mid_t20 = halo_text_mid(gl_ra_t20, "Radio");
   rd_mid_t14 = halo_text_mid(gl_ra_t14, "LIVE"), rd_mid_ic24 = halo_text_mid(gl_ra_ic24, RD_HEART);
+#endif
   vol_build();  // the speaker's volume (volume.h)
   rd_fav_load();
   rd_folder = 0;
@@ -406,6 +435,9 @@ static void radio_build() {
   rp_name(rd_list_n ? rd_list[0].name : "Radio");
 #if RD_NET
   rn_begin();
+#endif
+#ifndef HALO_ROUND
+  rt_build();
 #endif
 }
 // From loop(): the favourites into flash 1.5 s after the last change (a flash write stalls the other core a moment)
@@ -483,6 +515,7 @@ static void radio_tick(float dt) {  // every frame, whatever is on screen
   snprintf(rp_time, sizeof(rp_time), fc_h24 ? "%02d:%02d" : "%d:%02d", h, tm.tm_min);
 }
 
+#ifdef HALO_ROUND  // (the round board's main screen; a rectangle's one screen — radio_rect.h)
 // ---------- The main screen: its parts (a layer each: face.h FL_RTIME … FL_RPLAY; radio7.html variant 8) ----------
 // The screen's own layer (FL_RADIO) holds what is the whole screen's: the volume screen over it (radio_layout: the
 // parts fade through), the swipes, the taps — on the parts where they stand. Each part: its items and what it draws
@@ -830,6 +863,8 @@ static void radio_part_draw(const FaceScreen &S, int i) {
   for (int j = 0; j < n; j++) halo_item_draw(P.it[j]);
 }
 
+#endif  // HALO_ROUND
+
 // ---------- Eq bars (a station on): three, on a colour ----------
 // Still (stopped, can't connect), live (the music: each its own beat), loading (joining, connecting, buffering: a wave —
 // one bar after another rises and falls, 13 Nov 2026, the user's wish: the same bars, an animation of their own)
@@ -860,6 +895,7 @@ static void rd_eq(HaloItem *b, float x, float y, float h, float w, uint32_t c, f
 static void rd_eq_circle(HaloItem *b, float cx, float cy, float s, uint32_t c, float a, const HaloView &v, uint8_t mode) {
   rd_eq(b, cx, cy, 24 * s, 5 * s, c, a, v, mode);
 }
+#ifdef HALO_ROUND  // (the round board's Browse and the stations: screens of their own)
 // The time at the top of a list: it goes up and fades over the first 36 dp of scrolling (as the gallery's)
 static void rd_list_time(HaloItem &it, const HaloList &l, const HaloView &v) {
   const float k = 1 - halo_clamp01((l.top - l.scroll) / (36 * DP));
@@ -948,15 +984,7 @@ static void rs_open(int folder) {
     u.s_n = min(rd_fav_n, RD_RES), u.s_state = 1;
     memcpy(u.s_rows, rd_fav, u.s_n * sizeof(RdSt));
   } else {
-    char arg[60] = "";
-    const char *src = f.arg;  // (%-encoded). Plain http only: HTTPS needs ~47 KB of internal memory the board lacks
-    for (int o = 0; *src && o < (int)sizeof(arg) - 4; src++) {
-      const uint8_t ch = *src;
-      if (isalnum(ch) || ch == '-' || ch == '_' || ch == '.') arg[o++] = ch;
-      else o += snprintf(arg + o, sizeof(arg) - o, "%%%02X", ch);
-    }
-    snprintf(u.s_path, sizeof(u.s_path), "/json/stations/search?codec=MP3&is_https=false&hidebroken=true&order=clickcount&reverse=true&limit=%d%s%s",
-             RD_RES + 6, f.kind == RF_TAG ? "&tag=" : f.kind == RF_CC ? "&countrycode=" : "", f.kind == RF_TOP ? "" : arg);
+    rd_folder_path(f, u.s_path, sizeof(u.s_path));
     u.s_gen = rn_fetch_gen;
     rn_fetch(u.s_path, folder);
   }
@@ -1269,3 +1297,6 @@ static void rv_layout(const HaloView &v) {
   vol_layout(v);
   vol_screen = keep;
 }
+#else
+#include "radio_rect.h"  // a rectangle's one screen: the folders, the tuner's scale, the player (variant 4 of radio-rect.html)
+#endif

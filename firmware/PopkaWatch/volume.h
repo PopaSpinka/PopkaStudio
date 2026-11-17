@@ -116,14 +116,20 @@ static float vol_layout(const HaloView &v) {
 #else
 // The rectangle: the same screen laid out across — "−" at the left, "+" at the right, the speaker between them and the
 // level as a bar under it
+#ifdef HALO_P4_TALL  // (the 7″ board held tall, 600 wide: the buttons closer and narrower, the speaker still between them)
+#define VOL_BTN_DX 190.0f
+#define VOL_BTN_W 160.0f
+#else
 #define VOL_BTN_DX 240.0f
+#define VOL_BTN_W 200.0f
+#endif
 #define VOL_BAR_Y (CY + 150)
 #define VOL_BAR_W 480.0f
 static bool vol_update(float dt) {
   HaloFinger &f = halo_finger;
   vol_active = true;
   if (!vol_screen_up()) return false;
-  if (f.pressed) vol_armed = fabsf(f.y0 - CY) < 80 && fabsf(f.x0 - (CX + VOL_BTN_DX)) < 110 ? 0 : fabsf(f.y0 - CY) < 80 && fabsf(f.x0 - (CX - VOL_BTN_DX)) < 110 ? 1 : -1;
+  if (f.pressed) vol_armed = fabsf(f.y0 - CY) < 80 && fabsf(f.x0 - (CX + VOL_BTN_DX)) < VOL_BTN_W / 2 + 10 ? 0 : fabsf(f.y0 - CY) < 80 && fabsf(f.x0 - (CX - VOL_BTN_DX)) < VOL_BTN_W / 2 + 10 ? 1 : -1;
   if (f.dragging) vol_armed = -1;
   if (f.tap) {
     if (vol_armed >= 0) vol_set(vol_level + (vol_armed ? -1 : 1)), vol_idle_in = 3;
@@ -148,7 +154,7 @@ static float vol_layout(const HaloView &v) {
   for (int i = 0; i < 2; i++) {
     const float p = halo_clamp01(vol_btn[i].s.x), mx = CX + (i ? -VOL_BTN_DX : VOL_BTN_DX) * sc;
     HaloItem &b = vol_b[i];
-    b.kind = HI_RRECT, b.x = mx, b.y = CY, b.w = 200 * sc, b.h = 140 * sc, b.r = (70 + (28 - 70) * p) * sc, b.scale = 1;
+    b.kind = HI_RRECT, b.x = mx, b.y = CY, b.w = VOL_BTN_W * sc, b.h = 140 * sc, b.r = (70 + (28 - 70) * p) * sc, b.scale = 1;
     b.color = VOL_BTN, b.alpha = f_vol, b.on_black = true, b.on = nullptr;
     halo_view_commit(b, v);
     gl_text_mid(vol_b_ic[i], gl_ic24, i ? VOL_MINUS : VOL_PLUS, vol_mid_i, mx, CY, 1.8f * sc, VOL_PRIMARY, f_vol, nullptr);

@@ -74,7 +74,7 @@ def bring_old_data():
             os.rmdir(src)
 
 
-VERSION = "2.1"  # PopkaStudio's version (the About window; the release notes)
+VERSION = "2.2"  # PopkaStudio's version (the About window; the release notes)
 
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 import halo_assets as ha  # noqa: E402 — the board's font and image code
@@ -116,7 +116,11 @@ KINDS = {"date": 0, "clock": 1, "weather": 2,                                   
          "music": 31, "recorder": 32, "snkdots": 33, "snkspace": 34, "snkiso": 35, "batring": 36, "parrot": 37,
          "devcard": 38, "device": 39, "charge": 40, "video": 41, "shade": 42, "sclock": 43, "radio": 44,
          "rtime": 45, "rname": 46, "rsong": 47, "rbtn": 48, "rline": 49, "rrays": 50, "rplay": 51,
-         "rbrowse": 52, "rfolder": 53, "rvolume": 54}
+         "rbrowse": 52, "rfolder": 53, "rvolume": 54,
+         "wxdigits": 55, "wxcurve": 56, "wxbaro": 57, "wxwear": 58, "wxbuddy": 59, "wxpixel": 60, "wxweek": 61}
+# The weather widgets (wxwidgets.h; web/mockups/weather-widgets.html, the variants the user kept on 14 Nov 2026): the
+# round board's; only those a project has go into its firmware (FN_WXW: a bit a widget, from wxdigits)
+WXW = ("wxdigits", "wxcurve", "wxbaro", "wxwear", "wxbuddy", "wxpixel", "wxweek")
 GALLERY = ("title", "card", "edge", "scroll", "devcard")
 TAPS = ("card", "edge", "devcard")  # the gallery's parts a tap on opens a screen (halo_nav_open)
 # About (device.h): what a live card or a card's screen shows (p2: DV_CPU …) — the processor, the memory, the battery,
@@ -177,6 +181,13 @@ SC_LOOKS = {
 }
 SC_NAMES = tuple(SC_LOOKS)  # (their order: SC_* in sclock.h)
 LOOKS = {"shade": SHADE_LOOKS, "sclock": SC_NAMES}  # what a layer's look may be, by its kind
+# The weather widgets' layouts on the 7-inch board (wxwidgets.h: p3 — the index; web/mockups/weather-widgets-rect.html:
+# 1A; 2A, 2B; 3A, 3B; 4A, 4B; 5A, 5B; 6A, 6B; 7A, 7B); the round watch has one and ignores it. The digits' "band" is the
+# WT32-SC01 Plus held wide's own (wt32-widgets.html 1B): the page offers a layout only where the passport's "wxlooks"
+# lists it (state.js wxLooksOf); the 7-inch board draws the digits beside the clock whatever p3 says
+WXLOOKS = {"wxdigits": ("side", "band"), "wxcurve": ("band", "side"), "wxbaro": ("side", "band"), "wxwear": ("side", "band"),
+           "wxbuddy": ("side", "peek"), "wxpixel": ("whole", "band"), "wxweek": ("band", "side")}
+LOOKS.update(WXLOOKS)
 
 
 def sc_font(layer, i, rect=False):
@@ -227,6 +238,7 @@ TIME = {"zone": "New York", "h24": False}
 WX_MAX = 6  # firmware/PopkaWatch/weather.h: WX_MAX
 CITY = {"name": "New York", "where": "New York, United States", "lat": 40.71427, "lon": -74.00597}
 WX_AHEAD = 24  # hours of forecast the board keeps (weather.h)
+WX_DAYS = 7  # days of forecast it keeps, today first (weather.h)
 WX_KINDS = ("WX_PARTLY", "WX_SUN", "WX_CLOUD", "WX_RAIN")  # weather.h, in its order
 DEFAULTS = {
     "date": {"name": "Date", "size": 41, "weight": 700, "width": 100, "spacing": 0, "color": "#C2C3CB"},
@@ -333,6 +345,22 @@ DEFAULTS = {
     # A clock in one of sixteen looks (sclock.h; Layers → Clock): its look, size and three colors (what each is — the look's)
     "sclock": {"name": "Clock", "look": "hairline", "scale": 1, "color": "#FFF8EE", "color2": "#FF8A80",
                "color3": "#5E5F64"},
+    # The weather widgets (wxwidgets.h): the main font (size …) and a second one for the small words (size2); scale —
+    # the icons' size (Curve, Week), the picture's (Wear, Buddy, Pixels)
+    "wxdigits": {"look": "side", "name": "Weather digits", "size": 214, "weight": 760, "width": 100, "spacing": -6, "size2": 16,
+                 "color": "#FFF8EE", "color2": "#9E9E9E", "lines": True},
+    "wxcurve": {"look": "band", "name": "Temperature curve", "scale": 0.48, "size": 18, "weight": 660, "width": 100, "spacing": 0,
+                "size2": 13, "color": "#FFF8EE", "color2": "#9E9E9E"},
+    "wxbaro": {"look": "side", "name": "Barometer", "size": 13, "weight": 620, "width": 104, "spacing": 0, "size2": 19,
+               "color": "#FF8A80", "color2": "#5E5F64", "color3": "#C8A464"},
+    "wxwear": {"look": "side", "name": "What to wear", "scale": 1, "size": 24, "weight": 620, "width": 104, "spacing": 1, "size2": 17,
+               "color": "#9E9E9E"},
+    "wxbuddy": {"look": "side", "name": "Weather buddy", "scale": 1, "size": 30, "weight": 660, "width": 100, "spacing": 0, "size2": 20,
+                "color": "#2D2F2F", "color2": "#FFF8EE"},
+    "wxpixel": {"look": "whole", "name": "Pixel weather", "scale": 1, "size": 14, "weight": 620, "width": 104, "spacing": 3,
+                "color": "#9E9E9E", "color3": "#FFF8EE", "clock": True},
+    "wxweek": {"look": "band", "name": "Week ahead", "scale": 0.55, "size": 16, "weight": 660, "width": 100, "spacing": 0, "size2": 14,
+               "color": "#FFF8EE", "color2": "#9E9E9E", "color3": "#FF8A80"},
 }
 PIXEL_ART = ["parrot"]  # the pixel art layers: what is around the picture (p2), its trail (p3)
 # The gallery's icons: Font Awesome (tools/fonts/fa-solid-900.ttf) at HaloWatch's ic24 size; the first five — the
@@ -380,7 +408,7 @@ RECT_APP_FONTS = {
     ("music", "recorder", "display", "device"): [
         "font  gl_r_ic36   fa-solid-900.ttf    36  0xf185 0xf2db 0xf538 0xf2c9 0xf130 0xf028 0xf004 0xf04b 0xf04c   # the apps' icons"],
     "music": ["font  gl_r_t56    GoogleSansFlex.ttf  56  latin punct \"é\"  @wght=620,wdth=104,ROND=100   # Music: the title"],
-    ("music", "video"): ["font  gl_r_n24    GoogleSansFlex.ttf  24  digits \":\" @wght=660,ROND=100   # Music, Video: the time"],
+    ("music", "video", "radio"): ["font  gl_r_n24    GoogleSansFlex.ttf  24  digits \":\" @wght=660,ROND=100   # Music, Video, Radio: the time"],
     "video": ["font  gl_r_v24    GoogleSansFlex.ttf  24  digits latin punct @wght=620,wdth=104,ROND=100   # Video: the tiles' titles",
               "font  gl_r_n21    GoogleSansFlex.ttf  21  digits \":\" @wght=660,ROND=100   # Video: the tiles' lengths",
               "font  gl_r_n26    GoogleSansFlex.ttf  26  digits \":\" @wght=660,ROND=100   # Video: the clock",
@@ -404,6 +432,23 @@ RECT_APP_FONTS = {
     "device": ["font  gl_r_n110   GoogleSansFlex.ttf  110  digits \"%.,°−-\" @wght=660,ROND=100   # About: the big number",
                "font  gl_r_n36    GoogleSansFlex.ttf  36  digits punct \"KBdg\" @wght=660,ROND=100   # About: the list's values"],
 }
+# A small rectangle (a passport's "compact": the WT32-SC01 Plus, 320 x 480 either way up) shows a rectangle's screens at
+# 0.7 of their size (face.h: RK): the same fonts, under the same names, made at 0.7 of their sizes — and one more of its
+# own, the line under a card's title (the watch's 20 px would be as big as the title here)
+COMPACT_K = 0.7
+COMPACT_FONTS = ["font  gl_c_t14    GoogleSansFlex.ttf  14  latin punct  @wght=620,wdth=104,ROND=100   # the line under a card's title"]
+
+
+def compact_fonts(lines):
+    """A rectangle's font lines at a small rectangle's sizes (COMPACT_K; none under 10 px)."""
+    return [re.sub(r"^(font\s+\S+\s+\S+\s+)(\d+)(?=\s)", lambda m: m.group(1) + str(max(10, round(int(m.group(2)) * COMPACT_K))), line)
+            for line in lines]
+
+
+def is_compact(board):
+    return bool(passport(board).get("compact"))
+
+
 # The round board's apps of its own (shade_round.h): only in a firmware with them; the page's engine — always (build.sh)
 ROUND_APP_FONTS = {
     # The quick settings panel (Wear OS 6): Font Awesome's wifi, volume-xmark, clock, power-off, lock, volume-high, minus,
@@ -420,6 +465,16 @@ ROUND_APP_FONTS["radio"] = [  # the Radio (radio.h): names and songs from anywhe
     f"font  gl_ra_t20   GoogleSansFlex.ttf  20  {RADIO_LETTERS} @wght=620,wdth=104,ROND=100 +else=Nunito.ttf:700   # Radio: the song, the cards' lines",
     f"font  gl_ra_t14   GoogleSansFlex.ttf  14  {RADIO_LETTERS} @wght=620,wdth=104,ROND=100 +else=Nunito.ttf:700   # Radio: the small words",
     "font  gl_ra_ic24  fa-solid-900.ttf    24  0xf004 0xf06d 0xf001 0xf0ac 0xf130 0xf04b 0xf04d 0xf0c9 0xf028   # Radio: icons"]
+# A rectangle's Radio (radio_rect.h, variant 10 of web/mockups/radio-touch.html — two knobs, as on a radio set): the
+# station, the song and the logos' letters, the names under the scale, the knobs' words, the band keys; Font Awesome's
+# heart, backward-step, forward-step, play, stop
+RECT_APP_FONTS["radio"] = [
+    f"font  gl_rr_n48   GoogleSansFlex.ttf  48  digits {RADIO_LETTERS} @wght=620,wdth=104,ROND=100 +else=Nunito.ttf:700   # Radio: the station",
+    f"font  gl_rr_t24   GoogleSansFlex.ttf  24  digits {RADIO_LETTERS} @wght=620,wdth=104,ROND=100 +else=Nunito.ttf:700   # Radio: the song, the logos' letters",
+    f"font  gl_rr_t18   GoogleSansFlex.ttf  18  digits {RADIO_LETTERS} @wght=620,wdth=104,ROND=100 +else=Nunito.ttf:700   # Radio: the names under the scale",
+    "font  gl_rr_t15   GoogleSansFlex.ttf  15  \"VOLUMETNIG\" @wght=620,wdth=104,ROND=100   # Radio: the knobs' words",
+    f"font  gl_rr_t12   GoogleSansFlex.ttf  12  digits {RADIO_LETTERS} @wght=620,wdth=104,ROND=100 +else=Nunito.ttf:700   # Radio: the band keys",
+    "font  gl_rr_ic48  fa-solid-900.ttf    48  0xf004 0xf048 0xf051 0xf04b 0xf04d   # Radio: the buttons' icons"]
 RADIO_KINDS, RADIO_ICONS = ("fav", "top", "tag", "cc"), ("heart", "fire", "note", "mic", "globe")
 RADIO_MAX_STATIONS, RADIO_MAX_FOLDERS = 16, 16
 TEXT_LEN = 40  # (engine/studio_api.h has room for 40 bytes)
@@ -432,6 +487,12 @@ CHARS = {"date": 'digits "ABCDEFGHIJKLMNOPQRSTUVWXYZ, "', "clock": 'digits ":-"'
 # The Radio's parts: names and songs from anywhere in the world (Cyrillic — Nunito's: RADIO_WORDS), the button's word
 CHARS.update({"rtime": 'digits ":"', "rname": f"digits {RADIO_LETTERS}", "rsong": f"digits {RADIO_LETTERS}",
               "rbtn": "digits latin punct"})
+# The weather widgets (wxwidgets.h): the main font's letters; the second font's (size2) — WXW_SMALL
+CHARS.update({"wxdigits": 'digits "°-"', "wxcurve": 'digits "°-"', "wxbaro": '"ACDEFGHILMNORSTVY "',
+              "wxwear": '"ABCDEFGHIJKLMNOPQRSTUVWXYZ "', "wxbuddy": 'digits "°-"', "wxpixel": '"ACDILNOPRSTUWY "',
+              "wxweek": 'digits "°-"'})
+WXW_SMALL = {"wxdigits": "digits latin punct", "wxcurve": "digits latin", "wxbaro": 'digits "°-hPa "',
+             "wxwear": "digits latin punct", "wxbuddy": '"z"', "wxweek": "latin punct"}
 RADIO_WORDS = ("rname", "rsong")
 # On a rectangle two kinds say more (wxscreen_rect.h): the sky in words beside the high/low, "Now" and "2 PM" under the chart
 CHARS_RECT = {**CHARS, "wxhilo": 'latin "°"', "hourly": 'digits "NowAPM :"'}
@@ -440,10 +501,18 @@ CHARS_RECT["forecast"] = 'digits "°-"'  # (the degrees; the hours — its secon
 PILL_FONT = {"weather": (48 * 1.2, 700), "hourly": (23 * 1.2, 700), "steps": (48 * 1.2, 700)}
 STEPS_ICON = (34, 0xF54B)  # the Steps pill's shoe: Font Awesome's shoe-prints, px at size 1
 WEATHER_ICONS = ("partly", "sun", "cloud", "rain")  # in the order of WX_PARTLY ... (weather.h)
+WX5_ICONS = WEATHER_ICONS + ("snow",)  # the weather widgets' small ones (wxwidgets.h: WX_SNOW)
+WEAR_ICONS = ("jacket", "glasses", "hoodie", "umbrella", "hat")  # what to wear (wxwidgets.h: WG_JACKET …)
+
+
+def icon_names(iset):
+    """The icons of a set, in their order."""
+    return WEAR_ICONS if iset == "wear" else WX5_ICONS if iset == "wx5" else WEATHER_ICONS
 LIMITS = {"size": (8, 300, int), "weight": (1, 1000, int), "width": (25, 151, int), "spacing": (-30, 60, int),
           "scale": (0.3, 3, float), "radius": (60, 260, float), "dx": (-500, 500, float), "dy": (-500, 500, float),
           "goal": (100, 100000, int), "count": (10, 200, int), "twinkle": (0, 3, float), "meteors": (0, 30, float),
-          "angle": (-180, 180, float), "rainbow": (1, 5, float), "gap": (40, 330, int), "span": (2, 466, int), "span2": (2, 466, int)}
+          "angle": (-180, 180, float), "rainbow": (1, 5, float), "gap": (40, 330, int), "span": (2, 466, int), "span2": (2, 466, int),
+          "size2": (8, 120, int)}
 
 
 SPARKLES = {"off": 0, "around": 1, "screen": 2}  # what is around a pixel art picture (pixelart.h: p2)
@@ -455,12 +524,14 @@ def new_layer(kind, n=0):
     return layer
 
 
-def default_project(board="amoled175"):
+def default_project(board="amoled175", way=None):
     """A new project (6 Nov 2026, the user's word): an empty watch face — a black screen, nothing on it — and the
     Functions off (FUNCTIONS): its first Load is the base Live needs; what the watch shows is added like Lego."""
-    return {"format": "popkastudio/2", "board": board,
-            "screens": [{"id": "face", "name": passport(board).get("home", "Watch face"), "x": 0, "y": 0, "layers": [],
-                         "face": "blankface"}]}
+    project = {"format": "popkastudio/2", "board": board,
+               "screens": [{"id": "face", "name": passport(board).get("home", "Watch face"), "x": 0, "y": 0, "layers": [],
+                            "face": "blankface"}]}
+    way = orientation_of({"board": board, "orientation": way})
+    return {**project, "orientation": way} if way else project
 
 
 def halowatch_project():
@@ -490,6 +561,8 @@ def migrate(project):
         layers = project.pop("face", {}).get("layers", [])
         project["screens"] = [{"id": "face", "name": "Watch face", "x": 0, "y": 0, "layers": layers}]
         project["format"] = "popkastudio/2"
+    if is_rect(project.get("board")):  # (a rectangle's Radio is one screen of one layer: radio_rect.h)
+        return project
     for scr in project.get("screens", []):  # (a Radio screen of one layer, before 13 Nov 2026: its parts over it)
         layers = scr.get("layers") if isinstance(scr, dict) else None
         if not isinstance(layers, list) or not any(isinstance(l, dict) and l.get("type") == "radio" for l in layers) \
@@ -554,6 +627,9 @@ def clean_layer(raw):
         layer["format"] = DEFAULTS[kind]["format"]
     if "icon" in layer and layer["icon"] not in ICONS:
         layer["icon"] = DEFAULTS[kind]["icon"]
+    for key in ("lines", "clock"):  # (the weather widgets' switches)
+        if key in layer:
+            layer[key] = bool(layer[key])
     if kind == "radio":
         layer["stations"], layer["folders"] = clean_stations(raw.get("stations")), clean_folders(raw.get("folders"))
     tap = layer["tap"]
@@ -699,6 +775,12 @@ def kind_of(wmo):
     return 3  # rain: drizzle, rain, showers, thunder
 
 
+def snow_of(wmo):
+    """Snow (its kind is cloud: the other screens have four icons; weather.h: wx_snow_of — the same)."""
+    wmo = int(wmo if wmo is not None else 3)
+    return 71 <= wmo <= 77 or wmo in (85, 86)
+
+
 def fetch_json(url):
     req = urllib.request.Request(url, headers={"User-Agent": "PopkaStudio"})
     with urllib.request.urlopen(req, timeout=8) as r:
@@ -732,14 +814,16 @@ wx_cache = {}  # (cities' places, units) -> (when, the answer)
 
 def weather_for(cities, units):
     """What each city's weather is now — the fields the board asks for itself (wxfetch.h): now, feels like, today's
-    high and low, the sky now and for the next WX_AHEAD hours (kinds); cached for 10 minutes."""
+    high and low, the sky now and for the next WX_AHEAD hours (kinds) and their temperatures; for the weather widgets —
+    the pressure now and by the hour, snow, the next WX_DAYS days; cached for 10 minutes."""
     key = (tuple((c["lat"], c["lon"]) for c in cities), units)
     if key in wx_cache and time.time() - wx_cache[key][0] < 600:
         return wx_cache[key][1]
     url = ("http://api.open-meteo.com/v1/forecast?latitude=" + ",".join(f"{c['lat']:.4f}" for c in cities)
            + "&longitude=" + ",".join(f"{c['lon']:.4f}" for c in cities)
-           + "&current=temperature_2m,apparent_temperature,weather_code&hourly=weather_code,temperature_2m"
-           + f"&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=2&forecast_hours={WX_AHEAD}"
+           + "&current=temperature_2m,apparent_temperature,weather_code,pressure_msl"
+           + "&hourly=weather_code,temperature_2m,pressure_msl&daily=weather_code,temperature_2m_max,temperature_2m_min"
+           + f"&timezone=auto&forecast_days={WX_DAYS}&forecast_hours={WX_AHEAD}"
            + "&timeformat=unixtime" + ("&temperature_unit=fahrenheit" if units == "F" else ""))
     d = fetch_json(url)
     d = d if isinstance(d, list) else [d]
@@ -752,7 +836,14 @@ def weather_for(cities, units):
                     "lo": rnd((daily.get("temperature_2m_min") or [None])[0]),
                     "k": kind_of(cur.get("weather_code")), "t0": (hourly.get("time") or [0])[0],
                     "hk": [kind_of(w) for w in (hourly.get("weather_code") or [])][:WX_AHEAD],
-                    "ht": [rnd(v) for v in (hourly.get("temperature_2m") or [])][:WX_AHEAD]})
+                    "ht": [rnd(v) for v in (hourly.get("temperature_2m") or [])][:WX_AHEAD],
+                    "p": rnd(cur.get("pressure_msl")), "s": int(snow_of(cur.get("weather_code"))),
+                    "hp": [rnd(v) for v in (hourly.get("pressure_msl") or [])][:WX_AHEAD],
+                    "hs": sum(1 << j for j, w in enumerate((hourly.get("weather_code") or [])[:WX_AHEAD]) if snow_of(w)),
+                    "dk": [kind_of(w) for w in (daily.get("weather_code") or [])][:WX_DAYS],
+                    "dhi": [rnd(v) for v in (daily.get("temperature_2m_max") or [])][:WX_DAYS],
+                    "dlo": [rnd(v) for v in (daily.get("temperature_2m_min") or [])][:WX_DAYS],
+                    "ds": sum(1 << j for j, w in enumerate((daily.get("weather_code") or [])[:WX_DAYS]) if snow_of(w))})
     wx_cache[key] = (time.time(), out)
     return out
 
@@ -767,6 +858,7 @@ def write_wxdata(project, folder):
         except Exception:  # noqa: BLE001 — no internet: "--" until the board gets its own
             pass
     num = lambda v: "WX_NONE" if v is None else str(v)  # noqa: E731
+    more = any(layer.get("type") in WXW for scr in project.get("screens", []) for layer in scr.get("layers", []))
     h = ["// Generated by PopkaStudio (studio.py) from the editor's project — do not edit by hand.",
          "// The cities (the Weather screen's pages; the first — the watch face's pill too) with the weather the editor had",
          "// at Flash (Open-Meteo); with Wi-Fi the board asks for fresh weather itself (wxfetch.h).",
@@ -775,8 +867,14 @@ def write_wxdata(project, folder):
     for c, d in zip(wx["cities"], data):
         hk = ", ".join(str(k) for k in d.get("hk", []))
         ht = ", ".join(num(v) for v in (d.get("ht", []) + [None] * WX_AHEAD)[:WX_AHEAD])  # (unknown — WX_NONE, not 0°)
+        hp = ", ".join(str(0 if v is None else min(255, max(1, v - 900))) for v in d.get("hp", []))  # (hPa − 900; 0 — unknown)
+        days = lambda key, f: ", ".join(f(v) for v in (d.get(key, []) + [None] * WX_DAYS)[:WX_DAYS])  # noqa: E731
+        dk = days("dk", lambda v: str(2 if v is None else v))
+        extra = (f", {num(d.get('p'))}, {{{hp}}}, {d.get('s', 0)}, {d.get('hs', 0)}u, {{{dk}}}, {{{days('dhi', num)}}}, "
+                 f"{{{days('dlo', num)}}}, {d.get('ds', 0)}") if more else ""  # (the weather widgets': weather.h WX_MORE)
         h.append(f"    {{{c_string(c['name'])}, {c['lat']}f, {c['lon']}f, {num(d.get('now'))}, {num(d.get('feels'))}, "
-                 f"{num(d.get('hi'))}, {num(d.get('lo'))}, {WX_KINDS[d.get('k', 2)]}, {d.get('t0', 0)}u, {{{hk}}}, {{{ht}}}}},  // {c['where']}")
+                 f"{num(d.get('hi'))}, {num(d.get('lo'))}, {WX_KINDS[d.get('k', 2)]}, {d.get('t0', 0)}u, {{{hk}}}, {{{ht}}}"
+                 f"{extra}}},  // {c['where']}")
     h.append("};")
     with open(os.path.join(folder, "wxdata.h"), "w", encoding="utf-8") as f:
         f.write("\n".join(h) + "\n")
@@ -1202,6 +1300,8 @@ def font2_spec(layer, rect=False):
         return f"fa-solid-900.ttf  {int(layer['size'] * 0.95 + 0.5)}  0xf0d8 0xf0d7"
     if layer["type"] == "infoline" and layer.get("format") == "icons":  # (the shoe in the line)
         return f"fa-solid-900.ttf  {int(layer['size'] * 0.95 + 0.5)}  0x{STEPS_ICON[1]:04x}"
+    if layer["type"] in WXW_SMALL:  # (the weather widgets' small words)
+        return f"GoogleSansFlex.ttf  {layer['size2']}  {WXW_SMALL[layer['type']]}  @wght=620,wdth=104,ROND=100"
     if layer["type"] == "rname":  # (a long name: three lines, smaller — as 32 px is to 52)
         small = dict(layer, size=max(8, round(layer["size"] * 32 / 52)))
         return font_spec(small, rect)
@@ -1228,6 +1328,11 @@ def icon_set(layer, rect=False):
         return None
     if kind == "forecast":  # (the hourly pill's small ones)
         return ("small", float(layer["scale"]))
+    if kind in ("wxcurve", "wxweek"):  # (the small ones, and snow)
+        return ("wx5", float(layer["scale"]))
+    if kind == "wxwear":  # (what to wear: a jacket, sunglasses, a hoodie, an umbrella, a hat; on the 7-inch board bigger
+        # beside the clock, smaller in a row — wxwidgets.h)
+        return ("wear", round(float(layer["scale"]) * ((1.4 if layer.get("look") != "band" else 0.95) if rect else 1), 4))
     if kind == "infoline":  # (with icons: as tall as its letters)
         return ("small", round(layer["size"] / 22, 2)) if layer.get("format") == "icons" else None
     return (ICON_SETS[kind], float(layer["scale"])) if kind in ICON_SETS else None
@@ -1244,10 +1349,12 @@ def make_icons(iset, scale, folder, prefix):
                 gi.FACE_SCALE = 1.2 * scale  # gen_icons.FACE_SCALE: HaloWatch's face is 1.2x the mockup
             elif iset == "big":
                 target = round(gi.digit_band("w_now") * scale)
-            for kind in WEATHER_ICONS:
+            for kind in icon_names(iset):
                 path = os.path.join(folder, f"{prefix}_{kind}.png")
                 if iset == "face":
                     gi.face_icon(kind, path)
+                elif iset == "wear":
+                    gi.wear_icon_img(kind, scale).save(path)
                 else:
                     make = gi.icon_img if kind == "partly" else lambda sc, kind=kind: gi.weather_icon_img(kind, sc)
                     if iset == "big":
@@ -1326,7 +1433,7 @@ def cached(key, make):
 
 
 # ---------- A layer's numbers on the board: what Load writes into layers.h and Live sends (live.h) ----------
-C3_KINDS = ("steps", "weekarc", "dotclock", "infoline", "stchart", "sclock", "rrays")  # those that have a third color (FaceLayer.color3)
+C3_KINDS = ("steps", "weekarc", "dotclock", "infoline", "stchart", "sclock", "rrays", "wxbaro", "wxpixel", "wxweek")  # those that have a third color (FaceLayer.color3)
 
 
 def layer_numbers(layer):
@@ -1362,6 +1469,12 @@ def layer_numbers(layer):
         p2 = RADIO_WHAT.index(layer["what"])
     elif kind == "rrays":  # the equalizer's sides
         p2 = RADIO_SIDES.index(layer["sides"])
+    elif kind == "wxdigits":  # the lines under the digits: 0 — shown, 1 — the digits alone
+        p2 = 0 if layer.get("lines", True) else 1
+    elif kind == "wxpixel":  # the time over it
+        p2 = 1 if layer.get("clock", True) else 0
+    if kind in WXLOOKS:  # its layout on the 7-inch board
+        p3 = WXLOOKS[kind].index(layer["look"]) if layer.get("look") in WXLOOKS[kind] else 0
     color = lambda key: int(layer.get(key, "#000000")[1:], 16)
     p = next((layer[key] for key in ("goal", "count", "radius", "angle", "gap", "span") if key in layer), 0)
     return {"dx": layer["dx"], "dy": layer["dy"], "k": layer.get("scale", 1), "c": color("color"), "c2": color("color2"),
@@ -1409,8 +1522,8 @@ def write_sketch(project, folder, meta=None):
     os.makedirs(os.path.join(folder, "assets"), exist_ok=True)
     if os.path.abspath(folder) != os.path.abspath(FIRMWARE):
         for name in ("PopkaWatch.ino", "face.h", "weather.h", "wxscreen.h", "gallery.h", "wxscreen_rect.h", "gallery_rect.h", "player_rect.h", "recorder_rect.h", "settings_rect.h", "device_rect.h", "game_dots_rect.h", "power.h", "steps.h", "stars.h",
-                     "pixelart.h", "parrot.h", "bt.h", "wxfetch.h", "settings.h", "stepscreen.h", "widgets.h", "widgets_rect.h",
-                     "music.h", "player.h", "sound.h", "volume.h", "recorder.h", "radio.h", "radio_net.h", "video.h", "video_hw.h", "video_net.h", "snake.h", "games.h", "game_dots.h",
+                     "pixelart.h", "parrot.h", "bt.h", "wxfetch.h", "settings.h", "stepscreen.h", "widgets.h", "widgets_rect.h", "wxwidgets.h",
+                     "music.h", "player.h", "sound.h", "volume.h", "recorder.h", "radio.h", "radio_net.h", "radio_rect.h", "video.h", "video_hw.h", "video_net.h", "snake.h", "games.h", "game_dots.h",
                      "game_space.h", "game_iso.h", "live.h", "device.h", "hello.h", "wifiscan.h", "shade_rect.h", "shade_round.h",
                      "sclock.h"):
             shutil.copy(os.path.join(FIRMWARE, name), os.path.join(folder, name))
@@ -1436,11 +1549,13 @@ def write_sketch(project, folder, meta=None):
         conf.append(f"font  {name}  {spec}   # {used}")
     conf += GALLERY_FONTS
     if rect:
-        conf += RECT_FONTS
+        small = is_compact(project.get("board"))
+        fit = compact_fonts if small else (lambda lines: lines)
+        conf += fit(RECT_FONTS) + (COMPACT_FONTS if small else [])
         for kinds, lines in RECT_APP_FONTS.items():
             kinds = kinds if isinstance(kinds, tuple) else (kinds,)
             if any(layer["type"] in kinds for layer in all_layers):
-                conf += lines
+                conf += fit(lines)
     else:  # (the round board's own: only with their layer; not in the template — the page's engine builds them itself)
         for kind, lines in ROUND_APP_FONTS.items():
             if any(layer["type"] == kind or (kind == "radio" and (layer["type"] in RADIO_PARTS or layer["type"] in dict(RADIO_SCREENS))) for layer in all_layers):
@@ -1519,7 +1634,9 @@ def write_sketch(project, folder, meta=None):
            "#pragma once", f"#define FN_WIFI {1 if wifi else 0}", f"#define FN_BT {1 if fn['bt']['on'] and not radio else 0}",
            f"#define TZ {c_string(ZONES[tm['zone']])}  // {tm['zone']}", f"#define CLOCK_24H {1 if tm['h24'] else 0}",
            "// The clocks of sixteen looks (sclock.h): a bit a look the project has (none — not in the firmware)",
-           f"#define FN_SCLOCK 0x{sum(1 << SC_NAMES.index(look) for look in {layer['look'] for layer in all_layers if layer['type'] == 'sclock'}):04X}"]
+           f"#define FN_SCLOCK 0x{sum(1 << SC_NAMES.index(look) for look in {layer['look'] for layer in all_layers if layer['type'] == 'sclock'}):04X}",
+           "// The weather widgets (wxwidgets.h): a bit a widget the project has, from wxdigits (none — not in the firmware)",
+           f"#define FN_WXW 0x{sum(1 << WXW.index(k) for k in {layer['type'] for layer in all_layers} if k in WXW):02X}"]
     if meta is not None:  # (a Load: who this firmware is — the board's answer to hello, hello.h)
         pid = str(meta.get("pid") or "")
         cfg += ["// Who this firmware is: the board's answer to hello (hello.h) — the editor tells its own boards",
@@ -1540,8 +1657,8 @@ def write_sketch(project, folder, meta=None):
     elif os.path.exists(net):
         os.remove(net)
     for (iset, scale), name in icons.items():
-        h.append(f"static const HaloImage *const {name}[4] = {{" +
-                 ", ".join(f"&{name}_{k}" for k in WEATHER_ICONS) + "};")
+        h.append(f"static const HaloImage *const {name}[{len(icon_names(iset))}] = {{" +
+                 ", ".join(f"&{name}_{k}" for k in icon_names(iset)) + "};")
     # Live (live.h): what this firmware has — for the page to send each layer's numbers to its place and to tell what
     # only a Load brings: the shape; each screen's id and its layers' ids, kinds and keys (live_key)
     live_map = ";".join(f"{scr['id']}=" + ",".join(f"{layer['id']}:{KINDS[layer['type']]}:{live_key(layer, i == 0, rect)}"
@@ -1610,22 +1727,43 @@ def engine_sources():
     return [f for f in files if os.path.isfile(f)]
 
 
+def empp_env():
+    """Where Emscripten is: on the PATH, or the copy in .tools/emsdk (a developer's own) -> the environment to run it in
+    (None — there is none)."""
+    if shutil.which("em++"):
+        return dict(os.environ)
+    sdk = os.path.join(ROOT, ".tools", "emsdk")
+    if not os.path.exists(os.path.join(sdk, "upstream", "emscripten", "em++")):
+        return None
+    return {**os.environ, "PATH": os.path.join(sdk, "upstream", "emscripten") + os.pathsep + os.environ.get("PATH", ""),
+            "EM_CONFIG": os.path.join(sdk, ".emscripten"), "EMSDK": sdk}
+
+
 def build_engine(board, force=False):
+    """The page's engine of one board, one way up (a passport from variants()). -> False: there is none and nothing to
+    build it with."""
     out = os.path.join(WEB, board["engine"], "PopkaWatch.wasm")
+    env = empp_env()
     if not force and os.path.exists(out) and installed_copy():
-        return  # (an installed copy: the engine came with the release — rebuilt here it would differ from git's, and the
+        return True  # (an installed copy: the engine came with the release — rebuilt here it would differ from git's, and the
                 # update would see PopkaStudio's own files changed; found on a test update, 6 Nov 2026)
     if not force and os.path.exists(out):
         newest = max(os.path.getmtime(f) for f in engine_sources())
         if os.path.getmtime(out) >= newest:
-            return
-        if not shutil.which("em++"):  # (no Emscripten: the engine that came with PopkaStudio — only a developer rebuilds it)
-            return
-    if not shutil.which("em++"):
-        sys.exit(f"The page's engine is missing ({os.path.relpath(out, ROOT)}) and Emscripten (em++) is not installed "
-                 "to build it: get PopkaStudio again (git pull / install.sh), or install Emscripten.")
-    print(f"building the page's engine for {board['short']} (engine/build.sh) …", flush=True)
-    subprocess.run([os.path.join(HERE, "engine/build.sh"), board["id"]], check=True, env={**os.environ, "PY": PY})
+            return True
+        if not env:  # (no Emscripten: the engine that came with PopkaStudio — only a developer rebuilds it)
+            return True
+    if not env:  # (one board without its engine does not stop the others: it is shown as not ready)
+        print(f"The page's engine is missing ({os.path.relpath(out, ROOT)}) and Emscripten (em++) is not installed "
+              f"to build it: {board['short']} is off. Get PopkaStudio again (git pull / install.sh), or install Emscripten.",
+              flush=True)
+        return False
+    print(f"building the page's engine for {board['short']}{' (' + board['way'] + ')' if board.get('way') else ''} (engine/build.sh) …",
+          flush=True)
+    fonts = "round" if board.get("shape") == "round" else "compact" if board.get("compact") else "rect"
+    subprocess.run([os.path.join(HERE, "engine/build.sh"), board["id"], board["engine"], fonts,
+                    *board.get("engine_defines", board.get("defines", []))], check=True, env={**env, "PY": PY})
+    return True
 
 
 # ---------- Updates (6 Nov 2026): a newer PopkaStudio on GitHub — what changed since this one, and the update ----------
@@ -1812,6 +1950,42 @@ BOARDS = sorted((json.load(open(p, encoding="utf8")) for p in glob.glob(os.path.
 
 def passport(board):
     return next((b for b in BOARDS if b["id"] == board), BOARDS[0])
+
+
+def known_board(board):
+    return any(b["id"] == board for b in BOARDS)
+
+
+# A board whose screen is used either way up (its passport's "orientations": each one — what it changes in the passport:
+# w, h, engine, defines, looks…) is, for everything that builds, one board per way: a project picks the way when it is
+# made ("orientation"), and each way has its own firmware build and its own engine of the page.
+def orientation_of(project):
+    """The way up a project's screen is: its own, if its board has it; else the board's first (None — one way only)."""
+    p = passport((project or {}).get("board"))
+    ways = p.get("orientations") or {}
+    way = (project or {}).get("orientation")
+    return way if way in ways else p.get("orientation") if p.get("orientation") in ways else next(iter(ways), None)
+
+
+def variant(board, way=None):
+    """A board's passport for one way up: the passport with that way's changes over it ("looks", "places", "moves" —
+    key by key). A board with one way — the passport itself."""
+    p = passport(board)
+    over = (p.get("orientations") or {}).get(way)
+    if not over:
+        return p
+    out = {**p, **over}
+    for k in ("looks", "places", "moves"):
+        if k in p and k in over:
+            out[k] = {**p[k], **over[k]}
+    out["way"] = way
+    return out
+
+
+def variants(board):
+    """Every way up a board is built for: [(way or None, its passport)]."""
+    ways = board.get("orientations") or {}
+    return [(w, variant(board["id"], w)) for w in ways] or [(None, board)]
 
 
 def usb_ports():
@@ -2265,11 +2439,23 @@ def chip_fqbn(port, board):
     return (p["fqbn"].replace(*swap), "-v3") if int(m.group(1)) >= 3 else (p["fqbn"], "")
 
 
-def load_commands(port, board="amoled175"):
-    """How a board's firmware is built and written: its passport's fqbn; each board its own build folder."""
+def build_defines(board, way=None):
+    """What names a board to the compiler (its passport's "defines"): a chip family with more than one board is not told
+    by the chip (lib/Halo/src/halo_board.h). Both of the core's lists are empty by default — nothing of its own is lost."""
+    flags = " ".join(f"-D{d}" for d in variant(board, way).get("defines", []))
+    return ["--build-property", f"compiler.cpp.extra_flags={flags}", "--build-property", f"compiler.c.extra_flags={flags}"] if flags else []
+
+
+def load_commands(port, board="amoled175", way=None):
+    """How a board's firmware is built and written: its passport's fqbn; each board (and each way up) its own build folder."""
+    if not known_board(board):  # (the name goes into a folder's path)
+        raise RuntimeError("No such board")
     fqbn, tail = chip_fqbn(port, board)
-    cli, out = arduino_cli(), os.path.join(ROOT, "build", ("PopkaWatch" if board == "amoled175" else f"PopkaWatch-{board}") + tail)
-    return [[cli, "compile", "--fqbn", fqbn, "--libraries", os.path.join(ROOT, "lib"), "--build-path", out, SKETCH],
+    # (the board's first way up keeps the folder it always had: a wide 7-inch project builds where it did before Tall came)
+    first = way == passport(board).get("orientation")
+    name = "PopkaWatch" if board == "amoled175" else f"PopkaWatch-{board}" + (f"-{way}" if way and not first else "")
+    cli, out = arduino_cli(), os.path.join(ROOT, "build", name + tail)
+    return [[cli, "compile", "--fqbn", fqbn, *build_defines(board, way), "--libraries", os.path.join(ROOT, "lib"), "--build-path", out, SKETCH],
             [cli, "upload", "--fqbn", fqbn, "-p", port, "--input-dir", out, SKETCH]]
 
 
@@ -2451,7 +2637,7 @@ def flash_steps(project, port, meta=None):
         there = next((p.get("model") for p in boards.status() if p["port"] == port), "")
         if there and there != board:  # (known by its hello or from last time: a minute of compiling saved, the chip stays safe)
             raise RuntimeError(f"This project is for {passport(board)['short']}, the connected board is {passport(there)['short']}")
-        for cmd in load_commands(port, board):
+        for cmd in load_commands(port, board, orientation_of(project)):
             proc = subprocess.Popen(cmd, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
             for line in proc.stdout:
                 m = re.search(r"Writing at 0x[0-9a-f]+ (?:\[[^\]]*\]\s+|\.*\s*\()([\d.]+)\s*%", line)
@@ -2549,11 +2735,11 @@ def list_projects():
             continue
         thumb = project_path(pid, ".png")
         out.append({"id": pid, "name": project_name(pid, data), "board": data.get("board", "amoled175"),
-                    "edited": os.path.getmtime(path), "thumb": os.path.getmtime(thumb) if os.path.exists(thumb) else 0})
+                    "orientation": orientation_of(data), "edited": os.path.getmtime(path), "thumb": os.path.getmtime(thumb) if os.path.exists(thumb) else 0})
     return sorted(out, key=lambda p: -p["edited"])
 
 
-def new_project(board, name=""):
+def new_project(board, name="", way=None):
     """A new project for the board: HaloWatch's watch face, under the name given (none — Project 1, 2, …) -> its id:
     the name in small Latin letters and dashes (none of them — project-N), made unique."""
     with project_lock:
@@ -2569,7 +2755,7 @@ def new_project(board, name=""):
         pid, n = base, 2
         while pid in ids or os.path.exists(project_path(pid)):
             pid, n = f"{base}-{n}", n + 1
-        write_project(pid, {**default_project(board), "name": name, "rev": 0})
+        write_project(pid, {**default_project(board, way), "name": name, "rev": 0})
         return pid
 
 
@@ -2654,7 +2840,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if url.path == "/api/projects":
             return self.send(200, {"projects": list_projects()})
         if url.path == "/api/default":
-            return self.send(200, default_project((urllib.parse.parse_qs(url.query).get("board") or ["amoled175"])[0]))
+            board = (q.get("board") or ["amoled175"])[0]
+            if not known_board(board):
+                return self.send(400, {"error": "no such board"})
+            return self.send(200, default_project(board, (q.get("orientation") or [None])[0]))
         if url.path == "/api/wifi":
             return self.send(200, wifi_info())
         if url.path == "/api/geo":  # ?q= a city or a US ZIP
@@ -2796,7 +2985,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     return self.send(400, {"error": "no font"})
                 return self.send(200, cached(("font", spec), lambda: font_blob(spec)), "application/octet-stream")
             if url.path == "/api/icons":  # {"type": the layer's kind, "scale"; the info line: "size", "format"}
-                iset = icon_set(clean_layer({k: data[k] for k in ("type", "scale", "size", "format") if k in data}
+                iset = icon_set(clean_layer({k: data[k] for k in ("type", "scale", "size", "format", "look") if k in data}
                                             | {"type": data.get("type", "weather")}) or {"type": ""}, is_rect(data.get("board")))
                 if not iset:
                     return self.send(400, {"error": "no icons"})
@@ -2811,7 +3000,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     board = data.get("board")
                     if not any(b["id"] == board and not b.get("soon") for b in BOARDS):
                         return self.send(400, {"error": "no such board"})
-                    return self.send(200, {"id": new_project(board, data.get("name", "")), "projects": list_projects()})
+                    return self.send(200, {"id": new_project(board, data.get("name", ""), data.get("orientation")),
+                                           "projects": list_projects()})
                 return self.send(200, {"projects": list_projects()})
             if url.path == "/api/weather":  # {"cities": [{lat, lon, name}], "units"} — what the page's copies show
                 wx = clean_weather({"weather": data})
@@ -2865,6 +3055,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 threading.Thread(target=backup_job, args=(port,), daemon=True).start()
                 return self.send(200, {"id": job["id"]})
             if url.path == "/api/flash":  # {"project", "port", "pid", "rev"}
+                if not isinstance(data.get("project"), dict) or not known_board(data["project"].get("board") or "amoled175"):
+                    return self.send(400, {"error": "no such board"})
                 if passport((data.get("project") or {}).get("board")).get("load") is False:
                     return self.send(409, {"error": "This board can't be loaded yet"})
                 port = data.get("port") or next((p["port"] for p in usb_ports()), "")
@@ -2915,6 +3107,10 @@ def main():
         with open(sys.argv[sys.argv.index("--rect-conf") + 1], "w", encoding="utf-8") as f:
             f.write("\n".join(RECT_FONTS + [line for lines in RECT_APP_FONTS.values() for line in lines]) + "\n")
         return
+    if "--compact-conf" in sys.argv:  # (engine/build.sh: a small rectangle's — the same, at its sizes, and its own)
+        with open(sys.argv[sys.argv.index("--compact-conf") + 1], "w", encoding="utf-8") as f:
+            f.write("\n".join(compact_fonts(RECT_FONTS + [line for lines in RECT_APP_FONTS.values() for line in lines]) + COMPACT_FONTS) + "\n")
+        return
     if "--round-conf" in sys.argv:  # (engine/build.sh: the round board's own, beyond the template's)
         with open(sys.argv[sys.argv.index("--round-conf") + 1], "w", encoding="utf-8") as f:
             f.write("\n".join(line for lines in ROUND_APP_FONTS.values() for line in lines) + "\n")
@@ -2922,8 +3118,12 @@ def main():
     if "--template" in sys.argv:
         print(write_sketch(halowatch_project(), FIRMWARE))
         return
+    only = sys.argv[sys.argv.index("--build") + 1:] if "--build" in sys.argv else []  # (--build [ID…]: these boards only)
     for b in BOARDS:
-        build_engine(b, force="--build" in sys.argv)
+        if only and b["id"] not in only:
+            continue
+        if not all([build_engine(v, force="--build" in sys.argv) for _, v in variants(b)]):
+            b["soon"] = True  # (no engine for its page: the start window shows it, a project can't be made)
     if "--build" in sys.argv:
         return
     global PORT, PROJECTS

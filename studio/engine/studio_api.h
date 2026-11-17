@@ -27,7 +27,7 @@ static std::vector<const HaloFont *> st_fonts;
 static std::vector<const HaloImage *const *> st_icons;
 static char st_text[ST_SCREENS][ST_LAYERS][3][40];  // the gallery's text: the title, the line under it, the icon
 static char st_name[ST_SCREENS][40];                // the screens' names (an empty one shows its name)
-static float st_boxes[ST_LAYERS * 4], st_places[ST_LAYERS * 2], st_bases[FL_RVOLUME * 2 + 2], st_radii[ST_LAYERS * 2];
+static float st_boxes[ST_LAYERS * 4], st_places[ST_LAYERS * 2], st_bases[FL_WXWEEK * 2 + 2], st_radii[ST_LAYERS * 2];
 static int st_pin = -1, st_page = 0;
 
 void web_loop(HaloUpdate update, HaloDraw draw);  // halo_web.cpp
@@ -97,9 +97,11 @@ EMSCRIPTEN_KEEPALIVE int studio_font(const uint8_t *blob, int len) {
 // their slot, -1 — not icons
 EMSCRIPTEN_KEEPALIVE int studio_icons(const uint8_t *blob, int len) {
   Reader r{blob, blob + len};
-  if (r.get<uint32_t>() != 0x534D4948 || r.get<uint32_t>() != 4) return -1;  // "HIMS", 4 images
-  const HaloImage **set = new const HaloImage *[4];
-  for (int i = 0; i < 4; i++) {
+  if (r.get<uint32_t>() != 0x534D4948) return -1;  // "HIMS", 4 images (the weather widgets' sets: 5)
+  const int n = (int)r.get<uint32_t>();
+  if (n != 4 && n != 5) return -1;
+  const HaloImage **set = new const HaloImage *[5]();
+  for (int i = 0; i < n; i++) {
     HaloImage *im = new HaloImage();
     im->w = r.get<int16_t>(), im->h = r.get<int16_t>();
     const uint32_t npx = r.get<uint32_t>(), nal = r.get<uint32_t>(), next = r.get<uint32_t>();
@@ -211,7 +213,9 @@ EMSCRIPTEN_KEEPALIVE const char *studio_city(int p) {
 }
 
 // The weather (the editor's cities and what studio.py got from Open-Meteo — the same the board gets):
-// {"c": [{"n": name, "now", "feels", "hi", "lo", "k": kind, "t0", "hk": [kinds an hour]}]} — a city without numbers
+// {"c": [{"n": name, "now", "feels", "hi", "lo", "k": kind, "t0", "hk": [kinds an hour], "ht": [degrees an hour], "p": hPa,
+// "hp": [hPa an hour], "s": snow now, "hs": snow an hour (bits), "dk", "dhi", "dlo": the days, "ds": their snow (bits)}]} —
+// a city without numbers
 // yet ("now" missing) shows "--"
 EMSCRIPTEN_KEEPALIVE void studio_weather(const char *json) {
   JsonDocument doc;
@@ -228,6 +232,17 @@ EMSCRIPTEN_KEEPALIVE void studio_weather(const char *json) {
     JsonArrayConst hk = c["hk"].as<JsonArrayConst>(), ht = c["ht"].as<JsonArrayConst>();
     for (int j = 0; j < WX_AHEAD; j++) w.hk[j] = j < (int)hk.size() ? (uint8_t)(hk[j] | 0) : w.kind;
     for (int j = 0; j < WX_AHEAD; j++) w.ht[j] = j < (int)ht.size() && !ht[j].isNull() ? (int16_t)(ht[j] | 0) : WX_NONE;
+#if WX_MORE  // (the weather widgets: the pressure now and by the hour, snow, the next days — wxwidgets.h)
+    w.pres = c["p"] | (int)WX_NONE, w.snow = c["s"] | 0, w.hsnow = c["hs"] | 0u, w.dsnow = c["ds"] | 0;
+    JsonArrayConst hp = c["hp"].as<JsonArrayConst>(), dk = c["dk"].as<JsonArrayConst>();
+    JsonArrayConst dhi = c["dhi"].as<JsonArrayConst>(), dlo = c["dlo"].as<JsonArrayConst>();
+    for (int j = 0; j < WX_AHEAD; j++) w.hp[j] = j < (int)hp.size() && !hp[j].isNull() ? (uint8_t)constrain((hp[j] | 900) - 900, 1, 255) : 0;
+    for (int j = 0; j < WX_DAYS; j++) {
+      w.dk[j] = j < (int)dk.size() ? (uint8_t)(dk[j] | 2) : w.kind;
+      w.dhi[j] = j < (int)dhi.size() && !dhi[j].isNull() ? (int16_t)(dhi[j] | 0) : WX_NONE;
+      w.dlo[j] = j < (int)dlo.size() && !dlo[j].isNull() ? (int16_t)(dlo[j] | 0) : WX_NONE;
+    }
+#endif
   }
   wx_pages = n ? n : 1;
   st_page = st_page_asked;
@@ -330,6 +345,9 @@ EMSCRIPTEN_KEEPALIVE float *studio_bases() {
   for (int k = FL_RTIME; k <= FL_RPLAY; k++) radio_part_base(k, st_bases[k * 2], st_bases[k * 2 + 1]);  // (radio.h)
 #endif
   for (int k = FL_RBROWSE; k <= FL_RVOLUME; k++) st_bases[k * 2] = st_bases[k * 2 + 1] = CX;  // (the Radio's other screens)
+#if HAS_WXW
+  for (int k = FL_WXDIGITS; k <= FL_WXWEEK; k++) ww_base(k, 0, st_bases[k * 2], st_bases[k * 2 + 1]);  // (wxwidgets.h: the first layout)
+#endif
   for (int k = FL_SNKDOTS; k <= FL_SNKISO; k++) st_bases[k * 2] = st_bases[k * 2 + 1] = CX;
 #if HAS_STEPSCR
   const float st[4][2] = {{CX, SS_NUM_Y}, {CX, SS_CAP_Y}, {CX, SS_FOOT_Y}, {SS_CX, SS_CY}};  // the Steps screen's parts

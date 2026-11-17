@@ -9,6 +9,74 @@
 //   Dot clock   (T3) — lit dots only, 5 x 7, and each dot fades as a digit changes.
 // Included from widgets.h when HALO_ROUND is not defined.
 
+#ifdef HALO_COMPACT  // a small rectangle (320 × 480 either way up): the same widgets by its own width and height
+#define WR_WIDE (HALO_W > HALO_H)
+#define WR_WEEK_X0 (WR_WIDE ? 42.0f : 26.0f)
+#define WR_WEEK_STEP ((HALO_W - 2 * WR_WEEK_X0) / 6)
+#define WR_WEEK_LET_Y (HALO_H - 82.0f)
+#define WR_WEEK_NUM_Y (HALO_H - 50.0f)
+#define WR_WEEK_CAP_Y (HALO_H - 60.0f)
+#define WR_WEEK_CAP_W (WR_WIDE ? 50.0f : 38.0f)
+#define WR_WEEK_CAP_H 80.0f
+#define WR_WEEK_CAP_R 15.0f
+#define WR_INFO_Y (HALO_H * 0.8f)
+#define WR_FC_N 5
+#define WR_FC_X0 (WR_WIDE ? 60.0f : 38.0f)
+#define WR_FC_STEP ((HALO_W - 2 * WR_FC_X0) / 4)
+#define WR_FC_BOX_X (WR_FC_X0 - 10)
+#define WR_FC_BOX_Y (HALO_H * 0.66f)
+#define WR_FC_BOX_W (WR_WIDE ? 380 : 264)
+#define WR_FC_BOX_H 60
+#define WR_FC_TOP 14.0f
+#define WR_FC_BOTTOM 46.0f
+#define WR_FC_RANGE 3.0f
+#define WR_FC_HOUR_Y (WR_FC_BOX_Y + 78)
+#define WR_FC_ICON_DX -15.0f    // the sky's icon from the hour's dot
+#define WR_FC_ICON_DY -19.0f
+#define WR_FC_DEG_DX 1.0f       // and the degrees
+#define WR_FC_DEG_DY -18.0f
+#define WR_FC_DOT_R 4.5f
+#define WR_FC_LINE 1.5f         // half the line's thickness
+#define WR_FRAME_CY CY
+#define WR_FRAME_W (WR_WIDE ? 320.0f : 264.0f)
+#define WR_FRAME_TEXT 21.0f
+#define WR_FRAME_LINE 2.0f
+#define WR_FRAME_GAP 120.0f
+#define WR_DOT_CY CY
+#elif defined(HALO_P4_TALL)  // the 7″ board held tall (600 × 1024): the 7″ sizes, the rows along the bottom under the clock
+#define WR_WEEK_X0 48.0f
+#define WR_WEEK_STEP ((HALO_W - 2 * WR_WEEK_X0) / 6)
+#define WR_WEEK_LET_Y (HALO_H - 167.0f)
+#define WR_WEEK_NUM_Y (HALO_H - 100.0f)
+#define WR_WEEK_CAP_Y (HALO_H - 119.0f)
+#define WR_WEEK_CAP_W 74.0f
+#define WR_WEEK_CAP_H 166.0f
+#define WR_WEEK_CAP_R 30.0f
+#define WR_INFO_Y (HALO_H - 260.0f)
+#define WR_FC_N 5
+#define WR_FC_X0 72.0f
+#define WR_FC_STEP ((HALO_W - 2 * WR_FC_X0) / 4)
+#define WR_FC_BOX_X (WR_FC_X0 - 20)
+#define WR_FC_BOX_Y (HALO_H - 330.0f)
+#define WR_FC_BOX_W 496
+#define WR_FC_BOX_H 120
+#define WR_FC_TOP 26.0f
+#define WR_FC_BOTTOM 94.0f
+#define WR_FC_RANGE 3.0f
+#define WR_FC_HOUR_Y (WR_FC_BOX_Y + 158)
+#define WR_FC_ICON_DX -32.0f
+#define WR_FC_ICON_DY -38.0f
+#define WR_FC_DEG_DX 2.0f
+#define WR_FC_DEG_DY -37.0f
+#define WR_FC_DOT_R 9.0f
+#define WR_FC_LINE 2.5f
+#define WR_FRAME_CY (RH_CLOCK_Y + 18)  // (as on the wide screen: the frame 18 px under the clock's middle)
+#define WR_FRAME_W 524.0f
+#define WR_FRAME_TEXT 41.0f
+#define WR_FRAME_LINE 3.0f
+#define WR_FRAME_GAP 285.0f
+#define WR_DOT_CY RH_CLOCK_Y
+#else
 #define WR_WEEK_X0 104.0f
 #define WR_WEEK_STEP 136.0f
 #define WR_WEEK_LET_Y 433.0f
@@ -16,6 +84,7 @@
 #define WR_WEEK_CAP_Y 481.0f
 #define WR_WEEK_CAP_W 120.0f
 #define WR_WEEK_CAP_H 166.0f
+#define WR_WEEK_CAP_R 34.0f
 #define WR_INFO_Y 483.0f
 #define WR_FC_N 5
 #define WR_FC_X0 132.0f         // the first hour
@@ -28,10 +97,19 @@
 #define WR_FC_BOTTOM 94.0f      // and the coldest's
 #define WR_FC_RANGE 3.0f        // degrees: a flat day stays a flat line
 #define WR_FC_HOUR_Y 554.0f
+#define WR_FC_ICON_DX -32.0f    // the sky's icon from the hour's dot
+#define WR_FC_ICON_DY -38.0f
+#define WR_FC_DEG_DX 2.0f       // and the degrees
+#define WR_FC_DEG_DY -37.0f
+#define WR_FC_DOT_R 9.0f
+#define WR_FC_LINE 2.5f         // half the line's thickness
 #define WR_FRAME_CY 300.0f
 #define WR_FRAME_W 524.0f
 #define WR_FRAME_TEXT 41.0f     // the words' middle from their line
+#define WR_FRAME_LINE 3.0f      // the lines' thickness
+#define WR_FRAME_GAP 285.0f     // between the lines, when the layer does not say
 #define WR_DOT_CY 300.0f
+#endif
 #define WR_DOT_FADE 17          // of 255, a tick: a dot lights or dims in a quarter of a second
 #define WR_ICON_UP "\xEF\x83\x98"    // Font Awesome: caret-up, caret-down
 #define WR_ICON_DOWN "\xEF\x83\x97"
@@ -93,7 +171,7 @@ static bool wgr_fc_bake(HaloMask &m, const float *t) {
   for (int y = 0; y < h; y++) ext[2 * y] = 1, ext[2 * y + 1] = 0;
   float lo, to_y;
   wgr_fc_range(t, lo, to_y);
-  const float x0 = WR_FC_X0 - WR_FC_BOX_X, span = WR_FC_STEP * (WR_FC_N - 1), half = 2.5f;
+  const float x0 = WR_FC_X0 - WR_FC_BOX_X, span = WR_FC_STEP * (WR_FC_N - 1), half = WR_FC_LINE;
   for (int x = (int)x0; x <= (int)(x0 + span); x++) {
     float dv;
     const float v = rw_spline(t, WR_FC_N, (x - x0) * (WR_FC_N - 1) / span, &dv);
@@ -157,7 +235,7 @@ static bool wgr_layout(const FaceScreen &S, int i, float a, const HaloView &v0) 
       }
       HaloItem &cap = R.g[14];
       cap.kind = HI_RRECT, cap.x = WR_WEEK_X0 + (today < 0 ? 0 : today) * WR_WEEK_STEP, cap.y = WR_WEEK_CAP_Y, cap.w = WR_WEEK_CAP_W, cap.h = WR_WEEK_CAP_H;
-      cap.r = 34, cap.scale = 1, cap.color = L.color3, cap.alpha = today < 0 ? 0 : a, cap.on_black = true, cap.on = nullptr;
+      cap.r = WR_WEEK_CAP_R, cap.scale = 1, cap.color = L.color3, cap.alpha = today < 0 ? 0 : a, cap.on_black = true, cap.on = nullptr;
       halo_view_commit(cap, v);
       const uint32_t dark = ((L.color3 >> 16 & 255) / 5) << 16 | ((L.color3 >> 8 & 255) / 5) << 8 | (L.color3 & 255) / 5;
       for (int j = 0; j < 7; j++) {
@@ -226,11 +304,11 @@ static bool wgr_layout(const FaceScreen &S, int i, float a, const HaloView &v0) 
         else snprintf(wg_s[j], 24, "%d %cM", h % 12 ? h % 12 : 12, h < 12 ? 'A' : 'P');
         if (L.font2) wx_text(R.g[j], *L.font2, wg_s[j], R.top, 1, x, WR_FC_HOUR_Y, 1, L.color2, a, &halo_black, L.spacing), halo_view_commit(R.g[j], v);
         const HaloImage *im = L.icons ? L.icons[(c.t0 ? c.hk[k] : d.kind) & 3] : nullptr;
-        if (im) image_at(R.g[5 + j], *im, x - 32, y - 38, 1, a), halo_view_commit(R.g[5 + j], v);
+        if (im) image_at(R.g[5 + j], *im, x + WR_FC_ICON_DX, y + WR_FC_ICON_DY, 1, a), halo_view_commit(R.g[5 + j], v);
         wx_deg(wg_s[5 + j], 24, known ? (int16_t)deg[j] : d.now);
-        wg_text(R.g[10 + j], *L.font, wg_s[5 + j], R.mid, x + 2, y - 37, L.color, a, L.spacing, v, 0);
+        wg_text(R.g[10 + j], *L.font, wg_s[5 + j], R.mid, x + WR_FC_DEG_DX, y + WR_FC_DEG_DY, L.color, a, L.spacing, v, 0);
         HaloItem &dot = R.g[15 + j];
-        dot.kind = HI_CIRCLE, dot.x = x, dot.y = y, dot.r = 9, dot.scale = 1, dot.color = L.color3, dot.alpha = known ? a : 0, dot.on_black = true, dot.on = nullptr;
+        dot.kind = HI_CIRCLE, dot.x = x, dot.y = y, dot.r = WR_FC_DOT_R, dot.scale = 1, dot.color = L.color3, dot.alpha = known ? a : 0, dot.on_black = true, dot.on = nullptr;
         halo_view_commit(dot, v);
       }
       HaloItem &m = R.g[20];
@@ -243,7 +321,7 @@ static bool wgr_layout(const FaceScreen &S, int i, float a, const HaloView &v0) 
     }
     case FL_DATEFRAME: {
       if (!L.font) break;
-      const float half = (L.p > 0 ? L.p : 285) / 2;
+      const float half = (L.p > 0 ? L.p : WR_FRAME_GAP) / 2;
       snprintf(wg_s[0], 24, "%s", ok ? WEEKDAY_FULL[t.tm_wday] : "---");
       if (ok) snprintf(wg_s[1], 24, "%s %d", MONTH_FULL[t.tm_mon], t.tm_mday);
       else snprintf(wg_s[1], 24, "---");
@@ -251,7 +329,7 @@ static bool wgr_layout(const FaceScreen &S, int i, float a, const HaloView &v0) 
       wg_text(R.g[3], *L.font, wg_s[1], R.mid, CX, WR_FRAME_CY + half + WR_FRAME_TEXT, L.color, a, L.spacing, v);
       for (int j = 1; j <= 2; j++) {
         HaloItem &l = R.g[j];
-        l.kind = HI_RRECT, l.x = CX, l.y = WR_FRAME_CY + (j == 1 ? -half : half), l.w = WR_FRAME_W, l.h = 3, l.r = 1.5f, l.scale = 1;
+        l.kind = HI_RRECT, l.x = CX, l.y = WR_FRAME_CY + (j == 1 ? -half : half), l.w = WR_FRAME_W, l.h = WR_FRAME_LINE, l.r = WR_FRAME_LINE / 2, l.scale = 1;
         l.color = L.color2, l.alpha = a, l.on_black = true, l.on = nullptr;
         halo_view_commit(l, v);
       }

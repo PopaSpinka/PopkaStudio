@@ -10,7 +10,7 @@
 // on a layer with a link, HaloWatch's transition, back with a swipe up from the bottom edge; the gallery (a swipe up on
 // the face), its cards, the Android 16 transition, back with a swipe from the left edge.
 import { BOARD, TW, TH, ROUND, lacks } from './screen.js';
-import { state, KIND_INDEX, FX, KINDS, ICONS, TAPS, RADIO_LINKED, fnOf, timeOf, zoneShift, citiesOf, weatherOf, CLOCK_LOOKS, clockLook } from './state.js';
+import { state, KIND_INDEX, FX, KINDS, ICONS, TAPS, RADIO_LINKED, fnOf, timeOf, zoneShift, citiesOf, weatherOf, CLOCK_LOOKS, clockLook, WXLOOKS } from './state.js';
 
 const PERIOD = 1000 / 60;
 // Pictures put on the page since it opened (all copies): the overlay draws again only after one (a layer's box may have
@@ -37,11 +37,13 @@ const NO_FONT = new Set(['wxicon', 'dots', 'parrot', 'stchart', 'stepring', 'bat
 const scKey = (l, n) => (clockLook(l)[4] > n ? `font${n + 1}|sclock|${l.look}|${l.scale}` : null);
 export const fontKey = (l) => (l.type === 'sclock' ? scKey(l, 0) : NO_FONT.has(l.type) || KINDS[l.type].fixed ? null
   : PILLS.has(l.type) ? `font|${l.type}|${l.scale}` : `font|${l.type}|${l.size}|${l.weight}|${l.width}`);
+const WXW_SMALL = new Set(['wxdigits', 'wxcurve', 'wxbaro', 'wxwear', 'wxbuddy', 'wxweek']);  // (the weather widgets' small words)
 const font2Key = (l) => (l.type === 'sclock' ? scKey(l, 1) : l.type === 'steps' ? `font2|steps|${l.scale}`  // the Steps pill's shoe, the info line's
+  : WXW_SMALL.has(l.type) ? `font2|${l.type}|${l.size2}`
   : l.type === 'rname' ? `font2|rname|${l.size}|${l.weight}|${l.width}`  // (the Radio's long name: smaller, in three lines)
   : l.type === 'infoline' && l.format === 'icons' ? `font2|infoline|${l.size}`
   : !ROUND && (l.type === 'weekarc' || l.type === 'forecast') ? `font2|${l.type}|${l.size}` : null);
-const iconsKey = (l) => ((WX_ICONS.has(l.type) && (ROUND || l.type !== 'hourly')) || l.type === 'forecast' ? `icons|${l.type}|${l.scale}`
+const iconsKey = (l) => ((WX_ICONS.has(l.type) && (ROUND || l.type !== 'hourly')) || l.type === 'forecast' || ['wxcurve', 'wxweek'].includes(l.type) ? `icons|${l.type}|${l.scale}` : l.type === 'wxwear' ? `icons|wxwear|${l.scale}|${l.look}`
   : l.type === 'infoline' && l.format === 'icons' ? `icons|infoline|${l.size}` : null);
 // What a layer's p2 and p3 are (studio.py writes the same into layers.h)
 const CURVE_I = ['weekday', 'shortdate', 'daymonth', 'weather', 'steps', 'datesteps', 'battery', 'city'], INFO_I = ['words', 'short', 'icons'];
@@ -51,8 +53,10 @@ const P2 = { curve: (l) => CURVE_I.indexOf(l.what), stepring: (l) => l.radius, i
   shade: (l) => Math.max(0, ['full', 'dual', 'corner', 'strip', 'wear'].indexOf(l.look)),  // (shade_rect.h: its look; the round board's one — shade_round.h)
   sclock: (l) => Math.max(0, CLOCK_LOOKS.findIndex(([k]) => k === l.look)),  // (sclock.h: its look)
   rname: (l) => l.span2 ?? l.span ?? 0,  // (the station's top line: its width)
-  rbtn: (l) => (l.what === 'volume' ? 1 : 0), rrays: (l) => Math.max(0, ['both', 'left', 'right'].indexOf(l.sides)) };  // (radio.h)
+  rbtn: (l) => (l.what === 'volume' ? 1 : 0), rrays: (l) => Math.max(0, ['both', 'left', 'right'].indexOf(l.sides)),  // (radio.h)
+  wxdigits: (l) => (l.lines === false ? 1 : 0), wxpixel: (l) => (l.clock === false ? 0 : 1) };  // (wxwidgets.h)
 const P3 = { curve: (l) => l.angle, weekarc: (l) => l.angle ?? 0, forecast: (l) => l.angle ?? 0 };
+for (const k of Object.keys(WXLOOKS)) P3[k] = (l) => Math.max(0, WXLOOKS[k].findIndex(([v]) => v === l.look));  // (wxwidgets.h: the layout)
 
 // The network the board's Wi-Fi joins (studio.py: the one picked in the Wi-Fi window) — for the quick settings panel's
 // Wi-Fi tile; asked once, and again when Wi-Fi is switched on
@@ -274,11 +278,11 @@ export class Engine {
           if (font4 === undefined) font4 = was.font4;
         }
         if (iconsKey(l)) {
-          icons = this.slot('icons', iconsKey(l), { type: l.type, scale: l.scale, size: l.size, format: l.format, board: BOARD.id });
+          icons = this.slot('icons', iconsKey(l), { type: l.type, scale: l.scale, size: l.size, format: l.format, look: l.look, board: BOARD.id });
           if (icons === undefined) icons = was.icons;
         }
         if (font2Key(l)) {
-          font2 = this.slot('font', font2Key(l), { type: l.type, scale: l.scale, size: l.size, weight: l.weight, width: l.width, format: l.format, look: l.look, part: 'icon', board: BOARD.id });
+          font2 = this.slot('font', font2Key(l), { type: l.type, scale: l.scale, size: l.size, size2: l.size2, weight: l.weight, width: l.width, format: l.format, look: l.look, part: 'icon', board: BOARD.id });
           if (font2 === undefined) font2 = was.font2;
         }
         this.applied.set(l.id, { font, icons, font2, font3, font4 });

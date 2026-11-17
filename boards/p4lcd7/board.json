@@ -21,6 +21,9 @@
   "shape": "rect",
   "px": "le",
   "engine": "build/p4lcd7",
+  "engine_defines": [
+    "HALO_WEB_BOARD_P4"
+  ],
   "fqbn": "esp32:esp32:esp32p4:ChipVariant=prev3,PSRAM=enabled,USBMode=hwcdc,CDCOnBoot=cdc,FlashSize=32M,FlashMode=qio,FlashFreq=80,PartitionScheme=app13M_data7M_32MB,UploadSpeed=921600",
   "home": "Home",
   "faces_name": "Home",
@@ -45,6 +48,7 @@
     "device",
     "music",
     "recorder",
+    "radio",
     "video",
     "shade",
     "snkdots",
@@ -58,7 +62,14 @@
     "sclock",
     "stars",
     "parrot",
-    "feels"
+    "feels",
+    "wxdigits",
+    "wxcurve",
+    "wxbaro",
+    "wxwear",
+    "wxbuddy",
+    "wxpixel",
+    "wxweek"
   ],
   "screens": [
     "face",
@@ -180,6 +191,36 @@
       "weight": 620,
       "width": 104,
       "color": "#FFF8EE"
+    },
+    "wxdigits": {
+      "size": 260,
+      "size2": 24
+    },
+    "wxcurve": {
+      "size": 28,
+      "size2": 16,
+      "scale": 0.85
+    },
+    "wxbaro": {
+      "size": 16,
+      "size2": 28
+    },
+    "wxwear": {
+      "size": 38,
+      "size2": 26
+    },
+    "wxbuddy": {
+      "size": 38,
+      "size2": 26
+    },
+    "wxpixel": {
+      "size": 20,
+      "spacing": 4
+    },
+    "wxweek": {
+      "size": 26,
+      "size2": 20,
+      "scale": 0.9
     }
   },
   "music_at": 26279936,
@@ -209,6 +250,279 @@
     },
     "dotclock": {
       "hidden": true
+    },
+    "wxdigits": {
+      "side": {
+        "dx": -250,
+        "dy": 18,
+        "size": 170
+      }
+    },
+    "wxcurve": {
+      "band": {
+        "dy": -97,
+        "size": 150
+      },
+      "side": {
+        "dx": -250,
+        "dy": 4,
+        "size": 150
+      }
+    },
+    "wxbaro": {
+      "side": {
+        "dx": -250,
+        "dy": -12,
+        "size": 150
+      },
+      "band": {
+        "dy": -100,
+        "size": 150
+      }
+    },
+    "wxwear": {
+      "side": {
+        "dx": -230,
+        "dy": 18,
+        "size": 170
+      },
+      "band": {
+        "dy": -96,
+        "size": 150
+      }
+    },
+    "wxbuddy": {
+      "side": {
+        "dx": -230,
+        "dy": 18,
+        "size": 170
+      },
+      "peek": {
+        "dy": -86,
+        "size": 160
+      }
+    },
+    "wxpixel": {
+      "whole": {
+        "hidden": true
+      },
+      "band": {
+        "dx": -82,
+        "dy": -106,
+        "size": 150
+      }
+    },
+    "wxweek": {
+      "band": {
+        "dy": -110,
+        "size": 150
+      },
+      "side": {
+        "dx": -250,
+        "dy": 4,
+        "size": 150
+      }
+    }
+  },
+  "orientation": "landscape",
+  "orientations": {
+    "landscape": {
+      "name": "Wide",
+      "sub": "1024 × 600"
+    },
+    "portrait": {
+      "name": "Tall",
+      "sub": "600 × 1024",
+      "w": 600,
+      "h": 1024,
+      "screen": "600 × 1024",
+      "engine": "build/p4lcd7-tall",
+      "defines": [
+        "HALO_P4_TALL"
+      ],
+      "engine_defines": [
+        "HALO_WEB_BOARD_P4",
+        "HALO_P4_TALL"
+      ],
+      "without": [
+        "raise",
+        "shift",
+        "pwr",
+        "video"
+      ],
+      "looks": {
+        "dotclock": {
+          "scale": 1.6
+        },
+        "sclock": {
+          "scale": 0.5
+        },
+        "wxdigits": {
+          "size": 290,
+          "spacing": -8,
+          "size2": 24
+        },
+        "wxcurve": {
+          "size": 28,
+          "size2": 24,
+          "scale": 0.75
+        },
+        "wxbaro": {
+          "size": 16,
+          "size2": 28
+        },
+        "wxwear": {
+          "size": 42,
+          "size2": 26,
+          "scale": 1.36
+        },
+        "wxbuddy": {
+          "size": 38,
+          "size2": 20
+        },
+        "wxpixel": {
+          "size": 20,
+          "spacing": 4
+        },
+        "wxweek": {
+          "size": 22,
+          "size2": 20,
+          "scale": 0.75
+        }
+      },
+      "places": {
+        "parrot": {
+          "dx": -160,
+          "dy": -200
+        }
+      },
+      "moves": {
+        "weekarc": {},
+        "infoline": {},
+        "forecast": {},
+        "parrot": {},
+        "wxdigits": {
+          "side": {
+            "dy": -190,
+            "size": 170
+          },
+          "band": {
+            "dy": 398,
+            "size": 150
+          }
+        },
+        "wxcurve": {
+          "band": {
+            "dy": -204,
+            "size": 150
+          },
+          "side": {
+            "dy": -218,
+            "size": 150
+          }
+        },
+        "wxbaro": {
+          "side": {
+            "dy": -220,
+            "size": 150
+          },
+          "band": {
+            "dy": -190,
+            "size": 150
+          }
+        },
+        "wxwear": {
+          "side": {
+            "dy": -200,
+            "size": 160
+          },
+          "band": {
+            "dy": -110,
+            "size": 170
+          }
+        },
+        "wxbuddy": {
+          "side": {
+            "dy": -200,
+            "size": 160
+          },
+          "peek": {
+            "dy": -140,
+            "size": 170
+          }
+        },
+        "wxpixel": {
+          "whole": {
+            "hidden": true
+          },
+          "band": {
+            "dy": -218,
+            "size": 150
+          }
+        },
+        "wxweek": {
+          "band": {
+            "dy": -218,
+            "size": 150
+          },
+          "side": {
+            "dy": -218,
+            "size": 150
+          }
+        }
+      },
+      "wxlooks": {
+        "wxdigits": {
+          "side": {
+            "name": "Clock first"
+          },
+          "band": {
+            "name": "Temperature first",
+            "size": 330,
+            "spacing": -9
+          }
+        },
+        "wxcurve": {
+          "band": {
+            "name": "Across"
+          },
+          "side": {
+            "name": "Upright"
+          }
+        },
+        "wxwear": {
+          "side": {
+            "name": "Under the clock"
+          },
+          "band": {
+            "name": "In a row",
+            "size": 34
+          }
+        },
+        "wxbuddy": {
+          "side": {
+            "name": "Under the clock"
+          },
+          "peek": {}
+        },
+        "wxpixel": {
+          "whole": {},
+          "band": {
+            "size": 16,
+            "spacing": 3
+          }
+        },
+        "wxweek": {
+          "band": {
+            "name": "Seven columns"
+          },
+          "side": {
+            "name": "Seven rows",
+            "size": 26,
+            "size2": 22
+          }
+        }
+      }
     }
   },
   "chip_v3": [

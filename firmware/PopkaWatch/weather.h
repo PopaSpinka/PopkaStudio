@@ -7,6 +7,14 @@
 #define WX_HOURS 3   // the hourly pill: this hour and the next two
 #define WX_AHEAD 24  // hours of forecast kept: the pill picks the ones from this hour on
 #define WX_NONE INT16_MIN  // no number yet: "--"
+#define WX_DAYS 7    // days of forecast kept, today first (the weather widgets' Week ahead: wxwidgets.h; 5 on the watch)
+// The weather widgets' numbers (wxwidgets.h): only in a firmware with one of them (FN_WXW, config.h), always in the
+// page's engines (both boards: the 7-inch one has them since 15 Nov 2026) — another firmware's weather stays as it was
+#if defined(__EMSCRIPTEN__) || (defined(FN_WXW) && FN_WXW)
+#define WX_MORE 1
+#else
+#define WX_MORE 0
+#endif
 
 enum : uint8_t { WX_PARTLY, WX_SUN, WX_CLOUD, WX_RAIN };
 // What the screens show of a city now
@@ -26,6 +34,18 @@ struct WxCity {
   uint32_t t0;  // the first forecast hour (unix time; 0 — no forecast)
   uint8_t hk[WX_AHEAD];
   int16_t ht[WX_AHEAD];  // the temperature of each of those hours (WX_NONE — not known; the face's Forecast widget)
+#if WX_MORE
+  // For the weather widgets (wxwidgets.h, 14 Nov 2026): the pressure now (hPa) and of each hour (hPa − 900; 0 — not
+  // known), snow (the sky's kind says cloud: the other screens have four icons) now and in each hour (bit j), and the
+  // next WX_DAYS days from today: the sky, the high and the low, snow (bit j)
+  int16_t pres;
+  uint8_t hp[WX_AHEAD];
+  uint8_t snow;
+  uint32_t hsnow;
+  uint8_t dk[WX_DAYS];
+  int16_t dhi[WX_DAYS], dlo[WX_DAYS];
+  uint8_t dsnow;
+#endif
 };
 
 // HaloWatch's fictional days (demo, wx N)
@@ -43,6 +63,9 @@ static inline uint8_t wx_kind_of(int wmo) {
   if (wmo == 2) return WX_PARTLY;
   if (wmo == 3 || wmo == 45 || wmo == 48 || (wmo >= 71 && wmo <= 77) || wmo == 85 || wmo == 86) return WX_CLOUD;  // (snow too)
   return WX_RAIN;  // drizzle, rain, showers, thunder
+}
+static inline bool wx_snow_of(int wmo) {  // snow (its kind is WX_CLOUD)
+  return (wmo >= 71 && wmo <= 77) || wmo == 85 || wmo == 86;
 }
 
 #include "wxdata.h"  // WXD_N, WXD_F and wx_city[] — the editor's cities and their weather at Flash

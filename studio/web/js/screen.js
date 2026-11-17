@@ -8,7 +8,18 @@ const ask = (url) => fetch(url, { cache: 'no-store' }).then((r) => r.json());
 const [{ boards }, { projects }] = await Promise.all([ask('/api/boards'), ask('/api/projects')]);
 const project = projects.find((p) => p.id === saved) || projects[0];
 
-export const BOARD = boards.find((b) => b.id === (project?.board || 'amoled175')) || boards[0];
+// A board whose screen is used either way up (its passport's "orientations"): the project's way laid over the passport —
+// its w, h, engine, looks… — so everything below reads one board, as before (studio.py: variant)
+export function boardFor(b, way) {
+  const over = b?.orientations?.[way];
+  if (!over) return b;
+  const out = { ...b, ...over, way };
+  for (const k of ['looks', 'places', 'moves']) if (b[k] && over[k]) out[k] = { ...b[k], ...over[k] };
+  return out;
+}
+const base = boards.find((b) => b.id === (project?.board || 'amoled175')) || boards[0];
+export const BOARD = boardFor(base, project?.orientation);
+export const WAY = BOARD.way || null;  // which way up (null — a board with one way)
 export const TW = BOARD.w, TH = BOARD.h;  // the screen on the map and in the engine, board pixels
 export const CX = TW / 2, CY = TH / 2;
 export const ROUND = BOARD.shape === 'round';

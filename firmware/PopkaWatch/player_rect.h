@@ -2,12 +2,39 @@
 // square of the track's own colour, drawn by this code; at the right the title, the artist, a time line that can be dragged
 // and one row of buttons round the watch's big wave button. The sound, the tracks and every animation are player.h's; only
 // where the parts stand and the cover are this board's. Included from player.h in place of its round layout.
+// The 7″ board held tall (HALO_P4_TALL, 600 x 1024: variant 8A of web/mockups/rect-tall.html) — the same parts stacked:
+// the cover on top, the title and the artist centred under it, the time line and the row of five buttons under them.
 
+#ifdef HALO_P4_TALL
+#define PR_COVER_X 60.0f
+#define PR_COVER_Y 72.0f
+#define PR_COVER_S 480.0f
+#define PR_COVER_R 36.0f
+#define PR_NOTE_D 192       // the cover's note, px (0.4 of the cover)
+#define PR_TEXT_X (CX - PL_TITLE_W / 2)  // the title's and the artist's place: centred in it (a longer title — the marquee)
+#define PR_TEXT_MID 1
+#define PR_TITLE_Y 612.0f   // the middle of the letters
+#define PR_ARTIST_Y 664.0f
+#define PR_LINE_X 32.0f
+#define PR_LINE_W 536.0f
+#define PR_LINE_Y 720.0f
+#define PR_TIME_Y 758.0f
+#define PR_BTN_Y 880.0f
+#define PR_VOL_X 64.0f
+#define PR_PREV_X 170.0f
+#define PR_BIG_X 300.0f
+#define PR_NEXT_X 430.0f
+#define PR_LIKE_X 536.0f
+#define PR_BIG_HIT 86.0f    // the big button's reach (prev / next stand closer to it)
+#define PR_BIG_K 1.0f       // the watch's button at this board's size
+#else
 #define PR_COVER_X 48.0f
 #define PR_COVER_Y 90.0f
 #define PR_COVER_S 420.0f
 #define PR_COVER_R 36.0f
+#define PR_NOTE_D 170
 #define PR_TEXT_X 510.0f
+#define PR_TEXT_MID 0
 #define PR_TITLE_Y 137.0f   // the middle of the letters
 #define PR_ARTIST_Y 196.0f
 #define PR_LINE_X 510.0f
@@ -20,10 +47,12 @@
 #define PR_BIG_X 748.0f
 #define PR_NEXT_X 880.0f
 #define PR_LIKE_X 966.0f
+#define PR_BIG_HIT 90.0f
+#define PR_BIG_K 1.06f      // the watch's button at this board's size
+#endif
 #define PR_SIDE_W 84.0f
 #define PR_SIDE_H 100.0f
 #define PR_SMALL_R 36.0f
-#define PR_BIG_K 1.06f      // the watch's button at this board's size
 #define PR_CARD 0x2D3236    // the small buttons, the track of the line
 #define PR_ACC 0xD9C2F0     // the line, the knob
 #define PR_ICON_VOL "\xEF\x80\xA8"
@@ -45,10 +74,10 @@ static struct {
   float x0, y0, x1, y1, r;
 } PRC;
 
-// The cover's note: drawn once at start into a mask (the icon of the mockup, a 24-px design at 7 x)
+// The cover's note: drawn once at start into a mask (the icon of the mockup, a 24-px design at 7 x; tall — 8 x)
 static void pr_build() {
   pr_mid_n = halo_text_mid(gl_r_n24, "0123456789"), pr_mid_ic = halo_text_mid(gl_r_ic36, PR_ICON_VOL);
-  const int D = 170, bpr = (D + 1) / 2;
+  const int D = PR_NOTE_D, bpr = (D + 1) / 2;
   uint8_t *bits = (uint8_t *)heap_caps_calloc(D * bpr + D * 2, 1, MALLOC_CAP_SPIRAM);
   if (!bits) return;
   uint8_t *ext = bits + D * bpr;
@@ -89,7 +118,7 @@ static void player_update(float dt) {
     pl_armed = pl_small_armed = -1, pr_line = false;
     const float dx = f.x0 - PR_BIG_X, dy = f.y0 - PR_BTN_Y;
     const bool row = fabsf(dy) < 58;
-    if (dx * dx + dy * dy < 90 * 90) pl_armed = 1;
+    if (dx * dx + dy * dy < PR_BIG_HIT * PR_BIG_HIT) pl_armed = 1;
     else if (row && fabsf(f.x0 - PR_PREV_X) < 50) pl_armed = 0;
     else if (row && fabsf(f.x0 - PR_NEXT_X) < 50) pl_armed = 2;
     else if (row && fabsf(f.x0 - PR_VOL_X) < 44) pl_small_armed = 0;
@@ -272,7 +301,11 @@ static void pr_texts(float alpha) {
   const HaloView &v = pl_v;
   const float xa = halo_view_x(v, PR_TEXT_X), xb = halo_view_x(v, PR_TEXT_X + PL_TITLE_W);
   if (!mu_n) {
+#if PR_TEXT_MID
+    halo_text(gl_r_t56, "No music", halo_view_x(v, CX), halo_view_y(v, PR_TITLE_Y) - pl_mid_t * v.s, halo_dim(PL_ON_SURFACE, (int)(alpha * 256)), 1, 1, v.s, 0, 0);
+#else
     halo_text(gl_r_t56, "No music", xa, halo_view_y(v, PR_TITLE_Y) - pl_mid_t * v.s, halo_dim(PL_ON_SURFACE, (int)(alpha * 256)), 1, 0, v.s, 0, 0);
+#endif
     return;
   }
   for (int line = 0; line < 2; line++) {
@@ -288,7 +321,12 @@ static void pr_texts(float alpha) {
       const char *s = line ? mu_tracks[t].artist : mu_tracks[t].title;
       const float tw = line ? pl_aw[t] : pl_tw[t], top = halo_view_y(v, y) - mid * v.s;
       const uint32_t c = halo_dim(line ? GL_DIM : PL_ON_SURFACE, (int)(a * 256));
-      const float x0 = halo_view_x(v, PR_TEXT_X - (which && !line ? pl_marquee_x : 0) + off);
+#if PR_TEXT_MID  // (centred while it fits; a longer line starts at the place's left edge — the title runs as a marquee)
+      const float xl = tw <= PL_TITLE_W ? CX - tw / 2 : PR_TEXT_X;
+#else
+      const float xl = PR_TEXT_X;
+#endif
+      const float x0 = halo_view_x(v, xl - (which && !line ? pl_marquee_x : 0) + off);
       pl_text(f, s, x0, top, v.s, c, xa, xb);
       if (!line && tw > PL_TITLE_W) {
         pl_text(f, s, x0 + (tw + 96 * DP) * v.s, top, v.s, c, xa, xb);

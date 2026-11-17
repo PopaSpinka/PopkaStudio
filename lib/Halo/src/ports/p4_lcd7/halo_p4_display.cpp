@@ -84,7 +84,7 @@ uint16_t *hd_front() {
 }
 
 void hd_flip() {
-  esp_lcd_panel_draw_bitmap(panel, 0, 0, HALO_W, HALO_H, fb[back]);  // (a whole buffer of its own: a swap, not a copy)
+  esp_lcd_panel_draw_bitmap(panel, 0, 0, HALO_FB_W, HALO_FB_H, fb[back]);  // (a whole buffer of its own: a swap, not a copy)
   back = 1 - back;
 }
 
@@ -166,8 +166,8 @@ bool hd_begin(uint8_t brightness) {
   dpi.dpi_clock_freq_mhz = 52;
   dpi.pixel_format = pixel_bytes == 3 ? LCD_COLOR_PIXEL_FORMAT_RGB888 : LCD_COLOR_PIXEL_FORMAT_RGB565;
   dpi.num_fbs = 2;
-  dpi.video_timing.h_size = HALO_W;
-  dpi.video_timing.v_size = HALO_H;
+  dpi.video_timing.h_size = HALO_FB_W;
+  dpi.video_timing.v_size = HALO_FB_H;
   dpi.video_timing.hsync_pulse_width = 10;
   dpi.video_timing.hsync_back_porch = 160;
   dpi.video_timing.hsync_front_porch = 160;
@@ -201,8 +201,8 @@ bool hd_begin(uint8_t brightness) {
   if (esp_lcd_panel_init(panel) != ESP_OK) return false;
   if (esp_lcd_dpi_panel_get_frame_buffer(panel, 2, (void **)&fb[0], (void **)&fb[1]) != ESP_OK) return false;
   for (auto f : fb) {
-    memset(f, 0, HALO_W * HALO_H * pixel_bytes);
-    esp_cache_msync(f, HALO_W * HALO_H * pixel_bytes, ESP_CACHE_MSYNC_FLAG_DIR_C2M);
+    memset(f, 0, HALO_FB_W * HALO_FB_H * pixel_bytes);
+    esp_cache_msync(f, HALO_FB_W * HALO_FB_H * pixel_bytes, ESP_CACHE_MSYNC_FLAG_DIR_C2M);
   }
   hd_set_brightness(brightness);
   return true;

@@ -2,11 +2,53 @@
 // middle of the screen, the wave is a thin strip of dots under it (63 columns, 5 rows, 15 px apart, unlit dots stay faintly
 // on), three buttons below. The microphones, the recording and the columns are recorder.h's; here — only where the parts
 // stand and how the dots are painted. Included from recorder.h in place of its round layout.
+// The 7″ board held tall (HALO_P4_TALL, 600 x 1024: variant 9A of web/mockups/rect-tall.html) — the same stack: the timer
+// in the middle, the band of dots under it 35 columns wide and 7 rows tall (recorder.h's 63 columns and 3 rows from the
+// middle, shown here: while recording — the newest 35, one a slice, scrolling as they do; else the whole recording
+// gathered into 35; the rows stretched to 4 from the middle), the three buttons at thumb height.
 
 extern const HaloFont gl_r_n190, gl_r_t28, gl_r_ic36, gl_r_title;
 
 #define RR_TITLE_X 32.0f
 #define RR_TITLE_Y 45.0f
+#ifdef HALO_P4_TALL
+#define RR_TIME_Y 330.0f
+#define RR_STATE_Y 470.0f
+#define RR_WAVE_Y 601.0f
+#define RR_BTN_Y 860.0f
+#define RR_SIDE_W 168.0f
+#define RR_SIDE_H 96.0f
+#define RR_BIG_R 56.0f
+#define RR_N 35             // the columns shown
+#define RR_ROWS 4           // rows from the middle, it included
+#define RR_X0 (CX - (RR_N - 1) * RC_P / 2)
+#define RR_XR (RR_X0 + (RR_N - 1) * RC_P)
+#define RR_DB rr_db
+#define RR_DP rr_dp
+static const float RR_BX[3] = {116, 300, 484};
+static float rr_db[RR_N + 1], rr_dp[RR_N + 1];  // what the columns show (as rc_db, rc_dp: [0] — the one leaving on the left)
+static uint32_t rr_ms;
+// The columns shown, from recorder.h's: recording — its newest 35 as they are; else the whole recording gathered into
+// 35 (the loudness — the mean, the peak — the highest), eased there as rc_columns eases its own (~70 ms); the rows
+// stretched from 3 to 4 from the middle
+static void rr_columns() {
+  const uint32_t now = halo_ms();
+  const float k = rc_state == RC_REC ? 1 : fminf(1, (now - rr_ms) * (14 / 1000.0f));
+  rr_ms = now;
+  auto rows = [](float r) { return r < 1 ? r : 1 + (r - 1) * ((RR_ROWS - 1) / (float)(RC_ROWS - 1)); };
+  for (int d = 0; d <= RR_N; d++) {
+    float b = 0, p = 0;
+    if (rc_state == RC_REC) {
+      b = rc_db[RC_N - RR_N + d], p = rc_dp[RC_N - RR_N + d];
+    } else if (d) {
+      const int a = (d - 1) * RC_N / RR_N, e = max(a + 1, d * RC_N / RR_N);
+      for (int i = a; i < e; i++) b += rc_db[i + 1], p = fmaxf(p, rc_dp[i + 1]);
+      b /= e - a;
+    }
+    rr_db[d] += (rows(b) - rr_db[d]) * k, rr_dp[d] += (rows(p) - rr_dp[d]) * k;
+  }
+}
+#else
 #define RR_TIME_Y 214.0f
 #define RR_STATE_Y 345.0f
 #define RR_WAVE_Y 426.0f
@@ -14,6 +56,14 @@ extern const HaloFont gl_r_n190, gl_r_t28, gl_r_ic36, gl_r_title;
 #define RR_SIDE_W 200.0f
 #define RR_SIDE_H 96.0f
 #define RR_BIG_R 54.0f
+#define RR_N RC_N
+#define RR_ROWS RC_ROWS
+#define RR_X0 RC_X0
+#define RR_XR RC_XR
+#define RR_DB rc_db
+#define RR_DP rc_dp
+static const float RR_BX[3] = {312, 512, 712};
+#endif
 #define RR_DOT 9            // a dot's square, px
 #define RR_LIT 0xFFAB91     // the loudness
 #define RR_PEAK 0x7A5249    // up to the peak
@@ -25,7 +75,6 @@ extern const HaloFont gl_r_n190, gl_r_t28, gl_r_ic36, gl_r_title;
 #define RR_ICON_PAUSE "\xEF\x81\x8C"
 #define RR_C_N 4
 
-static const float RR_BX[3] = {312, 512, 712};
 static uint16_t rr_pal[RR_C_N][17];    // colour (lit, peak, faint, not played) by brightness
 static uint8_t rr_cov[RR_DOT][RR_DOT];  // the round dot, 0..16 in each pixel
 static float rr_mid_time, rr_mid_state, rr_time_w, rr_state_w;
@@ -96,20 +145,23 @@ static void recorder_layout(const HaloView &view) {
   // The columns (drawn in rr_wave_draw)
   const float played = rc_len ? (float)rc_pos / rc_len : 0;
   const bool prog = (rc_state == RC_PLAY || rc_state == RC_DONE) && rc_pos > 0;
+#ifdef HALO_P4_TALL
+  rr_columns();
+#endif
   uint32_t h = 2166136261u;
-  for (int c = 0; c <= RC_N; c++) {
+  for (int c = 0; c <= RR_N; c++) {
     RcCol &q = rc_cols[c];
-    const float x = RC_X0 + (c - 1) * RC_P + rc_xoff;
-    const float fade = halo_clamp01((x - (RC_X0 - RC_P)) / RC_P) * halo_clamp01((RC_XR + RC_P - x) / RC_P);
+    const float x = RR_X0 + (c - 1) * RC_P + rc_xoff;
+    const float fade = halo_clamp01((x - (RR_X0 - RC_P)) / RC_P) * halo_clamp01((RR_XR + RC_P - x) / RC_P);
     q.x = (int16_t)lroundf(x) - RR_DOT / 2, q.fade = (uint8_t)lroundf(fade * 16);
-    q.nb = rc_db[c] < 0.5f ? 0 : (uint8_t)min(RC_ROWS, (int)(rc_db[c] + 0.5f));
-    q.np = q.nb ? (uint8_t)max((int)q.nb, min(RC_ROWS, (int)(rc_dp[c] + 0.5f))) : 0;
-    q.grey = prog && (c - 0.5f) / RC_N > played;
+    q.nb = RR_DB[c] < 0.5f ? 0 : (uint8_t)min(RR_ROWS, (int)(RR_DB[c] + 0.5f));
+    q.np = q.nb ? (uint8_t)max((int)q.nb, min(RR_ROWS, (int)(RR_DP[c] + 0.5f))) : 0;
+    q.grey = prog && (c - 0.5f) / RR_N > played;
     h = (h ^ (uint32_t)(q.x << 20 | q.nb << 16 | q.np << 8 | q.grey << 5 | q.fade)) * 16777619u;
   }
   for (float qv : {v.x, v.y, v.s, v.a}) h = (h ^ (uint32_t)(int32_t)(qv * 512)) * 16777619u;
-  const float ry = (RC_ROWS - 1) * RC_P + RR_DOT;
-  const float r[4] = {halo_view_x(v, RC_X0 - RC_P - RR_DOT), halo_view_y(v, RR_WAVE_Y - ry), halo_view_x(v, RC_XR + RC_P + RR_DOT), halo_view_y(v, RR_WAVE_Y + ry)};
+  const float ry = (RR_ROWS - 1) * RC_P + RR_DOT;
+  const float r[4] = {halo_view_x(v, RR_X0 - RC_P - RR_DOT), halo_view_y(v, RR_WAVE_Y - ry), halo_view_x(v, RR_XR + RC_P + RR_DOT), halo_view_y(v, RR_WAVE_Y + ry)};
   if (h != rc_dmg_h || memcmp(r, rc_dmg_r, sizeof r)) {
     if (rc_dmg_h) halo_damage_f(rc_dmg_r[0], rc_dmg_r[1], rc_dmg_r[2], rc_dmg_r[3]);
     halo_damage_f(r[0], r[1], r[2], r[3]);
@@ -156,12 +208,12 @@ static void rr_wave_draw() {
   const HaloView &v = rc_v;
   if (v.a <= 0.004f) return;
   const bool fast = v.s == 1 && v.a >= 0.999f && v.x == (int)v.x && v.y == (int)v.y;
-  const float ry = (RC_ROWS - 1) * RC_P + RR_DOT;
-  if (!halo_hits(halo_view_x(v, RC_X0 - RC_P - RR_DOT), halo_view_y(v, RR_WAVE_Y - ry), halo_view_x(v, RC_XR + RC_P + RR_DOT), halo_view_y(v, RR_WAVE_Y + ry))) return;
-  for (int c = 0; c <= RC_N; c++) {
+  const float ry = (RR_ROWS - 1) * RC_P + RR_DOT;
+  if (!halo_hits(halo_view_x(v, RR_X0 - RC_P - RR_DOT), halo_view_y(v, RR_WAVE_Y - ry), halo_view_x(v, RR_XR + RC_P + RR_DOT), halo_view_y(v, RR_WAVE_Y + ry))) return;
+  for (int c = 0; c <= RR_N; c++) {
     const RcCol &q = rc_cols[c];
     if (!q.fade) continue;
-    for (int j = 0; j < RC_ROWS; j++) {
+    for (int j = 0; j < RR_ROWS; j++) {
       const bool lit = q.nb && j < q.nb, peak = !lit && j < q.np;
       const int col = lit ? (q.grey ? 3 : 0) : peak ? 1 : 2, a = (16 * q.fade + 8) >> 4;
       if (!a) continue;

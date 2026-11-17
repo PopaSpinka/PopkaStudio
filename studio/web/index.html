@@ -122,7 +122,10 @@
           <div class="start-ttl">Choose a board</div>
           <div class="start-boards" id="start-boards"></div>
           <div class="start-foot">
-            <span></span><span class="start-dots"><i class="on"></i><i></i></span>
+            <span class="more-wrap">
+              <button class="more-btn" id="start-more" aria-haspopup="listbox" aria-expanded="false" hidden><span>More boards</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></button>
+              <div class="more-list" id="start-more-list" role="listbox" aria-label="More boards" hidden></div>
+            </span><span class="start-dots"><i class="on"></i><i></i></span>
             <button class="primary" id="start-next">Continue</button>
           </div>
         </div>
@@ -144,6 +147,7 @@
             <span class="new-ring"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>
             <div class="start-ttl">New project</div>
             <input class="start-name" id="start-name" maxlength="40" spellcheck="false" autocomplete="off" aria-label="Name">
+            <div class="start-ways" id="start-ways" role="group" aria-label="Which way up the screen is" hidden></div>
             <button class="primary" id="start-create">Create</button>
           </div>
           <div class="start-foot">
@@ -183,7 +187,7 @@
           <div class="ab-esc">Esc — close</div>
         </div>
         <div class="start-pane about-cred">
-          <div class="ab-lic"><b>License</b> · free for people, paid for business (PolyForm Noncommercial 1.0.0 + a commercial license)</div>
+          <div class="ab-lic"><b>License</b> · MIT — free for everyone, for anything</div>
           <div class="ab-credits">
             <b>Google Sans Flex</b><span>font</span><a href="https://openfontlicense.org" target="_blank" rel="noopener">SIL OFL 1.1</a>
             <b>Instrument Serif · JetBrains Mono · Nunito</b><span>clock and radio fonts</span><a href="https://openfontlicense.org" target="_blank" rel="noopener">SIL OFL 1.1</a>
@@ -195,6 +199,7 @@
             <b>Helix MP3</b><span>radio decoder, in the ESP32 core</span><span>RPSL 1.0</span>
             <b>androidx · Horologist</b><span>motion numbers</span><span>Apache 2.0</span>
             <b>Espressif · Waveshare</b><span>codec and display start-up</span><span>Apache 2.0</span>
+            <b><a href="https://github.com/dimonmontana" target="_blank" rel="noopener">dimonmontana</a></b><span>the WT32-SC01 Plus board</span><span>MIT</span>
             <b>ArduinoJson · Emscripten · Electron</b><span>libraries</span><span>MIT</span>
           </div>
           <div class="ab-legal">PopkaStudio is an independent project, not affiliated with or endorsed by Google, Espressif or Waveshare.

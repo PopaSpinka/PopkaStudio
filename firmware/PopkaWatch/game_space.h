@@ -328,7 +328,9 @@ static void space_draw() {
 #else
   // Only the rows of the world this band shows (the view maps rows one to one: a shift and a scale)
   const float wy0 = gm_y(0), wk = 1 / (gm_v.s * 16);
-  const int g0 = constrain((int)((hb.y - wy0) * wk) - 1, 0, SP_GB + 1), g1 = constrain((int)((hb.y + hb.rows - wy0) * wk) + 2, 0, SP_GB + 1);
+  const int g0 = constrain((int)((hb.y - wy0) * wk) - 1, 0, SP_GB + 1), g1 = constrain((int)((hb.y + hb.rows - wy0) * wk) + 2, 1, SP_GB + 1);
+  // (g1 at least 1: the stars above the world's row 0 are in bucket 0 — a band over the world's top, as the top of the
+  // 7″ held tall, scans it too; halo_hits keeps the rest out. It went starless 48 px deep — 17 Nov 2026)
   if (sp_odot) {
     const uint32_t oc = gm_col(0x26355C);
     for (int i = sp_gband[g0]; i < sp_gband[g1]; i++) {

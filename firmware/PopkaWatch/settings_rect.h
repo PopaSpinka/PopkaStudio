@@ -3,6 +3,36 @@
 // bar is a slider. The second row opens About when the project has it (the layer's link; none — no row).
 // Included from settings.h in place of its round layout.
 
+#ifdef HALO_COMPACT  // a small rectangle: wide — the rows at the left, the setting at the right; tall — the rows side by
+                     // side at the top, the setting under them
+#define DR_WIDE (HALO_W > HALO_H)
+#define DR_ROW_X 12.0f
+#define DR_ROW_W (DR_WIDE ? 164.0f : (HALO_W - 34) / 2.0f)
+#define DR_ROW1_X (DR_WIDE ? DR_ROW_X : DR_ROW_X + DR_ROW_W + 10)
+#define DR_ROW_H 60.0f
+#define DR_ROW0_Y 58.0f
+#define DR_ROW1_Y (DR_WIDE ? 126.0f : DR_ROW0_Y)
+#define DR_X (DR_WIDE ? 190.0f : 12.0f)
+#define DR_BAR_W (HALO_W - DR_X - 12)
+#define DR_BAR_H 70.0f
+#define DR_LABEL_Y (DR_WIDE ? 88.0f : 166.0f)
+#define DR_BAR_Y (DR_LABEL_Y + 78)
+#define DR_HINT_Y (DR_BAR_Y + 66)
+#elif defined(HALO_P4_TALL)  // the 7″ board held tall (rect-tall.html 5A): the two rows side by side at the top, Brightness,
+                             // its percent and the bar the whole width under them
+#define DR_ROW_X 32.0f
+#define DR_ROW_W 262.0f
+#define DR_ROW1_X 306.0f
+#define DR_ROW_H 100.0f
+#define DR_ROW0_Y 96.0f
+#define DR_ROW1_Y DR_ROW0_Y
+#define DR_X 32.0f
+#define DR_BAR_W 536.0f
+#define DR_BAR_H 110.0f
+#define DR_LABEL_Y 300.0f
+#define DR_BAR_Y 435.0f
+#define DR_HINT_Y 548.0f
+#else
 #define DR_ROW_X 24.0f
 #define DR_ROW_W 330.0f
 #define DR_ROW_H 100.0f
@@ -14,6 +44,8 @@
 #define DR_BAR_Y 275.0f
 #define DR_LABEL_Y 130.0f
 #define DR_HINT_Y 386.0f
+#define DR_ROW1_X DR_ROW_X    // the second row: under the first
+#endif
 #define DR_FILL 0x8AD6F0
 #define DR_ON_FILL 0x14262E
 #define DR_CARD 0x2D3236
@@ -48,7 +80,7 @@ static bool dr_has_about() {
 static void display_update(float dt) {
   HaloFinger &f = halo_finger;
   const bool on_bar = fabsf(f.y0 - DR_BAR_Y) < DR_BAR_H / 2 + 10 && f.x0 > DR_X - 10 && f.x0 < DR_X + DR_BAR_W + 10;
-  const bool on_about = dr_has_about() && f.x0 > DR_ROW_X && f.x0 < DR_ROW_X + DR_ROW_W && f.y0 > DR_ROW1_Y && f.y0 < DR_ROW1_Y + DR_ROW_H;
+  const bool on_about = dr_has_about() && f.x0 > DR_ROW1_X && f.x0 < DR_ROW1_X + DR_ROW_W && f.y0 > DR_ROW1_Y && f.y0 < DR_ROW1_Y + DR_ROW_H;
   if (f.pressed) dp_armed = f.owner ? 0 : on_bar ? 2 : on_about ? 3 : 0;
   if (dp_armed == 2 && f.down && (!f.dragging || f.horiz) && halo_finger_claim(&dp_armed))
     dp_set((int)lroundf(halo_clamp01((f.x - DR_X) / DR_BAR_W) * DP_STEPS));
@@ -65,17 +97,17 @@ static void dr_text(HaloItem &it, const HaloFont &f, const char *s, float mid, i
 }
 
 static void display_layout(const HaloView &v) {
-  dr_text(dr_title, gl_r_title, "Settings", dr_mid_title, 0, 32, 45, GL_TEXT, v, &halo_black);
+  dr_text(dr_title, gl_r_title, "Settings", dr_mid_title, 0, RG_PAD, RG_TITLE_Y, GL_TEXT, v, &halo_black);
   const float p = halo_clamp01(dr_press.s.x);
   for (int i = 0; i < 2; i++) {
-    const float y = i ? DR_ROW1_Y : DR_ROW0_Y, a = i && !dr_has_about() ? 0 : 1, cy = y + DR_ROW_H / 2;
+    const float y = i ? DR_ROW1_Y : DR_ROW0_Y, a = i && !dr_has_about() ? 0 : 1, cy = y + DR_ROW_H / 2, rx = i ? DR_ROW1_X : DR_ROW_X;
     HaloItem &b = dr_row[i];
-    b.kind = HI_RRECT, b.x = DR_ROW_X + DR_ROW_W / 2, b.y = cy, b.w = DR_ROW_W, b.h = DR_ROW_H, b.r = 26 + (i ? (18 - 26) * p : 0), b.scale = 1;
+    b.kind = HI_RRECT, b.x = rx + DR_ROW_W / 2, b.y = cy, b.w = DR_ROW_W, b.h = DR_ROW_H, b.r = RG_RADIUS + (i ? (RG_RADIUS_DOWN - RG_RADIUS) * p : 0), b.scale = 1;
     b.color = i ? DR_CARD : 0x254552, b.alpha = a, b.on_black = true, b.on = nullptr;
     halo_view_commit(b, v);
-    gl_text_mid(dr_row_ic[i], gl_r_ic36, i ? DR_ICON_CHIP : DR_ICON_SUN, dr_mid_ic, DR_ROW_X + 48, cy, 1, i ? 0xC9CDD2 : DR_FILL, a, &b);
+    gl_text_mid(dr_row_ic[i], gl_r_ic36, i ? DR_ICON_CHIP : DR_ICON_SUN, dr_mid_ic, rx + RK(48), cy, 1, i ? 0xC9CDD2 : DR_FILL, a, &b);
     halo_view_commit(dr_row_ic[i], v);
-    dr_text(dr_row_t[i], gl_r_t32, i ? "About" : "Display", dr_mid_row, 0, DR_ROW_X + 92, cy, GL_TEXT, v, &b, a);
+    dr_text(dr_row_t[i], gl_r_t32, i ? "About" : "Display", dr_mid_row, 0, rx + RK(92), cy, GL_TEXT, v, &b, a);
   }
   dr_text(dr_label, gl_r_t44, "Brightness", dr_mid_label, 0, DR_X, DR_LABEL_Y, GL_TEXT, v, &halo_black);
   snprintf(dr_pct_s, sizeof dr_pct_s, "%d%%", (int)lroundf(halo_clamp01(dp_shown / DP_STEPS) * 100));

@@ -17,7 +17,7 @@
 // (не ждёт), в кольцо в PSRAM, halo_mic_read — из кольца. DMA приёма — тоже 6 × 256 отсчётов (моно, 3 КБ): задача
 // может опоздать на ~80 мс при 16 000 Гц, дальше пропадает самое старое.
 #include <sdkconfig.h>
-#if CONFIG_IDF_TARGET_ESP32S3  // this board's port: other boards build their own
+#if CONFIG_IDF_TARGET_ESP32S3 && !defined(HALO_BOARD_WT32SC01P)  // this board's port: other boards build their own
 #include "halo_s3.h"
 
 #include <driver/gpio.h>

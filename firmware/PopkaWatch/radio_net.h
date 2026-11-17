@@ -54,7 +54,7 @@ static volatile float rn_level;        // the sound's peak now, 0..1
 static portMUX_TYPE rn_mux = portMUX_INITIALIZER_UNLOCKED;
 // Browse: a fetch of a folder (path and query of the catalog's search) → rn_res
 static char rn_fetch_path[300];
-static volatile bool rn_fetch_want;
+static volatile bool rn_fetch_want, rn_fetching;  // asked; being fetched (Wi-Fi is wanted)
 static volatile int rn_fetch_st;       // 0 — nothing, 1 — loading, 2 — done, 3 — failed
 static volatile uint32_t rn_fetch_gen; // +1 a fetch done (or failed)
 static RdSt *rn_res;                   // RD_RES (PSRAM)
@@ -110,11 +110,11 @@ static bool rn_wifi_join() {
   if (!rn_wifi_held) rn_wifi_held = true, hclk_hold = true, halo_stay_awake(true);
   if (WiFi.status() == WL_CONNECTED) return true;
   rn_net = RN_JOINING;
-  for (int attempt = 0; attempt < 3 && (rn_on || rn_fetch_want); attempt++) {
+  for (int attempt = 0; attempt < 3 && (rn_on || rn_fetch_want || rn_fetching); attempt++) {
     if (attempt) WiFi.disconnect(), vTaskDelay(pdMS_TO_TICKS(500));  // (a refused rejoin needs a fresh begin)
     WiFi.mode(WIFI_STA);
     WiFi.begin(hclk_ssid, hclk_pass);
-    for (int i = 0; i < 40 && (rn_on || rn_fetch_want); i++) {  // 10 s
+    for (int i = 0; i < 40 && (rn_on || rn_fetch_want || rn_fetching); i++) {  // 10 s
       if (WiFi.status() == WL_CONNECTED) return LOG("radio: wifi joined, %d dBm\n", (int)WiFi.RSSI()), true;
       vTaskDelay(pdMS_TO_TICKS(250));
     }
@@ -322,12 +322,14 @@ static bool rn_stream(uint32_t gen) {  // false — the stream ended (reconnect)
 
 // ---------- Browse: a folder of the catalog ----------
 static void rn_do_fetch() {
+  char path[sizeof(rn_fetch_path)];
+  strlcpy(path, rn_fetch_path, sizeof(path));
   JsonDocument filter, doc(HaloPsram::instance());
   JsonObject f = filter.add<JsonObject>();
   f["name"] = f["url_resolved"] = f["bitrate"] = f["countrycode"] = f["tags"] = f["stationuuid"] = f["hls"] = true;
   halo_http_agent = "PopkaStudio/" RD_AGENT;
   const uint32_t t0 = millis();
-  const bool ok = halo_http_get_json(RN_HOST, rn_fetch_path, doc, &filter);
+  const bool ok = halo_http_get_json(RN_HOST, path, doc, &filter);
   int n = 0;
   if (ok)
     for (JsonObjectConst s : doc.as<JsonArrayConst>()) {
@@ -338,6 +340,7 @@ static void rn_do_fetch() {
                       s["bitrate"] | 0, 0);
       n++;
     }
+  if (rn_fetch_want) return LOG("radio: another folder asked meanwhile — this answer dropped\n");  // (it goes next)
   rn_res_n = n, rn_fetch_st = ok ? 2 : 3, rn_fetch_gen++;
   LOG("radio: %s in %u ms — %d stations\n", ok ? "the catalog answered" : "the catalog failed", (unsigned)(millis() - t0), n);
 }
@@ -354,10 +357,11 @@ static void rn_click(const char *uuid) {  // the catalog's etiquette: a click wh
 static void rn_net_loop(void *) {
   uint32_t idle_since = millis(), played = 0, backoff = 0;
   for (;;) {
-    if (rn_fetch_want) {
+    if (rn_fetch_want) {  // (cleared first: a folder asked while this one loads sets it again, and goes next)
+      rn_fetch_want = false, rn_fetching = true;
       if (rn_wifi_join()) rn_do_fetch();
-      else rn_res_n = 0, rn_fetch_st = 3, rn_fetch_gen++;
-      rn_fetch_want = false, idle_since = millis();
+      else if (!rn_fetch_want) rn_res_n = 0, rn_fetch_st = 3, rn_fetch_gen++;
+      rn_fetching = false, idle_since = millis();
       continue;
     }
     if (!rn_on) {
