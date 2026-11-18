@@ -5,7 +5,37 @@
 // The 7″ board held tall (HALO_P4_TALL, 600 x 1024: variant 8A of web/mockups/rect-tall.html) — the same parts stacked:
 // the cover on top, the title and the artist centred under it, the time line and the row of five buttons under them.
 
-#ifdef HALO_P4_TALL
+#if defined(HALO_SQUARE)  // the square (variant 1C of web/mockups/square-media.html): as on the round board — a small cover
+// with the title and the artist beside it on top, the watch's wave button large in the middle between tall previous /
+// next, the time line under them, the volume and the heart in a row of their own at the bottom
+#define PR_COVER_X 16.0f
+#define PR_COVER_Y 52.0f
+#define PR_COVER_S 72.0f
+#define PR_COVER_R 16.0f
+#define PR_NOTE_D 29
+#define PR_TEXT_X 104.0f
+#define PR_TEXT_MID 0
+#define PR_TITLE_Y 76.0f
+#define PR_ARTIST_Y 108.0f
+#define PR_LINE_X 16.0f
+#define PR_LINE_W 448.0f
+#define PR_LINE_Y 365.0f
+#define PR_TIME_Y 390.0f
+#define PR_BTN_Y 236.0f     // the big button and previous / next
+#define PR_SMALL_Y 438.0f   // the volume and the heart: under the time line
+#define PR_VOL_X 176.0f
+#define PR_PREV_X 58.0f
+#define PR_BIG_X 240.0f
+#define PR_NEXT_X 422.0f
+#define PR_LIKE_X 304.0f
+#define PR_BIG_HIT 100.0f
+#define PR_BIG_K 1.26f      // the watch's button, larger
+#define PR_SIDE_W 84.0f
+#define PR_SIDE_H 120.0f
+#define PR_SMALL_R 28.0f
+#define PR_ROW_HIT 64.0f     // (the tall previous / next: 120)
+#define PR_SMALL_HIT 40.0f   // (the volume and the heart: clear of the time line above them)
+#elif defined(HALO_P4_TALL)
 #define PR_COVER_X 60.0f
 #define PR_COVER_Y 72.0f
 #define PR_COVER_S 480.0f
@@ -50,9 +80,20 @@
 #define PR_BIG_HIT 90.0f
 #define PR_BIG_K 1.06f      // the watch's button at this board's size
 #endif
+#ifndef PR_SIDE_W
 #define PR_SIDE_W 84.0f
 #define PR_SIDE_H 100.0f
 #define PR_SMALL_R 36.0f
+#endif
+#ifndef PR_SMALL_Y
+#define PR_SMALL_Y PR_BTN_Y  // (the volume and the heart in the buttons' row)
+#endif
+#ifndef PR_ROW_HIT
+#define PR_ROW_HIT 58.0f     // a row's buttons: how far up and down from its middle a finger takes them
+#endif
+#ifndef PR_SMALL_HIT
+#define PR_SMALL_HIT PR_ROW_HIT
+#endif
 #define PR_CARD 0x2D3236    // the small buttons, the track of the line
 #define PR_ACC 0xD9C2F0     // the line, the knob
 #define PR_ICON_VOL "\xEF\x80\xA8"
@@ -117,12 +158,12 @@ static void player_update(float dt) {
   if (f.pressed && !f.owner) {
     pl_armed = pl_small_armed = -1, pr_line = false;
     const float dx = f.x0 - PR_BIG_X, dy = f.y0 - PR_BTN_Y;
-    const bool row = fabsf(dy) < 58;
+    const bool row = fabsf(dy) < PR_ROW_HIT, small = fabsf(f.y0 - PR_SMALL_Y) < PR_SMALL_HIT;
     if (dx * dx + dy * dy < PR_BIG_HIT * PR_BIG_HIT) pl_armed = 1;
     else if (row && fabsf(f.x0 - PR_PREV_X) < 50) pl_armed = 0;
     else if (row && fabsf(f.x0 - PR_NEXT_X) < 50) pl_armed = 2;
-    else if (row && fabsf(f.x0 - PR_VOL_X) < 44) pl_small_armed = 0;
-    else if (row && fabsf(f.x0 - PR_LIKE_X) < 44) pl_small_armed = 1;
+    else if (small && fabsf(f.x0 - PR_VOL_X) < 44) pl_small_armed = 0;
+    else if (small && fabsf(f.x0 - PR_LIKE_X) < 44) pl_small_armed = 1;
     pr_line = mu_n && fabsf(f.y0 - PR_LINE_Y) < 26 && f.x0 > PR_LINE_X - 14 && f.x0 < PR_LINE_X + PR_LINE_W + 14;
   }
   if (pr_line && f.down && (!f.dragging || f.horiz) && halo_finger_claim(&pr_line)) pr_seek = halo_clamp01((f.x - PR_LINE_X) / PR_LINE_W);
@@ -244,11 +285,11 @@ static void player_layout(const HaloView &v) {
   for (int i = 0; i < 2; i++) {
     const float q = halo_clamp01(pl_small[i].s.x), cx = i ? PR_LIKE_X : PR_VOL_X;
     HaloItem &b = pl_sm[i];
-    b.kind = HI_RRECT, b.x = cx, b.y = PR_BTN_Y, b.w = b.h = 2 * PR_SMALL_R, b.r = PR_SMALL_R + (18 - PR_SMALL_R) * q, b.scale = 1;
+    b.kind = HI_RRECT, b.x = cx, b.y = PR_SMALL_Y, b.w = b.h = 2 * PR_SMALL_R, b.r = PR_SMALL_R + (18 - PR_SMALL_R) * q, b.scale = 1;
     b.color = PR_CARD, b.alpha = pa, b.on_black = true, b.on = nullptr;
     halo_view_commit(b, v);
     const float lm = halo_clamp01(pl_like_m.x), bounce = i ? 1 + 0.15f * fmaxf(0, pl_like_m.x - 1) * 4 : 1;
-    gl_text_mid(pl_sm_ic[i], gl_r_ic36, i ? PR_ICON_HEART : PR_ICON_VOL, pr_mid_ic, cx, PR_BTN_Y, 0.85f * bounce,
+    gl_text_mid(pl_sm_ic[i], gl_r_ic36, i ? PR_ICON_HEART : PR_ICON_VOL, pr_mid_ic, cx, PR_SMALL_Y, 0.85f * bounce,
                 i ? pl_mix_rgb(PL_ON_SURFACE, PL_LIKE, lm) : PL_ON_SURFACE, pa, bounce == 1 ? &b : nullptr);
     halo_view_commit(pl_sm_ic[i], v);
   }

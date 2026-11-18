@@ -6,9 +6,19 @@
 // Plugged into USB the board never truly sleeps (Halo "pretends", docs/halo.md), so it always answers.
 #pragma once
 
-// The values come from config.h (studio.py writes them at a Load); the folder's own default firmware has none
+// The values come from config.h (studio.py writes them at a Load); the folder's own default firmware has none — its
+// board is the one it was built for (halo_board.h). Before 18 Nov 2026 every such firmware said "amoled175", whatever
+// board it ran on: studio.py doesn't take the board of a "fw=dev" answer as a fact.
 #ifndef POPKA_BOARD
+#if defined(HALO_BOARD_WT32SC01P)
+#define POPKA_BOARD "wt32sc01p"
+#elif defined(HALO_BOARD_LCD4B)
+#define POPKA_BOARD "lcd4b"
+#elif CONFIG_IDF_TARGET_ESP32P4
+#define POPKA_BOARD "p4lcd7"
+#else
 #define POPKA_BOARD "amoled175"
+#endif
 #endif
 #ifndef POPKA_VERSION
 #define POPKA_VERSION "dev"

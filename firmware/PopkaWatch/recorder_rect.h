@@ -9,9 +9,35 @@
 
 extern const HaloFont gl_r_n190, gl_r_t28, gl_r_ic36, gl_r_title;
 
+#ifdef HALO_SQUARE  // (the square's titles: as its other screens')
+#define RR_TITLE_X 16.0f
+#define RR_TITLE_Y 30.0f
+#else
 #define RR_TITLE_X 32.0f
 #define RR_TITLE_Y 45.0f
-#ifdef HALO_P4_TALL
+#endif
+#if defined(HALO_P4_TALL) || defined(HALO_SQUARE)
+#ifdef HALO_SQUARE  // the square (variant 2B of web/mockups/square-media.html), as on the round board: the timer smaller at
+                    // the top left with what is going on at the right, the dots filling a dark card in the middle (28
+                    // columns, 13 rows), the three buttons under it
+#define RR_TIME_X 16.0f     // the timer: from its left end
+#define RR_TIME_Y 92.0f
+#define RR_STATE_R 464.0f   // what is going on: its right end
+#define RR_STATE_Y 92.0f
+#define RR_WAVE_Y 242.0f
+#define RR_CARD_Y 242.0f    // the card under the dots: its middle, its size
+#define RR_CARD_W 448.0f
+#define RR_CARD_H 220.0f
+#define RR_BTN_Y 410.0f
+#define RR_SIDE_W 132.0f
+#define RR_SIDE_H 72.0f
+#define RR_BIG_R 44.0f
+#define RR_N 28
+#define RR_ROWS 7
+#define RR_TIME_FONT gl_q_n64
+static const float RR_BX[3] = {82, 240, 398};
+extern const HaloFont gl_q_n64;  // (studio.py: SQUARE_APP_FONTS)
+#else
 #define RR_TIME_Y 330.0f
 #define RR_STATE_Y 470.0f
 #define RR_WAVE_Y 601.0f
@@ -21,11 +47,12 @@ extern const HaloFont gl_r_n190, gl_r_t28, gl_r_ic36, gl_r_title;
 #define RR_BIG_R 56.0f
 #define RR_N 35             // the columns shown
 #define RR_ROWS 4           // rows from the middle, it included
+static const float RR_BX[3] = {116, 300, 484};
+#endif
 #define RR_X0 (CX - (RR_N - 1) * RC_P / 2)
 #define RR_XR (RR_X0 + (RR_N - 1) * RC_P)
 #define RR_DB rr_db
 #define RR_DP rr_dp
-static const float RR_BX[3] = {116, 300, 484};
 static float rr_db[RR_N + 1], rr_dp[RR_N + 1];  // what the columns show (as rc_db, rc_dp: [0] — the one leaving on the left)
 static uint32_t rr_ms;
 // The columns shown, from recorder.h's: recording — its newest 35 as they are; else the whole recording gathered into
@@ -80,12 +107,22 @@ static uint8_t rr_cov[RR_DOT][RR_DOT];  // the round dot, 0..16 in each pixel
 static float rr_mid_time, rr_mid_state, rr_time_w, rr_state_w;
 static const char *rr_state_s = "Ready";
 
+#ifndef RR_TIME_FONT
+#define RR_TIME_FONT gl_r_n190
+#endif
+#ifdef RR_CARD_W
+static HaloItem rr_card;  // (the square: the card under the dots)
+#define RR_DOT_BG RR_CARD  // (the dots' soft edges: on the card)
+#else
+#define RR_DOT_BG 0        // (on black)
+#endif
+
 static void rr_build() {
-  rc_mid_title = halo_text_mid(gl_r_title, "Recorder"), rr_mid_time = halo_text_mid(gl_r_n190, "0"), rc_mid_ic = halo_text_mid(gl_r_ic36, RR_ICON_VOL);
+  rc_mid_title = halo_text_mid(gl_r_title, "Recorder"), rr_mid_time = halo_text_mid(RR_TIME_FONT, "0"), rc_mid_ic = halo_text_mid(gl_r_ic36, RR_ICON_VOL);
   rr_mid_state = halo_text_mid(gl_r_t28, "Recording");
   static const uint32_t COL[RR_C_N] = {RR_LIT, RR_PEAK, RR_FAINT, RR_GREY};
   for (int c = 0; c < RR_C_N; c++)
-    for (int a = 0; a <= 16; a++) rr_pal[c][a] = halo_565(rc_mix(0, COL[c], a / 16.0f));
+    for (int a = 0; a <= 16; a++) rr_pal[c][a] = halo_565(rc_mix(RR_DOT_BG, COL[c], a / 16.0f));
   const float R = RR_DOT / 2.0f;
   for (int y = 0; y < RR_DOT; y++)
     for (int x = 0; x < RR_DOT; x++) {
@@ -129,11 +166,19 @@ static void recorder_layout(const HaloView &view) {
   rc_v = v;
   rr_text(rc_title, gl_r_title, "Recorder", rc_mid_title, 0, RR_TITLE_X, RR_TITLE_Y, RC_TEXT, v);
   const float m = halo_clamp01(rc_recm.x), has = halo_clamp01(rc_hasm.x), pp = halo_clamp01(rc_ppm.x);
-  rr_text(rc_time, gl_r_n190, rc_time_s, rr_mid_time, 1, CX, RR_TIME_Y, rc_mix(0x9E9E9E, RC_TEXT, fmaxf(has, m)), v);
+#ifdef RR_TIME_X
+  rr_text(rc_time, RR_TIME_FONT, rc_time_s, rr_mid_time, 0, RR_TIME_X, RR_TIME_Y, rc_mix(0x9E9E9E, RC_TEXT, fmaxf(has, m)), v);
+#else
+  rr_text(rc_time, RR_TIME_FONT, rc_time_s, rr_mid_time, 1, CX, RR_TIME_Y, rc_mix(0x9E9E9E, RC_TEXT, fmaxf(has, m)), v);
+#endif
   // What is going on: a red dot and the word, the two centred together
   const char *state = rc_state == RC_REC ? "Recording" : rc_state == RC_PLAY ? "Playing" : rc_len ? "Recorded" : "Ready";
   if (state != rr_state_s || !rr_state_w) rr_state_s = state, rr_state_w = halo_text_width(gl_r_t28, state);
+#ifdef RR_STATE_R
+  const float dot = 22 * m, x0 = RR_STATE_R - rr_state_w - dot;  // (by its right end)
+#else
   const float dot = 22 * m, x0 = CX - (rr_state_w + dot) / 2;
+#endif
   rr_text(rc_card, gl_r_t28, rr_state_s, rr_mid_state, 0, x0 + dot, RR_STATE_Y, 0x9A9A9F, v);
   const float pulse = rc_state == RC_REC ? 0.82f + 0.18f * cosf(rc_clock * 2 * HALO_PI * 0.8f) : 1;
   for (HaloItem *it : {&rc_glow, &rc_dot}) {
@@ -142,10 +187,15 @@ static void recorder_layout(const HaloView &view) {
     it->color = RC_RED, it->alpha = m * pulse * (g ? 0.22f : 1), it->on_black = true, it->on = nullptr;
     halo_view_commit(*it, v);
   }
+#ifdef RR_CARD_W
+  rr_card.kind = HI_RRECT, rr_card.x = CX, rr_card.y = RR_CARD_Y, rr_card.w = RR_CARD_W, rr_card.h = RR_CARD_H, rr_card.r = 22;
+  rr_card.scale = 1, rr_card.color = RR_CARD, rr_card.alpha = 1, rr_card.on_black = true, rr_card.on = nullptr;
+  halo_view_commit(rr_card, v);
+#endif
   // The columns (drawn in rr_wave_draw)
   const float played = rc_len ? (float)rc_pos / rc_len : 0;
   const bool prog = (rc_state == RC_PLAY || rc_state == RC_DONE) && rc_pos > 0;
-#ifdef HALO_P4_TALL
+#if defined(HALO_P4_TALL) || defined(HALO_SQUARE)
   rr_columns();
 #endif
   uint32_t h = 2166136261u;
@@ -207,7 +257,25 @@ static inline void rr_dot(int x, int y, const uint16_t *pal, int a) {
 static void rr_wave_draw() {
   const HaloView &v = rc_v;
   if (v.a <= 0.004f) return;
+#ifdef HALO_SQUARE  // (a transition here only moves and fades the screen: the dots stay dots from palettes dimmed to it,
+                    // on whole pixels — 377 dots drawn one by one as rounded squares were 25 ms a frame on the S3)
+  const bool fast = v.s == 1;
+  static uint16_t pal_dim[RR_C_N][17];
+  static float pal_a = -1;
+  if (fast && v.a < 0.999f && v.a != pal_a) {
+    static const uint32_t COL[RR_C_N] = {RR_LIT, RR_PEAK, RR_FAINT, RR_GREY};
+    const int ka = (int)(v.a * 256);
+    for (int c = 0; c < RR_C_N; c++)
+      for (int k = 0; k <= 16; k++) pal_dim[c][k] = halo_565(rc_mix(halo_dim(RR_DOT_BG, ka), halo_dim(COL[c], ka), k / 16.0f));
+    pal_a = v.a;
+  }
+  uint16_t(*const pal)[17] = v.a < 0.999f ? pal_dim : rr_pal;
+  const int vx = (int)lroundf(v.x), vy = (int)lroundf(v.y);
+#else
   const bool fast = v.s == 1 && v.a >= 0.999f && v.x == (int)v.x && v.y == (int)v.y;
+  uint16_t(*const pal)[17] = rr_pal;
+  const int vx = (int)v.x, vy = (int)v.y;
+#endif
   const float ry = (RR_ROWS - 1) * RC_P + RR_DOT;
   if (!halo_hits(halo_view_x(v, RR_X0 - RC_P - RR_DOT), halo_view_y(v, RR_WAVE_Y - ry), halo_view_x(v, RR_XR + RC_P + RR_DOT), halo_view_y(v, RR_WAVE_Y + ry))) return;
   for (int c = 0; c <= RR_N; c++) {
@@ -220,9 +288,9 @@ static void rr_wave_draw() {
       for (int sgn = j ? -1 : 1; sgn <= 1; sgn += 2) {
         const int y = (int)RR_WAVE_Y + sgn * j * RC_P - RR_DOT / 2;
         if (fast) {
-          const int x = q.x + (int)v.x, yy = y + (int)v.y;
+          const int x = q.x + vx, yy = y + vy;
           if (yy + RR_DOT <= hb.y || yy >= hb.y + hb.rows || x + RR_DOT <= hb.x0 || x > hb.x1) continue;
-          rr_dot(x, yy, rr_pal[col], a);
+          rr_dot(x, yy, pal[col], a);
         } else {  // (a transition: scaled, dimmed)
           static const uint32_t COL[RR_C_N] = {RR_LIT, RR_PEAK, RR_FAINT, RR_GREY};
           const float x0 = halo_view_x(v, q.x), y0 = halo_view_y(v, y), x1 = halo_view_x(v, q.x + RR_DOT), y1 = halo_view_y(v, y + RR_DOT);
@@ -237,6 +305,9 @@ static void recorder_draw() {
   if (rc_fa > 0.004f) {
     halo_item_draw(rc_title), halo_item_draw(rc_time);
     halo_item_draw(rc_glow), halo_item_draw(rc_dot), halo_item_draw(rc_card);
+#ifdef RR_CARD_W
+    halo_item_draw(rr_card);
+#endif
     rr_wave_draw();
     for (const auto &b : rc_btn) halo_item_draw(b);
     halo_item_draw(rc_rec_ic), halo_item_draw(rc_play_ic), halo_item_draw(rc_pause_ic), halo_item_draw(rc_vol_ic);

@@ -60,7 +60,9 @@ static void music_begin() {
 #ifdef HALO_ROUND
   mu_part = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_FAT, "ffat");
 #else
-  mu_part = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_SPIFFS, "spiffs");  // (this board's table)
+  mu_part = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_SPIFFS, "spiffs");  // (the 7″'s table)
+  if (!mu_part)  // (an S3 board's table — the 4″ square's app3M_fat9M_16MB: "ffat", as the round board's; read in blocks too)
+    mu_part = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_FAT, "ffat");
 #endif
   const size_t HEAD = 16 + MU_MAX * 128;  // read once at start: a temporary in PSRAM, not static internal RAM
   uint8_t *head = (uint8_t *)heap_caps_malloc(HEAD, MALLOC_CAP_SPIRAM);

@@ -185,7 +185,7 @@ static uint32_t gm_full[FL_SNKISO - FL_SNKDOTS + 1];     // (the screen itself s
 #define GM_SPACE_S 0.75f
 #define GM_SPACE_MINI 0.33f
 #define GM_ISO_CY 250.0f    // Voxel Snake: the board's middle on the watch
-#define GM_ISO_S (HALO_W > HALO_H ? 0.78f : 0.68f)
+#define GM_ISO_S (HALO_W >= HALO_H ? 0.78f : 0.68f)
 #define GM_ISO_Y (HALO_H * 0.52f)
 #define GM_ISO_MINI 0.36f
 #elif defined(HALO_P4_TALL)  // the 7″ board held tall (600 × 1024): the round fields across its width in the middle of its

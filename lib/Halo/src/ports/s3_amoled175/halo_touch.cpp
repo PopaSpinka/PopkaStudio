@@ -15,7 +15,7 @@
 // там же АЦП: USB (0x38/0x39, мВ, бит 2), система (0x3A/0x3B, мВ, бит 3), температура чипа (0x3C/0x3D, бит 4:
 // 22 + (7274 − отсчёт) / 20 °C — как XPowersLib). Каждое — 6 старших бит и 8 младших
 #include <sdkconfig.h>
-#if CONFIG_IDF_TARGET_ESP32S3 && !defined(HALO_BOARD_WT32SC01P)  // this board's port: other boards build their own
+#if CONFIG_IDF_TARGET_ESP32S3 && !defined(HALO_BOARD_WT32SC01P) && !defined(HALO_BOARD_LCD4B)  // this board's port: other boards build their own
 #include "halo_s3.h"
 
 #include <driver/gpio.h>

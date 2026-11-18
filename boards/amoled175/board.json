@@ -7,6 +7,8 @@
   "title": "ESP32-S3 AMOLED 1.75",
   "screen": "466 × 466, round",
   "spec": "1.75″ round · 466 × 466",
+  "about": "A round AMOLED watch. Runs on its battery and counts steps.",
+  "has": ["Battery", "Speaker", "Microphones", "Motion sensor"],
   "drawn": "round",
   "art": "img/board-amoled175-face.webp",
   "usb": ["303A:1001"],

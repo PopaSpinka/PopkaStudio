@@ -39,9 +39,15 @@
 #define SH_DATE 0xC9CAD0
 #define SH_TILE 0x282C30  // (colors on the 565 levels: R, B ×8, G ×4 — no dither, no tint)
 #define SH_MAX 120  // items in the pool
+#ifdef HALO_SQUARE
+#define SH_STEPS 8  // brightness steps (Display's on the square: settings.h)
+#else
 #define SH_STEPS 20 // brightness steps (Display's on a rectangle)
+#endif
 enum : uint8_t { SH_FULL, SH_DUAL, SH_CORNER, SH_STRIP };
-#ifdef HALO_COMPACT  // a small rectangle has one look — the whole screen (sh_full: its own layout there)
+#if defined(HALO_SQUARE)  // the square has one look — the strip (variant 7C of web/mockups/square-screens.html)
+static const float SH_TRAVEL[4] = {HALO_H, HALO_H, HALO_H, 280};
+#elif defined(HALO_COMPACT)  // a small rectangle has one look — the whole screen (sh_full: its own layout there)
 static const float SH_TRAVEL[4] = {HALO_H, HALO_H, HALO_H, HALO_H};
 #elif defined(HALO_P4_TALL)  // the 7″ board held tall: Full — the screen's height (the veil's edge stays under the finger);
 // the two cards, stacked, come down further — a longer way; Corner and Strip — the landscape's
@@ -120,9 +126,15 @@ static void sh_bright_tick(float) {}
 static void sh_bright_load() {}
 static void shade_poll() {}
 #else
+#ifdef HALO_SQUARE
+static const uint8_t SH_LEVEL[SH_STEPS + 1] = {10, 15, 22, 34, 51, 77, 115, 172, 255};  // (as Display's: settings.h)
+#define SH_BRIGHT0 6  // 75 %
+#else
 static const uint8_t SH_LEVEL[SH_STEPS + 1] = {10, 11, 13, 15, 18, 22, 27, 33, 40, 48, 58, 69, 81, 95, 110, 127, 146, 167, 190, 221, 255};
-static volatile int sh_bv = 14;  // 70 %
-static float sh_bshown = 14, sh_bfrom = 14, sh_bt = 9;
+#define SH_BRIGHT0 14  // 70 %
+#endif
+static volatile int sh_bv = SH_BRIGHT0;
+static float sh_bshown = SH_BRIGHT0, sh_bfrom = SH_BRIGHT0, sh_bt = 9;
 static Preferences sh_prefs;
 static int sh_bsaved = -1;
 static uint32_t sh_bchanged;
@@ -142,7 +154,7 @@ static void sh_bright_tick(float dt) {  // 150 ms to the new step, as Display's
 }
 static void sh_bright_load() {  // before halo_begin: the panel starts at it
   sh_prefs.begin("popkawatch", false);
-  sh_bv = sh_bsaved = constrain((int)sh_prefs.getUChar("bright", 14), 0, SH_STEPS);
+  sh_bv = sh_bsaved = constrain((int)sh_prefs.getUChar("bright", SH_BRIGHT0), 0, SH_STEPS);
   sh_bshown = sh_bfrom = sh_bv;
   pw_awake_level = SH_LEVEL[sh_bv];
 }
@@ -385,7 +397,7 @@ static void sh_full(float p, uint32_t acc, uint32_t on_acc, uint32_t trk, bool l
     const float M = 14, ty = -(1 - p) * 40, a = sh_seg(p, 0.08f, 0.6f), w2 = (HALO_W - 2 * M - 10) / 2;
     sh_group(0, ty, 1, 0, 0, a);
     sh_text(gl_sh_n64, sh_mid_n64, fc_time, M, 36, SH_TEXT);
-    sh_text(gl_sh_t22, sh_mid_t22, HALO_W > HALO_H ? sh_date_l : sh_date_s, M + 2, 72, SH_DATE);
+    sh_text(gl_sh_t22, sh_mid_t22, HALO_W >= HALO_H ? sh_date_l : sh_date_s, M + 2, 72, SH_DATE);
     const bool gear = sh_app_screen(SI_DISPLAY) >= 0;  // (Settings in this project: its button at the top right)
     sh_status(HALO_W - M - (gear ? 50 : 0), 36);
     if (gear) sh_tile(SI_GEAR, 3, HALO_W - M - 40, 16, 40, 40, acc, on_acc, live);
@@ -603,6 +615,20 @@ static void sh_strip(float p, uint32_t acc, uint32_t on_acc, uint32_t trk, bool 
   // the strip comes 40 px and fades in — never two half-seen things on top of each other
   const float b = sh_seg(p, 0.35f, 1);
   sh_group(0, -(1 - b) * 40, 1, 0, 0, b);
+#ifdef HALO_SQUARE
+  {  // the square (variant 7C of web/mockups/square-screens.html): two rows over the face — brightness and volume side by
+     // side, the five round buttons under them; the clock below stays where it is (the band ends 16 px over its digits)
+    sh_rrect(0, -24, HALO_W, 196, 24, 0x181C20);  // (to y 172: SH_STRIP_H)
+    sh_slider_put(SL_BRIGHT, 20, 18, 212, 50, sh_value(SL_BRIGHT), SH_IC_SUN, acc, on_acc, trk, live);
+    sh_slider_put(SL_VOL, 248, 18, 212, 50, sh_value(SL_VOL), SH_IC_VOL, acc, on_acc, trk, live);
+    static const uint8_t IT[5] = {SI_WIFI, SI_AOD, SI_LOCK, SI_MUTE, SI_OFF};
+    for (int i = 0; i < 5; i++) sh_tile(IT[i], 3, 20 + i * 90.5f, 84, 78, 62, acc, on_acc, live);
+    sh_rrect(219, 160, 42, 4, 2, 0x5D6067);
+    sh_card[0] = 0, sh_card[1] = 0, sh_card[2] = HALO_W, sh_card[3] = 172;
+    (void)all;
+    return;
+  }
+#endif
 #ifdef HALO_P4_TALL
   {  // the 7″ board held tall (variant 7G): two rows — the sliders side by side, the five round buttons under them
     sh_rrect(0, -28, HALO_W, 252, 28, 0x181C20);  // (to y 224: SH_STRIP_H)
@@ -637,7 +663,9 @@ static int shade_index(const FaceScreen &S) {
   return -1;
 }
 static uint8_t sh_look_of(const FaceLayer &L) {
-#ifdef HALO_COMPACT
+#if defined(HALO_SQUARE)
+  return SH_STRIP;  // (the square's one look)
+#elif defined(HALO_COMPACT)
   return SH_FULL;  // (the other looks are drawn for a 7-inch screen)
 #endif
   return (uint8_t)constrain((int)lroundf(L.p2), 0, 3);
@@ -668,7 +696,9 @@ static HaloView shade_under(int s, const FaceScreen &S, const HaloView &v) {
 // taken when it leaves zero (sh_mask_take: where each was drawn then, backgrounds aside); in the editor's still pictures
 // — the status line by its place
 static uint32_t sh_fade_mask;
-#ifdef HALO_P4_TALL
+#if defined(HALO_SQUARE)
+#define SH_STRIP_H 172.0f  // (the square: two rows)
+#elif defined(HALO_P4_TALL)
 #define SH_STRIP_H 224.0f  // (held tall: two rows)
 #else
 #define SH_STRIP_H 136.0f
@@ -680,7 +710,11 @@ static void sh_mask_take() {
     const FaceLayer &L = S.layers[i];
     const float *b = S.run[i].box;
     if (L.kind == FL_SHADE || L.kind == FL_STARS || fl_pixels(L.kind) || b[2] < b[0]) continue;
+#ifdef HALO_SQUARE  // (the square: the big clock's box reaches up under the strip, its digits don't — under it by its middle)
+    if ((b[1] + b[3]) / 2 < SH_STRIP_H && b[3] - b[1] < HALO_H - 40) sh_fade_mask |= 1u << i;
+#else
     if (b[1] < SH_STRIP_H + 4 && b[3] - b[1] < HALO_H - 40) sh_fade_mask |= 1u << i;  // (a whole-screen one — a background: stays)
+#endif
   }
 }
 static float shade_top_fade(int s, const FaceScreen &S, int i) {

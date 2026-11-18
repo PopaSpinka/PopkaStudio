@@ -12,8 +12,36 @@ extern const HaloFont gl_r_title, gl_r_t28, gl_r_t32, gl_r_ic28, gl_r_n64;  // a
 static void games_mini_layout(uint8_t kind, const HaloView &page, float x, float y, float w, float h, float a);
 static void games_mini_draw(uint8_t kind);
 
-#ifdef HALO_COMPACT  // a small rectangle: two cards in a row when it is wide, one when it is tall
-#define RG_WIDE (HALO_W > HALO_H)
+#if defined(HALO_SQUARE)  // the square, 480 × 480 (variant 2D of web/mockups/square-screens.html): a launcher — three
+                          // tiles in a row, a big icon in its circle over the name, no second line; the live weather is
+                          // the first tile (its sky and temperature). The games keep the small rectangle's three cards
+#define RG_PAD 16.0f
+#define RG_GAP_X 11.5f      // between the tiles
+#define RG_TOP 52.0f
+#define RG_TILE_H 132.0f
+#define RG_ITEM_H RG_TILE_H
+#define RG_BIG_H RG_TILE_H
+#define RG_STACK_GAP 8.0f
+#define RG_ROW_GAP 8.0f
+#define RG_END 16.0f
+#define RG_RADIUS 22.0f
+#define RG_RADIUS_DOWN 15.0f
+#define RG_TITLE_Y 30.0f
+#define RG_ICON_R 30.0f
+#define RG_ICON_Y 56.0f     // a tile: the icon's middle from its top
+#define RG_NAME_Y 115.0f    // the name's middle
+#define RG_SKY_Y 46.0f      // the weather tile: the sky's middle
+#define RG_DEG_Y 107.0f     // and the temperature's
+#define RG_GAME_COLS 3
+#define RG_GAME_GAP 8.0f
+#define RG_GAME_W ((HALO_W - 2 * RG_PAD - (RG_GAME_COLS - 1) * RG_GAME_GAP) / RG_GAME_COLS)
+#define RG_GAME_H 246.0f
+#define RG_GAME_STEP (RG_GAME_W + RG_GAME_GAP)
+#define RG_SCENE_H (RG_GAME_H - 84.0f)
+#define RG_FONT_SUB gl_c_t14
+extern const HaloFont gl_c_t14, gl_q_ic30, gl_q_ic48, gl_q_n28;  // (studio.py: SQUARE_FONTS)
+#elif defined(HALO_COMPACT)  // a small rectangle: two cards in a row when it is wide, one when it is tall
+#define RG_WIDE (HALO_W >= HALO_H)  // (a square — the 4″ 480 × 480 board — is laid out as wide: those layouts are drawn 480 wide)
 #define RG_COLS (RG_WIDE ? 2 : 1)
 #define RG_PAD 12.0f
 #define RG_GAP_X 10.0f
@@ -102,10 +130,18 @@ static void rg_layer_build(const FaceScreen &S, int i) {
   FaceRun &R = S.run[i];
   if (L.kind == FL_TITLE) R.mid = halo_text_mid(gl_r_title, gl_str(L.text));
   if (L.kind != FL_CARD) return;
+#if defined(HALO_SQUARE)  // (a tile: the icon's middle, the name's; the live one — the sky's, its temperature by its middle)
+  R.top = rg_live(L) ? halo_text_mid(gl_q_ic48, "\uf185") : halo_text_mid(gl_q_ic30, "\uf0f3");
+  R.mid = halo_text_mid(gl_r_t28, gl_str(L.text));
+  if (!rg_live(L)) return;
+  R.txt = (char *)calloc(48, 1);
+  halo_roll_init(R.roll, gl_q_n28, "0123456789", 1, 0);
+#else
   R.top = halo_text_mid(gl_r_ic28, "\uf0f3");
   if (!rg_live(L)) return;
   R.txt = (char *)calloc(48, 1);
   halo_roll_init(R.roll, gl_r_n64, "0123456789", 0, 0);
+#endif
   halo_roll_set(R.roll, fc_temp, false);
 }
 
@@ -129,7 +165,14 @@ static void rg_place(int c, bool big, bool games, RgCell &o) {
     o.x = RG_PAD + (c % RG_GAME_COLS) * RG_GAME_STEP, o.y = RG_TOP + (c / RG_GAME_COLS) * (RG_GAME_H + RG_ROW_GAP), o.w = RG_GAME_W, o.h = RG_GAME_H;
     return;
   }
-#ifdef HALO_COMPACT
+#if defined(HALO_SQUARE)
+  {  // three tiles in a row, the live one as the first of them
+    const float wn = (W - 2 * RG_PAD - 2 * RG_GAP_X) / 3;
+    (void)big;
+    o.x = RG_PAD + (c % 3) * (wn + RG_GAP_X), o.y = RG_TOP + (c / 3) * (RG_TILE_H + RG_ROW_GAP), o.w = wn, o.h = RG_TILE_H;
+    return;
+  }
+#elif defined(HALO_COMPACT)
   {  // RG_COLS in a row; a live first card: half the width with two beside it (wide) or the whole width (tall)
     const int cols = RG_COLS;
     const float wn = (W - 2 * RG_PAD - (cols - 1) * RG_GAP_X) / cols;
@@ -266,6 +309,24 @@ static void rg_card(const FaceScreen &S, int i, const GalRun &g, int c, float a,
     return;
   }
   const WxDay d = wx_day(0);
+#if defined(HALO_SQUARE)
+  {  // a launcher's tile: the icon in its circle over the name; the live one — the sky (no circle) over the temperature
+    const float cx = x0 + q.w / 2;
+    dc.x = cx, dc.y = y0 + RG_ICON_Y;
+    it[4].alpha = 0;
+    if (live) {
+      dc.alpha = 0, it[3].alpha = 0;
+      gl_text_mid(it[2], gl_q_ic48, RG_WX_GLYPH[d.kind & 3], R.top, cx, y0 + RG_SKY_Y, 1, L.color, ac, &bg);
+      halo_roll_layout(R.roll, cx, y0 + RG_DEG_Y, GL_TEXT, ac, &bg, v);
+    } else {
+      gl_text_mid(it[2], gl_q_ic30, gl_str(L.icon), R.top, cx, dc.y, 1, 0x1B1B1F, ac, &dc);
+      gl_text_mid(it[3], gl_r_t28, gl_str(L.text), R.mid, cx, y0 + RG_NAME_Y, 1, GL_TEXT, ac, &bg);
+    }
+    for (int j = 0; j < 5; j++) halo_view_commit(it[j], v);
+    R.ax = bg.x, R.ay = bg.y;
+    return;
+  }
+#endif
   gl_text_mid(it[2], gl_r_ic28, live ? RG_WX_GLYPH[d.kind & 3] : gl_str(L.icon), R.top, ix, iy, 1, 0x1B1B1F, ac, &dc);
   if (live) {
     int n = snprintf(R.txt, 48, "%s, ", wx_city[0].name);

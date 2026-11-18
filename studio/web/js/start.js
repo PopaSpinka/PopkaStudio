@@ -1,9 +1,10 @@
-// start.js — the start window, over the editor (blurred behind it), in steps that slide: 1 the board (Choose a board —
-// its photo, name and screen; a board not ready yet is shown as Soon), 2 its projects — a new one, or one of them to
-// open, rename or delete — and 3 a new project's name. It shows when the page starts; again from the top left:
-// PopkaStudio — at the boards, the project's name — at the projects (opened right there, no slide). A project's circle
-// is its watch face: the picture the page makes a while after each save (thumbSoon), kept next to the project by
-// studio.py.
+// start.js — the start window, over the editor (blurred behind it), in two steps that slide: 1 the boards and their
+// projects in one window (since 17 Nov 2026, variant I of web/mockups/boards.html) — every board in a column on the left
+// (its picture, name, screen and how many projects; a board not ready yet is shown as Soon), on the right the picked
+// one: its picture, what it is and what it has (its passport's "about" and "has"), and its projects — a new one, or one
+// of them to open, rename or delete; 2 a new project's name. It shows when the page starts; again from the top left
+// (PopkaStudio or the project's name), at the open project's board. A project's circle is its watch face: the picture
+// the page makes a while after each save (thumbSoon), kept next to the project by studio.py.
 import { state, on, openProject, closeProject, change, projectName, home, screens, newLayer, FACE_SCREEN, saveAndRemember } from './state.js';
 import { BOARD, WAY, TW, TH } from './screen.js';
 import { engines } from './engine.js';
@@ -11,7 +12,7 @@ import { preview } from './previews.js';
 import { justUpdated } from './update.js';
 
 const $ = (id) => document.getElementById(id);
-let boards = [], projects = [], board = null, added = null, way = null, opened = false, onOpen = null, ready = null;
+let boards = [], projects = [], board = null, way = null, opened = false, onOpen = null, ready = null;
 
 const ICON = {
   check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>',
@@ -19,6 +20,7 @@ const ICON = {
   trash: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg>',
   pen: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19h3.5L18.5 9 15 5.5 5 15.5zM13 7.5 16.5 11"/></svg>',
 };
+const make = (tag, cls, text) => Object.assign(document.createElement(tag), { className: cls, ...(text !== undefined && { textContent: text }) });
 
 // The board's picture: its photo; without one, drawn — black glass round its screen and a face on it (art: a picture
 // the board's code drew — since 11 Nov 2026 the user's own: the round one — Project 1's face, the rectangular one — test's home);
@@ -86,58 +88,55 @@ function names(b) {
   return t;
 }
 
-// ---------- Step 1: the board ----------
-// Two boards as cards, as it always was; the others (a passport's "more") — a list under More boards, at the bottom left.
-// One picked in the list becomes a third card, to the right of the two (the window grows for it), and is the picked one.
-// No board is picked when the window opens: Continue waits for a card
+// ---------- Step 1: the boards on the left, the picked one and its projects on the right ----------
+// One board is always picked: the open project's (showStart) — a click on another shows its projects at once
 function renderBoards() {
-  const others = boards.filter((b) => b.more);
-  if (others.some((b) => b.id === board)) added = board;  // (the one just picked in the list)
-  const extra = others.find((b) => b.id === added);
-  const more = $('start-more'), list = $('start-more-list');
-  more.hidden = !others.length;
-  $('start-win').classList.toggle('wide', !!extra && step() === 1);
-  list.replaceChildren(...others.map((b) => {
-    const el = document.createElement('button');
-    el.className = 'more-row' + (b.soon ? ' off' : '');
-    el.disabled = !!b.soon;
-    el.setAttribute('role', 'option');
-    el.append(picture(b, 'mini'), names(b));
-    if (b.soon) el.insertAdjacentHTML('beforeend', '<span class="soon">SOON</span>');
-    el.onclick = () => { board = b.id, moreOpen(false), renderBoards(); };
-    el.ondblclick = () => go(2);
-    return el;
+  $('start-nboards').textContent = boards.length || '';
+  $('start-rail').replaceChildren(...boards.map((b) => {
+    const row = make('button', 'brow' + (b.id === board ? ' picked' : '') + (b.soon ? ' off' : ''));
+    row.setAttribute('aria-pressed', String(b.id === board));
+    const pic = make('span', 'pic');
+    pic.append(picture(b, 'mini'));
+    const n = projects.filter((p) => p.board === b.id).length;
+    row.append(pic, names(b), b.soon ? make('span', 'soon', 'SOON') : make('span', 'cnt', n || ''));
+    row.onclick = () => { if (board !== b.id) board = b.id, renderBoards(), renderProjects(); };
+    return row;
   }));
-  $('start-boards').replaceChildren(...[...boards.filter((b) => !b.more), ...(extra ? [extra] : [])].map((b) => {
-    const el = document.createElement('button');
-    el.className = 'bcard' + (b.id === board ? ' picked' : '') + (b.soon ? ' off' : '');
-    el.disabled = !!b.soon;
-    if (b.soon) el.insertAdjacentHTML('beforeend', '<span class="soon">SOON</span>');
-    else if (b.id === board) el.insertAdjacentHTML('beforeend', `<span class="check">${ICON.check}</span>`);
-    el.append(picture(b), names(b));
-    el.onclick = () => { if (board !== b.id) board = b.id, renderBoards(); };
-    el.ondblclick = () => go(2);
-    return el;
-  }));
-  $('start-next').disabled = !current() || !!current().soon;
 }
 
-// ---------- Step 2: its projects ----------
+// The picked board: its picture, what it is and has, and its projects — New first, then the newest
 function renderProjects() {
   const b = current();
-  if (b) $('start-board').replaceChildren(picture(b, 'mini'), names(b)), ($('start-grid').dataset.shape = b.shape);
-  const add = document.createElement('button');
-  add.className = 'ptile new';
+  if (!b) return;
+  const pic = make('span', 'pic'), text = make('div', 'txt');
+  pic.append(picture(b));
+  text.append(names(b));
+  if (b.about) text.append(make('p', 'about', b.about));
+  if (b.has?.length) {
+    const chips = make('div', 'chips');
+    chips.append(...b.has.map((h) => make('span', 'chip', h)));
+    text.append(chips);
+  }
+  $('start-board').replaceChildren(pic, text);
+  const grid = $('start-grid');
+  grid.dataset.shape = b.shape;
+  grid.style.setProperty('--th-ratio', `${b.w} / ${b.h}`);  // (New in the board's shape — one used either way up: as it was)
+  grid.classList.toggle('oneway', !b.orientations);
+  $('start-plab').hidden = !!b.soon;
+  if (b.soon) return grid.replaceChildren(make('div', 'start-empty', 'This board is coming. Its projects open here once it is ready.'));
+  $('start-nproj').textContent = mine().length || '';
+  const add = make('button', 'ptile new');
   add.innerHTML = `<span class="th plus">${ICON.plus}</span><span class="nm">New</span><span class="when">&nbsp;</span>`;
-  add.onclick = () => go(3);
-  $('start-grid').replaceChildren(add, ...mine().map(tile));
+  add.onclick = () => go(2);
+  grid.replaceChildren(add, ...mine().map(tile));
 }
 
 function tile(p) {
   const el = document.createElement('div');
   el.className = 'ptile' + (opened && p.id === state.pid ? ' cur' : '');
-  const pw = current()?.orientations?.[p.orientation];  // (a board used either way up: the picture in this project's shape)
-  if (pw || current()?.orientations) el.style.setProperty('--th-ratio', `${pw?.w || current().w} / ${pw?.h || current().h}`), el.classList.add('shaped');
+  // A rectangular board's picture in its own shape (a board used either way up: in this project's)
+  const b = current(), pw = b?.orientations?.[p.orientation];
+  if (b?.shape === 'rect') el.style.setProperty('--th-ratio', `${pw?.w || b.w} / ${pw?.h || b.h}`), el.classList.add('shaped');
   el.tabIndex = 0;
   el.innerHTML = `<span class="ring">${p.thumb ? `<img class="th" alt="" draggable="false" src="${thumbUrl(p)}">` : '<span class="th ini"></span>'}
     <button class="pen" title="Rename" aria-label="Rename">${ICON.pen}</button>
@@ -182,14 +181,11 @@ function tile(p) {
 // The step shown: slid to (instant — put there at once: the window opening)
 function go(n, instant = false) {
   if (n > 1 && (!current() || current().soon)) return;
-  if (n === 2) renderProjects();
   const win = $('start-win');
   if (instant) win.classList.add('instant');
   win.dataset.step = n;
-  win.classList.toggle('wide', n === 1 && boards.some((b) => b.more && b.id === added));
-  moreOpen(false);
   if (instant) win.getBoundingClientRect(), win.classList.remove('instant');
-  if (n === 3) {  // the name: the first free Project N, picked so typing replaces it
+  if (n === 2) {  // the name: the first free Project N, picked so typing replaces it
     const taken = new Set(projects.map((p) => p.name));
     let k = 1;
     while (taken.has(`Project ${k}`)) k++;
@@ -200,7 +196,7 @@ function go(n, instant = false) {
   }
 }
 
-// Step 3, a board used either way up: which way this project's screen is (picked once, here)
+// Step 2, a board used either way up: which way this project's screen is (picked once, here)
 function renderWays() {
   const ways = current()?.orientations, box = $('start-ways');
   box.hidden = !ways;
@@ -220,10 +216,6 @@ function renderWays() {
   }));
 }
 const step = () => Number($('start-win').dataset.step);
-function moreOpen(open) {
-  $('start-more-list').hidden = !open;
-  $('start-more').setAttribute('aria-expanded', String(open));
-}
 
 // ---------- What the buttons do (studio.py: /api/projects) ----------
 async function api(body) {
@@ -239,9 +231,11 @@ async function refresh() {
     if (!boards.length) boards = (await (await fetch('/api/boards', { cache: 'no-store' })).json()).boards;
     projects = (await (await fetch('/api/projects', { cache: 'no-store' })).json()).projects;
   } catch (e) { /* studio.py is not running: what was there stays */ }
-  const cur = projects.find((p) => p.id === state.pid);
-  // The open project's board: picked at its projects (step 2); at the boards (step 1) nothing is
-  if (cur && step() !== 1 && boards.some((b) => b.id === cur.board && !b.soon)) board = cur.board;
+  // A board is always picked: the one picked before, else the open project's, else this page's, else the first
+  if (!boards.some((b) => b.id === board)) {
+    const cur = projects.find((p) => p.id === state.pid);
+    board = [cur?.board, BOARD.id].find((id) => boards.some((b) => b.id === id && !b.soon)) || boards.find((b) => !b.soon)?.id || null;
+  }
   renderBoards();
   renderProjects();
 }
@@ -275,6 +269,7 @@ async function remove(p) {
       if (opened) onOpen?.();
     } else closeProject(), (opened = false);
   }
+  renderBoards();  // (its board's count)
   renderProjects();
 }
 
@@ -296,11 +291,10 @@ async function pick(pid, fresh = false) {
   hideStart();
 }
 
-// n — the step it opens at (1 the boards, 2 the projects)
-export function showStart(n = 1) {
-  board = n === 1 ? null : BOARD.id;  // (the boards: none picked; the projects: the open project's board — this page's)
-  if (n === 1) added = null;          // (and the two cards alone: a third comes only from More boards)
-  go(n, true);
+// At the boards and projects, the open project's board picked (this page's)
+export function showStart() {
+  board = BOARD.id;
+  go(1, true);
   $('start').classList.add('on');
   $('start').setAttribute('aria-hidden', 'false');
   refresh();
@@ -322,23 +316,17 @@ function showName() {
 // open — what the editor does once a project is open (the view fitted to it); built — the editor is ready
 export function initStart(open, built) {
   onOpen = open, ready = built;
-  $('brand').onclick = () => showStart(1);
-  $('proj-name').onclick = () => showStart(2);
-  $('start-next').onclick = () => go(2);
-  $('start-more').onclick = (e) => { e.stopPropagation(), moreOpen($('start-more-list').hidden); };
-  $('start-win').addEventListener('pointerdown', (e) => { if (!e.target.closest('.more-wrap')) moreOpen(false); });
+  $('brand').onclick = $('proj-name').onclick = () => showStart();
   $('start-back').onclick = () => go(1);
-  $('start-back2').onclick = () => go(2);
   $('start-create').onclick = create;
   $('start-name').onkeydown = (e) => {
     if (e.key === 'Enter') e.preventDefault(), create();
-    if (e.key === 'Escape') e.preventDefault(), e.stopPropagation(), go(2);
+    if (e.key === 'Escape') e.preventDefault(), e.stopPropagation(), go(1);
   };
   $('start').addEventListener('pointerdown', (e) => { if (e.target === $('start')) hideStart(); });
   document.addEventListener('keydown', (e) => {  // (the editor's own keys wait while it is open: startOpen)
     if (!startOpen() || e.target.closest?.('input')) return;
-    if (e.key === 'Escape') !$('start-more-list').hidden ? moreOpen(false) : step() === 3 ? go(2) : hideStart();
-    if (e.key === 'Enter' && step() === 1 && !e.target.closest?.('button, .ptile')) go(2);
+    if (e.key === 'Escape') step() === 2 ? go(1) : hideStart();
   });
   let resumed = null;  // (reloaded for another board's project: straight into it)
   try { resumed = sessionStorage.getItem('popka.opening'), sessionStorage.removeItem('popka.opening'); } catch (e) { /* no storage */ }
@@ -366,7 +354,7 @@ export function thumbSoon(stage, ms = 2000, tries = 10) {
   }, ms);
 }
 on((what) => {
-  if (what === 'gone') opened = false, showStart(2);  // (the open project deleted in another window: the projects)
+  if (what === 'gone') opened = false, showStart();  // (the open project deleted in another window: the projects)
   if (what === 'saved' && window.popka?.stage) thumbSoon(window.popka.stage);
   if (what === 'project') showName();  // (opened, renamed here or in another window)
 });

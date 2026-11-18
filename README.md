@@ -6,8 +6,8 @@
 
 ![PopkaStudio](docs/screenshots/editor.png)
 
-PopkaStudio is a visual editor for screen interfaces on ESP32 boards — a round 1.75″ watch, a 7″ ESP32-P4 display
-and, from the community, the 3.5″ WT32-SC01 Plus. You put together a watch face, apps and screens from ready parts, link them like frames in Figma, and
+PopkaStudio is a visual editor for screen interfaces on ESP32 boards — a round 1.75″ watch, a 7″ ESP32-P4 display,
+a square 4″ panel and, from the community, the 3.5″ WT32-SC01 Plus. You put together a watch face, apps and screens from ready parts, link them like frames in Figma, and
 press **Load** — the board gets firmware built from exactly what you made, running smoothly at 60 frames per second.
 
 The preview is not a mock-up: it is **the board's own code**, compiled to WebAssembly. What you see in the editor is
@@ -25,13 +25,13 @@ what the watch shows, pixel for pixel — the same fonts, the same animations, t
 - **Weather widgets** (new in 2.2) — the temperature huge with the sky moving inside its digits, the next 12 hours
   as a curve, an old barometer, what to wear, a little weather buddy, pixel weather, the week ahead. The big clock
   makes room for them by itself; on the rectangular boards each has two layouts.
-- **Radio** (round watch; 7″ board new in 2.2) — internet radio over Wi-Fi: tens of thousands of free stations from
+- **Radio** (round watch, 7″ board, 4″ square) — internet radio over Wi-Fi: tens of thousands of free stations from
   the [Radio Browser](https://www.radio-browser.info) catalog in folders (Top, genres, countries), favorites with a
   heart, the song that's playing. On the round watch — an equalizer of rays along the edge that dances to the real
   sound, and a screen made of layers you can move, recolor, resize or hide; on the 7″ board — one screen with two
-  knobs like a real receiver, volume and tuning.
+  knobs like a real receiver, volume and tuning; on the 4″ square — a tall tuning window and big buttons.
 - **Quick settings** — swipe down on the home screen: brightness, volume, Wi-Fi, Always On, lock, screen off — all
-  real. One look on the round watch, four on the 7″ board, with app shortcuts and the player.
+  real. One look on the round watch, four on the 7″ board, with app shortcuts and the player, a strip on the 4″ square.
 - **Video** (7″ board) — clips from a microSD card, decoded in hardware, or straight from your computer over Wi-Fi with
   **Stream**. Add a clip with **+**: PopkaStudio converts it (needs [ffmpeg](https://ffmpeg.org)) and writes it to the
   card.
@@ -62,8 +62,13 @@ what the watch shows, pixel for pixel — the same fonts, the same animations, t
 - [Wireless-Tag WT32-SC01 Plus](https://www.seeedstudio.com/ESP32-Development-board-WT32-SC01-p-4735.html) (new in 2.2,
   **community board** by [dimonmontana](https://github.com/dimonmontana)): a 3.5″ screen, 320 × 480, touch, ESP32-S3.
   Tall or wide — picked when you create a project. Faces, Weather, the gallery, Settings, About, quick settings and the
-  games, and the weather widgets when it's wide; no sound, radio or video yet. Under **More boards** when you choose a
-  board.
+  games, and the weather widgets when it's wide; no sound, radio or video yet.
+- [Waveshare ESP32-S3-Touch-LCD-4B](https://www.waveshare.com/esp32-s3-touch-lcd-4b.htm) (new in 2.3): a square 4″
+  screen, 480 × 480, touch, ESP32-S3, a battery connector, a speaker and microphones — it fits a wall box. Every
+  screen is laid out for the square: the home screen and the gallery, Weather, Settings, About, quick settings, Battery
+  and Power, Music, Recorder, Radio, the weather widgets; Bluetooth, the buttons and Always On too. **Early support:**
+  it runs at 60 fps, but some things haven't been tried on the board yet (a real battery, the speaker by ear, Bluetooth
+  from a phone), screens drop frames while the radio plays, and the motion sensor isn't used yet. No Video.
 
 Choose the board when you create a project; each project is for one board.
 
@@ -73,6 +78,8 @@ don't have that board ([CONTRIBUTING.md](CONTRIBUTING.md)).
 ![The board](studio/web/img/board-amoled175.webp)
 
 ![The 7″ board in PopkaStudio](docs/screenshots/p4.png)
+
+![The 4″ square board in PopkaStudio](docs/screenshots/lcd4b.png)
 
 ## Install — macOS and Linux
 
@@ -107,7 +114,7 @@ Windows is not supported.
 
 ## First steps
 
-1. **Choose a board**, then **New** — a project. It starts as an empty black watch face: you add only what you need.
+1. Pick your board on the left of the start window, then **New** — a project. It starts as an empty black watch face: you add only what you need.
 2. Add parts from the folders at the top of the left card (**ADD**): **Faces** (a whole face), **Layers** (its
    parts), **App**. A tile with a green frame is already in your project. Next to them, **System** — Always On, the
    buttons, Wi-Fi and Bluetooth.
@@ -166,7 +173,7 @@ Broadcasters: to have your station taken out of the defaults (or put in), open a
 I'm going to keep developing PopkaStudio — I love ESP32 boards and devices like them, and making beautiful
 interfaces for them that run flawlessly at 60 fps and more.
 
-- More boards: other round and square screens after the 7″ ESP32-P4.
+- More boards, and the 4″ square tuned to the end: its battery, sound, Bluetooth and motion sensor.
 - Your own GIF or video clip as a pixel-art layer, in seconds.
 - More apps and widgets, more watch faces.
 - Even smoother motion and longer battery life.
@@ -229,7 +236,7 @@ Third-party parts:
 | Weather data | [Open-Meteo.com](https://open-meteo.com) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 | US ZIP code lookup | [Zippopotam.us](https://zippopotam.us) | free API |
 | ES8311 codec register sequence (`lib/Halo/src/halo_audio.cpp`) | based on Espressif's es8311 driver | Apache 2.0 |
-| Board pins and display start-up sequence | based on [Waveshare's examples](https://github.com/waveshareteam/ESP32-S3-Touch-AMOLED-1.75C) | Apache 2.0 |
+| Board pins and display start-up sequence | based on Waveshare's examples ([AMOLED-1.75C](https://github.com/waveshareteam/ESP32-S3-Touch-AMOLED-1.75C), [LCD-4B](https://github.com/waveshareteam/ESP32-S3-Touch-LCD-4B) and its [board support package](https://github.com/waveshareteam/Waveshare-ESP32-components)) | Apache 2.0 |
 | [ArduinoJson](https://arduinojson.org) (`lib/ArduinoJson`) | Benoît Blanchon | MIT |
 | [Emscripten](https://emscripten.org) runtime (`studio/web/build`) | Emscripten authors | MIT |
 | [Electron](https://www.electronjs.org) (the optional Mac app) | OpenJS Foundation | MIT |

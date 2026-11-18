@@ -183,6 +183,9 @@ struct DvRun {
   char row[4][16];   // the values in the list at the right (device_rect.h)
   uint32_t row_at;
 #endif
+#ifdef HALO_SQUARE
+  DvChart rows[3];   // the square's rows: the processor's, the memory's and the temperature's small charts (6C)
+#endif
 };
 // Commit items [0, n) (and hide the ones the last frame had beyond n); box — where they were drawn (or null)
 static void dv_commit(DvRun &d, int n, const HaloView &v, float *box) {
@@ -856,6 +859,73 @@ static void dv_detail_layout(const FaceLayer &L, DvRun &d, const HaloView &v) {
 #endif
 
 #if HAS_CHARGE
+#if defined(HALO_SQUARE)
+// The square (variant 2B of web/mockups/square-battery.html): the title; what is going on (charging — a bolt), the
+// percent big, the forecast at the right (two lines), the level as a bar the screen's width; the four numbers — the
+// battery's, USB's and the system's voltage, the power chip's temperature — as tiles two by two; the chip at the bottom.
+extern const HaloFont gl_r_title, gl_c_t14, gl_q_n34;
+static float cq_mid_title, cq_mid_14, cq_mid_34, cq_mid_t24;
+static char cq_fc[2][24], cq_val[4][16];
+static void ch_square(DvRun &d, const HaloBattery &b, const HaloView &v) {
+  static bool ready;
+  if (!ready) {
+    ready = true;
+    cq_mid_title = halo_text_mid(gl_r_title, "Power"), cq_mid_14 = halo_text_mid(gl_c_t14, "BATTERY 0123456789");
+    cq_mid_34 = halo_text_mid(gl_q_n34, "0123456789"), cq_mid_t24 = halo_text_mid(gl_t24, "40 min");
+  }
+  HaloItem *it = d.it;
+  const bool has = b.ok && b.present && b.percent >= 0, low = has && !b.usb && b.percent <= 20;
+  const uint32_t lvl = low ? DV_RED : DV_GREEN, sc = d.tone == 1 ? DV_GREEN : d.tone == 2 ? DV_RED : DV_DIM;
+  // the forecast in two lines: "full in about" / "40 min", "lasts about" / "8 h"
+  char f[40];
+  ch_forecast(b, f, sizeof(f));
+  const char *ab = strstr(f, "about ");
+  if (ab) {
+    snprintf(cq_fc[0], sizeof(cq_fc[0]), b.usb ? "full in about" : "lasts about");
+    snprintf(cq_fc[1], sizeof(cq_fc[1]), "%s", ab + 6);
+    char *left = strstr(cq_fc[1], " left");
+    if (left) *left = 0;
+  } else {
+    cq_fc[0][0] = cq_fc[1][0] = 0;
+  }
+  has ? snprintf(cq_val[0], sizeof(cq_val[0]), "%.2f V", b.mv / 1000.0f) : snprintf(cq_val[0], sizeof(cq_val[0]), "\xE2\x80\x94");
+  snprintf(cq_val[1], sizeof(cq_val[1]), "%s", d.lab_s[0]), snprintf(cq_val[2], sizeof(cq_val[2]), "%s", d.lab_s[1]);
+  snprintf(cq_val[3], sizeof(cq_val[3]), "%.1f\xC2\xB0", b.temp10 / 10.0f);
+  const float k = halo_ease(DV_EASE, (halo_ms() - d.enter_ms) / 700.0f), shown = (has ? b.percent : 0) * k;
+  if (has) snprintf(d.big, sizeof(d.big), "%d%%", (int)lroundf(shown));
+  else snprintf(d.big, sizeof(d.big), "--");
+  int n = 0;
+  auto text = [&](const HaloFont &fo, const char *s, float mid, float x, float y, uint32_t c, int align, const HaloItem *on, int sp = 0) {
+    HaloItem &t = it[n++];
+    dv_text(t, fo, s, mid, x, y, 1, c, 1, align, on);
+    t.spacing = sp;
+  };
+  auto bar = [&](float x, float y, float w, float h, float r, uint32_t c, bool black) -> HaloItem & {
+    HaloItem &q = it[n++];
+    q.kind = HI_RRECT, q.x = x + w / 2, q.y = y + h / 2, q.w = w, q.h = h, q.r = r, q.scale = 1, q.color = c, q.alpha = 1;
+    q.on_black = black, q.on = nullptr;
+    return q;
+  };
+  text(gl_r_title, "Power", cq_mid_title, RG_PAD, RG_TITLE_Y, DV_TEXT, 0, &halo_black);
+  const bool bolt = b.usb && b.charging;
+  dv_text(it[n++], gl_ic24, "\xEF\x83\xA7", gl_mid_icon, 25, 70, 0.75f, sc, bolt ? 1 : 0, 1, &halo_black);
+  text(gl_t20, d.state, dv_mid_t20, bolt ? 40 : 16, 70, sc, 0, &halo_black);
+  text(gl_n80, d.big, dv_mid_n80, 16, 132, has ? DV_TEXT : DV_DIM, 0, &halo_black);
+  text(gl_t20, cq_fc[0], dv_mid_t20, W - 16, 116, DV_DIM, 2, &halo_black);
+  text(gl_t24, cq_fc[1], cq_mid_t24, W - 16, 142, DV_TEXT, 2, &halo_black);
+  bar(16, 188, W - 32, 16, 8, 0x3A3F44, true);
+  bar(16, 188, fmaxf(16, (W - 32) * shown / 100), 16, 8, lvl, false).alpha = shown > 0 ? 1 : 0;
+  static const char *const CAP[4] = {"BATTERY", "USB", "SYSTEM", "POWER CHIP"};
+  for (int j = 0; j < 4; j++) {
+    const float x = 16 + (j % 2) * 230, y = 222 + (j / 2) * 104;
+    HaloItem &t = bar(x, y, 218, 94, 18, 0x2D3236, true);
+    text(gl_c_t14, CAP[j], cq_mid_14, x + 18, y + 28, DV_DIM, 0, &t, 1);
+    text(gl_q_n34, cq_val[j], cq_mid_34, x + 18, y + 64, DV_TEXT, 0, &t);
+  }
+  text(gl_c_t14, "AXP2101 \xC2\xB7 Li-ion 3.7 V", cq_mid_14, CX, 454, DV_DIM, 1, &halo_black);
+  dv_commit(d, n, v, nullptr);
+}
+#endif
 static void ch_layout(DvRun &d, const HaloView &v) {
   HaloItem *it = d.it;
   const HaloBattery b = ch_battery();
@@ -881,6 +951,9 @@ static void ch_layout(DvRun &d, const HaloView &v) {
     snprintf(d.lab_s[1], sizeof(d.lab_s[1]), "%.2f V", b.vsys_mv / 1000.0f);
     snprintf(d.sub, sizeof(d.sub), "%d\xC2\xB0", (int)lroundf(b.temp10 / 10.0f));
   }
+#if defined(HALO_SQUARE)
+  return ch_square(d, b, v);
+#endif
   // The percent counts up as the screen opens, the line along the bezel grows along it (in pieces)
   const float k = halo_ease(DV_EASE, (halo_ms() - d.enter_ms) / 700.0f), shown = (has ? b.percent : 0) * k;
   int n = 0;

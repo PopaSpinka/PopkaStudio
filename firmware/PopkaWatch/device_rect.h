@@ -2,12 +2,132 @@
 // number, two lines, a chart or the spectrum), at the right the list of four; tap a row and the left card shows it. All on
 // one screen, so there are no separate screens per thing as on the watch. This board has no battery and no motion sensor.
 // The numbers come from device.h. Included from it in place of its round screen.
+// The square, 480 × 480 (variant 6C of web/mockups/square-screens.html): no big card — five rows, each its thing's
+// number and a small live picture: the processor (both cores' average), the memory and the temperature as charts, the
+// sound as its spectrum (the microphones are on while the screen is), the battery as a bar. Nothing to tap.
+
+#if defined(HALO_SQUARE)
+extern const HaloFont gl_r_title, gl_r_n36, gl_c_t14, gl_q_ic22;
+#define DQ_X 16.0f
+#define DQ_W 448.0f
+#define DQ_Y0 52.0f
+#define DQ_STEP 82.0f
+#define DQ_H 74.0f
+#define DQ_R 18.0f
+#define DQ_IC_X 48.0f      // the icon's circle: its middle, its radius
+#define DQ_IC_R 20.0f
+#define DQ_TX 80.0f        // the name and the value: their left end, their middles from the row's top
+#define DQ_NAME_Y 24.0f
+#define DQ_VAL_Y 52.0f
+#define DQ_CH_X 276.0f     // the picture at the right
+#define DQ_CH_W 168
+#define DQ_CH_H 46
+#define DQ_CH_Y 14.0f
+#define DQ_CARD 0x2D3236
+static const uint8_t DQ_WHAT[5] = {DV_CPU, DV_MEM, DV_TEMP, DV_SND, DV_BAT};
+static const uint32_t DQ_COL[5] = {0x8AD6F0, 0xC9A7E8, 0xFFAB91, 0x8FDCAE, 0x6DD58C};
+static const char *const DQ_NAME[5] = {"Processor", "Memory", "Temperature", "Sound", "Battery"};
+static const char *const DQ_ICON[5] = {"\xEF\x8B\x9B", "\xEF\x94\xB8", "\xEF\x8B\x89", "\xEF\x84\xB0", "\xEF\x89\x80"};
+static bool dq_ready;
+static float dq_mid_title, dq_mid_name, dq_mid_val, dq_mid_ic;
+
+static void dv_rect_update(const FaceScreen &, float) {}
+
+// A small chart of this what into c (the card's kind: the processor — both cores' average)
+static void dq_chart(DvChart &c, int what) {
+  const uint32_t gen = what == DV_TEMP ? dv_tgen : dv_gen;
+  if (c.x >= 0) return dv_bake_step(c, DV_COLS);
+  if (c.cur >= 0 && c.gen == gen && c.what == what) return;
+  float a[DV_HN], b[DV_HN];
+  int n = 0, slots = 0;
+  if (what == DV_CPU) {
+    slots = 80, n = dv_series(dv_load1, a, slots), dv_series(dv_load0, b, slots);
+    for (int i = 0; i < n; i++) a[i] = (a[i] + b[i]) / 2;
+    dv_places(a, n, DQ_CH_H, 0, 0, 30, 4);
+  } else if (what == DV_MEM) {
+    slots = 120, n = dv_series(dv_free, a, slots);
+    dv_places(a, n, DQ_CH_H, 0, 0, 16, 4);
+  } else {
+    slots = 60, n = dv_series(dv_temp, a, slots);
+    dv_places(a, n, DQ_CH_H, 0, 0, 2, 4);
+  }
+  if (n < 1) return;
+  dv_bake_start(c, DQ_CH_W, DQ_CH_H, a, nullptr, n, slots);
+  c.next_gen = gen, c.next_what = what;
+  dv_bake_step(c, DV_COLS);
+}
+
+static void dv_detail_layout(const FaceLayer &, DvRun &d, const HaloView &v) {
+  if (!dq_ready) {
+    dq_ready = true;
+    dq_mid_title = halo_text_mid(gl_r_title, "About"), dq_mid_name = halo_text_mid(gl_c_t14, "Processor");
+    dq_mid_val = halo_text_mid(gl_r_n36, "0123456789"), dq_mid_ic = halo_text_mid(gl_q_ic22, DQ_ICON[0]);
+  }
+  if (v.a > 0.01f) dv_seen(DV_SND);  // (the sound's row: the microphones are on while this is open)
+  if (!d.text_at || (!fc_calm && halo_ms() - d.text_at >= 500)) {
+    d.text_at = halo_ms() | 1;
+    for (int i = 0; i < 4; i++) dc_value(DQ_WHAT[i], d.row[i], sizeof d.row[i]);
+    dc_value(DV_BAT, d.val, sizeof d.val);
+  }
+  HaloItem *it = d.it;
+  int n = 0;
+  auto text = [&](const HaloFont &f, const char *s, float mid, int align, float x, float y, uint32_t c, const HaloItem *on) {
+    HaloItem &t = it[n++];
+    rg_text(t, f, s, mid, align, x, y, c, 1, on);
+    t.on_black = on == &halo_black;
+  };
+  auto bar = [&](float cx, float cy, float w, float h, float r, uint32_t c, bool black) -> HaloItem & {
+    HaloItem &q = it[n++];
+    q.kind = HI_RRECT, q.x = cx, q.y = cy, q.w = w, q.h = h, q.r = r, q.scale = 1, q.color = c, q.alpha = 1, q.on_black = black, q.on = nullptr;
+    return q;
+  };
+  text(gl_r_title, "About", dq_mid_title, 0, RG_PAD, RG_TITLE_Y, DV_TEXT, &halo_black);
+  for (int i = 0; i < 5; i++) {
+    const float y = DQ_Y0 + i * DQ_STEP, cy = y + DQ_H / 2;
+    const uint32_t col = DQ_COL[i], tint = dv_mix(DQ_CARD, col, 0.25f);
+    HaloItem &b = bar(DQ_X + DQ_W / 2, cy, DQ_W, DQ_H, DQ_R, DQ_CARD, true);
+    HaloItem &c = it[n++];
+    c.kind = HI_CIRCLE, c.x = DQ_IC_X, c.y = cy, c.r = DQ_IC_R, c.scale = 1, c.color = tint, c.alpha = 1, c.on_black = false, c.on = nullptr;
+    text(gl_q_ic22, DQ_ICON[i], dq_mid_ic, 1, DQ_IC_X, cy, col, &c);
+    text(gl_c_t14, DQ_NAME[i], dq_mid_name, 0, DQ_TX, y + DQ_NAME_Y, DV_DIM, &b);
+    text(gl_r_n36, i < 4 ? d.row[i] : d.val, dq_mid_val, 0, DQ_TX, y + DQ_VAL_Y, DV_TEXT, &b);
+    const float x0 = DQ_CH_X, y0 = y + DQ_CH_Y;
+    const int what = DQ_WHAT[i];
+    if (what == DV_SND) {  // the spectrum: a bar a band, from the bottom
+      const float pitch = DQ_CH_W / (float)DV_NB;
+      for (int j = 0; j < DV_NB; j++) {
+        const float h = 4 + (DQ_CH_H - 4) * dv_band[j];
+        bar(x0 + pitch * (j + 0.5f), y0 + DQ_CH_H - h / 2, 6, h, 3, dv_mix(0x4A5A52, col, dv_band[j]), false);
+      }
+    } else if (what == DV_BAT) {  // the charge: a bar
+#ifdef __EMSCRIPTEN__
+      const HaloBattery hb = {true, true, true, true, 89, 4118, 5050, 4970, 384};
+#else
+      const HaloBattery hb = halo_battery();
+#endif
+      const float f = hb.ok && hb.present && hb.percent >= 0 ? hb.percent / 100.0f : 0, w = fmaxf(14, DQ_CH_W * f);
+      bar(x0 + DQ_CH_W / 2, cy, DQ_CH_W, 14, 7, 0x3A3F44, false);
+      bar(x0 + w / 2, cy, w, 14, 7, col, false).alpha = f > 0 ? 1 : 0;
+    } else {  // a small chart and the dot at its newest end
+      DvChart &ch = d.rows[i];
+      if (!fc_calm || ch.cur < 0) dq_chart(ch, what);
+      HaloItem &m = it[n++];
+      m.kind = HI_MASK, m.mask = ch.cur >= 0 ? &ch.m[ch.cur] : nullptr, m.color = col, m.x = x0 + DQ_CH_W / 2.0f, m.y = y0 + DQ_CH_H / 2.0f;
+      m.scale = 1, m.alpha = m.mask ? 1 : 0, m.on = &b, m.on_black = false;
+      HaloItem &e = it[n++];
+      e.kind = HI_CIRCLE, e.x = x0 + DQ_CH_W, e.y = y0 + ch.last_y, e.r = 5, e.scale = 1, e.color = col;
+      e.alpha = m.mask ? 1 : 0, e.on_black = false, e.on = nullptr;
+    }
+  }
+  dv_commit(d, n, v, nullptr);
+}
+#else  // (the other rectangles)
 
 extern const HaloFont gl_r_n110, gl_r_n36, gl_r_t32, gl_r_ic36, gl_r_title;
 
 #ifdef HALO_COMPACT  // a small rectangle: wide — the list at the right; tall — the list under the card. No microphones
                      // here: three rows
-#define DA_WIDE (HALO_W > HALO_H)
+#define DA_WIDE (HALO_W >= HALO_H)
 #define DA_CARD_X 12.0f
 #define DA_CARD_Y 58.0f
 #define DA_CARD_W (DA_WIDE ? 298.0f : HALO_W - 24.0f)
@@ -214,3 +334,4 @@ static void dv_detail_layout(const FaceLayer &L, DvRun &d, const HaloView &v) {
   }
   dv_commit(d, n, v, nullptr);
 }
+#endif  // HALO_SQUARE

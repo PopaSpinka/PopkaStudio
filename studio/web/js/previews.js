@@ -3,10 +3,11 @@
 // drawn (a whole screen — the round screen) and kept as an image. Made once each (by the tile's key), one at a time,
 // while the folder is open; until it is ready the tile shows its icon.
 import { Engine } from './engine.js';
-import { TW, TH, ROUND } from './screen.js';
+import { TW, TH, ROUND, PIC_W } from './screen.js';
 
 const PERIOD = 1000 / 60;
 const PW = 220, PH = 104;  // the picture, device pixels (the tile shows it at half: 110 × 52)
+const WHOLE = (2 * PIC_W) / TW;  // a whole screen's scale: twice its tile's size (screen.js PIC_W), sharp on a Retina screen
 let eng = null, ready = null, queue = Promise.resolve();
 const cache = new Map();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -54,7 +55,7 @@ async function draw(layers, whole, px) {
     x0 = Math.max(0, Math.min(...boxes.map((b) => b[0])) - 8), y0 = Math.max(0, Math.min(...boxes.map((b) => b[1])) - 8);
     x1 = Math.min(TW, Math.max(...boxes.map((b) => b[2])) + 8), y1 = Math.min(TH, Math.max(...boxes.map((b) => b[3])) + 8);
   }
-  const w = x1 - x0, h = y1 - y0, k = px ? px / TW : Math.min(PW / w, PH / h);
+  const w = x1 - x0, h = y1 - y0, k = px ? px / TW : whole ? WHOLE : Math.min(PW / w, PH / h);
   const out = document.createElement('canvas');
   out.width = Math.round(w * k), out.height = Math.round(h * k);
   const c = out.getContext('2d');

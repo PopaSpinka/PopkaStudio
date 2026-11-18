@@ -107,7 +107,9 @@ export const KINDS = {
 // The panel's looks (studio.py SHADE_LOOKS — the same names): a rectangle's — shade_rect.h SH_*, rect-quick.html's
 // variants 1, 3, 7, 8; the round board's — one, Wear OS 6 (shade_round.h)
 // (names of our own: no Google names in the editor — docs/publishing.md; the keys stay, projects keep their looks)
-export const SHADE_LOOKS = ROUND ? [['wear', 'Pills']] : [['full', 'Full sheet'], ['dual', 'Two cards'], ['corner', 'Corner card'], ['strip', 'Strip']];
+const ALL_SHADES = ROUND ? [['wear', 'Pills']] : [['full', 'Full sheet'], ['dual', 'Two cards'], ['corner', 'Corner card'], ['strip', 'Strip']];
+// (a passport's "shades": the looks this board has — the square only the strip, square-screens.html 7C)
+export const SHADE_LOOKS = ALL_SHADES.filter(([look]) => !BOARD.shades || BOARD.shades.includes(look));
 // The clocks' looks (sclock.h SC_*; studio.py SC_LOOKS — the same order): the name, its three colors and what each is
 // called (null — the look has no such color), how many fonts it has
 export const CLOCK_LOOKS = [
@@ -688,6 +690,8 @@ export const SECTIONS = {
 if (!ROUND) {
   Object.assign(SECTIONS.display, { text: 'Settings', subtitle: 'display and about', icon: 'gear', tile: 'Settings', sub: 'The screen\'s brightness and a row that opens About' });
   Object.assign(SECTIONS.about, { subtitle: 'this board, live', sub: 'About this board: the processor, the memory, the temperature, the sound' });
+  Object.assign(SECTIONS.battery, { icon: 'battery', sub: 'The battery: the percent, how long it lasts, the last 24 hours' });  // (Power keeps the bolt)
+  Object.assign(SECTIONS.charge, { sub: 'Power: the charge, the voltages of the battery, USB and the system, the power chip' });
 }
 // About's cards (device.h), top to bottom: what each shows, its label, icon and accent
 export const ABOUT_CARDS = [
@@ -724,6 +728,7 @@ export function radioTarget(s, what) {
 // What a section's screen is made of: the Steps and Weather screens — their parts; the others — the one layer
 // (a part may be [type, look]); About's — the look of its gallery, for its tile
 const RECT_PARTS = { display: ['display', 'arc'], music: ['music', 'arc'], recorder: ['recorder', 'arc'], radio: ['radio'],
+  battery: ['battery', 'arc'], charge: ['charge', 'arc'],  // (only the square has a battery: square-battery.html 1B, 2B)
   about: [['device', { what: 'cpu', color: '#8AD6F0' }], 'arc'] };
 export const sectionParts = (kind) => (!ROUND && RECT_PARTS[kind]) || ({ stepscreen: STEPS_SCREEN, wxscreen: WEATHER_SCREEN, charge: POWER_SCREEN, radio: RADIO_SCREEN,
   about: [['title', { text: 'About' }], ...ABOUT_CARDS.slice(0, 3).map((c) => ['devcard', { ...c }]), 'arc'] }[kind] || [kind]);

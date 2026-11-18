@@ -5,8 +5,40 @@
 // stand in a row. A chart is a mask baked when its numbers change (a new hour, new weather), one page per tick.
 // Included from wxscreen.h in place of its layout when HALO_ROUND is not defined.
 
-#ifdef HALO_COMPACT  // a small rectangle (320 × 480 either way up): the same screen by its own width and height
-#define RW_WIDE (HALO_W > HALO_H)
+#if defined(HALO_SQUARE)  // the square, 480 × 480 (variant 4A of web/mockups/square-screens.html): now on top — the sky,
+// a 96-px temperature (the passport's), the words at the right — then the next eight hours across the lower half, each
+// caption under its hour, the page dots at the bottom
+#define RW_CITY_X 16.0f
+#define RW_CITY_Y 30.0f
+#define RW_ICON_X 58.0f
+#define RW_ICON_Y 122.0f
+#define RW_TEMP_X 108.0f
+#define RW_TEMP_Y 120.0f
+#define RW_TEXT_R (W - 16.0f)
+#define RW_WORD_Y 98.0f
+#define RW_HILO_Y 122.0f
+#define RW_FEELS_Y 146.0f
+#define RW_TIME_R (W - 16.0f)
+#define RW_TIME_Y 30.0f
+#define RW_CHART_X 16
+#define RW_CHART_Y 216
+#define RW_CHART_W 448
+#define RW_CHART_H 170
+#define RW_LINE_X0 20.0f        // (the line from x 36 to 444 of the screen, y 236 to 366)
+#define RW_LINE_X1 428.0f
+#define RW_LINE_TOP 20.0f
+#define RW_LINE_BOTTOM 150.0f
+#define RW_LINE_HALF 2.0f
+#define RW_MIN_RANGE 6.0f
+#define RW_LABEL_X (RW_CHART_X + RW_LINE_X0)
+#define RW_LABEL_STEP ((RW_LINE_X1 - RW_LINE_X0) / (RW_LABELS - 1))  // (a caption every two hours: under its point)
+#define RW_LABEL_A 1
+#define RW_LABEL_Y 400.0f
+#define RW_DOTS_Y 456.0f
+#define RW_DOT_R 3.5f
+#define RW_DOT_STEP 12.0f
+#elif defined(HALO_COMPACT)  // a small rectangle (320 × 480 either way up): the same screen by its own width and height
+#define RW_WIDE (HALO_W >= HALO_H)
 #define RW_CITY_X 16.0f
 #define RW_CITY_Y 40.0f
 #define RW_ICON_X 42.0f

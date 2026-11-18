@@ -7,6 +7,8 @@
   "title": "ESP32-P4 LCD 7″",
   "screen": "1024 × 600",
   "spec": "7″ · 1024 × 600",
+  "about": "A 7″ desk screen on the fast ESP32-P4. Plays video from a microSD card, Wide or Tall.",
+  "has": ["Speaker", "microSD", "Video", "Wi-Fi 6"],
   "drawn": "rect",
   "art": "img/board-p4lcd7.webp",
   "usb": [

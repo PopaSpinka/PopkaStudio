@@ -16,7 +16,7 @@
 // port, kept with the board (the next time shown at once). A firmware not ours — "Save its firmware": a copy into
 // studio/backups (only what it needs: ~11 KB/s over the S3's USB). The first Load onto other firmware can save it
 // first (a box in its question). A Load that couldn't reach the board's loader — the BOOT help: hold BOOT, plug in.
-import { BOARD } from './screen.js';
+import { BOARD, screenIcon } from './screen.js';
 import { state, emit } from './state.js';
 
 const $ = (id) => document.getElementById(id);
@@ -272,7 +272,7 @@ function toggle(pop) {
 }
 
 export function initBoard() {
-  if (BOARD.shape !== 'round') $('board-btn').querySelector('svg').innerHTML = '<rect x="2" y="4" width="12" height="8" rx="1.6"/>';
+  if (BOARD.shape !== 'round') $('board-btn').querySelector('svg').innerHTML = screenIcon();  // (the screen's own shape)
   $('flash').onclick = () => (phase !== 'running' ? loadNow() : null);
   $('board-btn').onclick = () => { toggle($('board-pop')); showCheck(); };
   $('check-btn').onclick = check;

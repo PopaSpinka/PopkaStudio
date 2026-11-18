@@ -23,8 +23,66 @@
 // The 7″ board held tall (HALO_P4_TALL, 600 x 1024: variant 10A of web/mockups/rect-tall.html) — the same parts stacked:
 // the band keys in two rows of five (more than ten — both rows scroll together), the station and its song, the tuning
 // window across (three stations in it), previous / Stop / next, then the two knobs (the volume left, the tuning right).
+//
+// The square (HALO_SQUARE, 480 x 480: variant 1B of web/mockups/square-radio.html) — no knobs: one row of band keys (it
+// scrolls), the station and its song, a tall tuning window to drag, then one row of big buttons — volume −, previous,
+// Stop / Play, next, volume + — and the volume as a line under them.
 
-#ifdef HALO_P4_TALL
+#if defined(HALO_SQUARE)
+#define RT_KEY_X0 12.0f
+#define RT_KEY_P 76.0f
+#define RT_KEY_W 70.0f
+#define RT_KEY_H 48.0f
+#define RT_KEY_Y 34.0f
+#define RT_KEY_ROWS 1
+#define RT_KEY_PY 0.0f
+#define RT_KEY_COLS 1
+#define RT_KEY_WY 2.0f
+#define RT_KEYS_X1 468.0f
+#define RT_KEYS_PAD 4.0f
+#define RT_NAME_Y 122.0f
+#define RT_NAME_W 448.0f
+#define RT_SONG_Y 152.0f
+#define RT_SONG_W 420.0f
+#define RT_TIME_X 16.0f
+#define RT_TIME_AL 0
+#define RT_HEART_X 440.0f
+#define RT_HEART_R 24.0f
+#define RT_TOP_Y 88.0f
+#define RT_MID_Y0 66.0f
+#define RT_MID_Y1 166.0f
+#define RT_WIN_X0 16.0f
+#define RT_WIN_X1 464.0f
+#define RT_WIN_Y0 174.0f
+#define RT_WIN_Y1 340.0f
+#define RT_LOGO_Y 229.0f
+#define RT_STEP 150.0f
+#define RT_TICK 15.0f
+#define RT_TICK_Y 298.0f
+#define RT_LAB_Y 322.0f
+#define RT_FADE 60.0f
+#define RT_DANCE 18.0f
+#define RT_NEEDLE_Y0 264.0f
+#define RT_NEEDLE_Y1 313.0f
+#define RT_BTN_Y 400.0f    // the row: volume −, previous, Stop / Play, next, volume +
+#define RT_PREV_X 150.0f
+#define RT_PLAY_X 240.0f
+#define RT_NEXT_X 330.0f
+#define RT_SIDE_R 32.0f
+#define RT_PLAY_R 42.0f
+#define RT_VOLM_X 56.0f    // the volume's pills: their middles, their size
+#define RT_VOLP_X 424.0f
+#define RT_VBTN_W 80.0f
+#define RT_VBTN_H 64.0f
+#define RT_VLINE_Y 455.0f  // the volume's line
+#define RT_KEY_IN 3.0f
+#define RT_LOGO_R0 18.0f
+#define RT_LOGO_R1 8.0f
+#define RT_KNOB_Y RT_BTN_Y  // (no knobs here)
+#define RT_KNOB_R 0.0f
+#define RT_VOLK_X 0.0f
+#define RT_TUNK_X 0.0f
+#elif defined(HALO_P4_TALL)
 #define RT_KEY_X0 12.0f    // the band keys: the first one's left edge, the pitch, the size
 #define RT_KEY_P 116.0f
 #define RT_KEY_W 108.0f
@@ -116,8 +174,17 @@
 #define RT_KEYS_Y0 (RT_KEY_Y - RT_KEY_H / 2)  // the keys' band: its top, its bottom
 #define RT_KEYS_Y1 (RT_KEY_Y + (RT_KEY_ROWS - 1) * RT_KEY_PY + RT_KEY_H / 2)
 #define RT_DEG 36.0f       // the tuning knob: degrees a station
+#ifndef RT_KEY_IN
+#define RT_KEY_IN 10.0f    // a key's word: this much narrower than the key, at most
+#endif
+#ifndef RT_LOGO_R0
+#define RT_LOGO_R0 24.0f   // a logo away from the needle, and how much bigger it is under it
+#define RT_LOGO_R1 6.0f
+#endif
+#ifndef RT_SIDE_R
 #define RT_SIDE_R 40.0f
 #define RT_PLAY_R 58.0f
+#endif
 #define RT_TICKS 64        // the ticks laid out at most (~55 are seen)
 #define RT_LOGOS 8         // the logos seen at most
 #define RT_DOTS 16         // a knob's grip dots
@@ -131,7 +198,7 @@
 #define RT_HEART_OFF 0x55555B
 static const char RT_PREV[] = "\xEF\x81\x88", RT_NEXT[] = "\xEF\x81\x91";  // Font Awesome: backward-step, forward-step
 
-enum : int8_t { RT_NONE = -1, RT_KEYS, RT_WINDOW, RT_HEART, RT_PREV_B, RT_PLAY_B, RT_NEXT_B, RT_VOLK, RT_TUNK };
+enum : int8_t { RT_NONE = -1, RT_KEYS, RT_WINDOW, RT_HEART, RT_PREV_B, RT_PLAY_B, RT_NEXT_B, RT_VOLK, RT_TUNK, RT_VOLM, RT_VOLP };
 struct RtDmg {  // what this file draws itself (the song, the needle's mark, the notches): where it was damaged last
   float r[4];
   uint32_t h;
@@ -167,6 +234,10 @@ struct RtUi {
   HaloItem arc_track, arc_lvl, body[2], inner[2], dot[2][RT_DOTS], klab[2];
   HaloItem prev_bg, prev, play, play_ic, next_bg, next;
   Press p_heart, p_prev, p_play, p_next;
+#ifdef HALO_SQUARE
+  HaloItem vbtn[2], vsign[3], vline[2];  // the volume's pills (−, +), their signs (−, + across, + up), its line (track, level)
+  Press p_vol[2];
+#endif
 };
 static RtUi *rt_u;  // (PSRAM: rt_build)
 static HaloView rt_v;  // the view laid out with (what this file draws itself uses it)
@@ -304,7 +375,7 @@ static void rt_build() {
     for (char *p = w; *p; p++)
       if (*p >= 'a' && *p <= 'z') *p -= 32;
     rd_copy(u.key_s[i], w, sizeof(u.key_s[i]));
-    while (halo_text_width(gl_rr_t12, u.key_s[i], 1) > RT_KEY_W - 10 && strlen(u.key_s[i]) > 1) {
+    while (halo_text_width(gl_rr_t12, u.key_s[i], 1) > RT_KEY_W - RT_KEY_IN && strlen(u.key_s[i]) > 1) {
       size_t n = strlen(u.key_s[i]);
       do n--; while (n && ((uint8_t)u.key_s[i][n] >> 6) == 2);
       u.key_s[i][n] = 0;
@@ -357,12 +428,17 @@ static void radio_update(const FaceScreen &, float dt) {
     else if (rt_in(x, y, RT_PLAY_X, RT_BTN_Y, RT_PLAY_R + 8)) rt_armed = RT_PLAY_B;
     else if (rt_in(x, y, RT_PREV_X, RT_BTN_Y, RT_SIDE_R + 8)) rt_armed = RT_PREV_B;
     else if (rt_in(x, y, RT_NEXT_X, RT_BTN_Y, RT_SIDE_R + 8)) rt_armed = RT_NEXT_B;
+#ifdef HALO_SQUARE
+    else if (fabsf(y - RT_BTN_Y) < RT_VBTN_H / 2 + 8 && fabsf(x - RT_VOLM_X) < RT_VBTN_W / 2 + 6) rt_armed = RT_VOLM;
+    else if (fabsf(y - RT_BTN_Y) < RT_VBTN_H / 2 + 8 && fabsf(x - RT_VOLP_X) < RT_VBTN_W / 2 + 6) rt_armed = RT_VOLP;
+#else
     else if (rt_in(x, y, RT_VOLK_X, RT_KNOB_Y, RT_KNOB_R + 14) || rt_in(x, y, RT_TUNK_X, RT_KNOB_Y, RT_KNOB_R + 14)) {
       if (halo_finger_claim(&rt_owner_knob)) {  // (taken at once: a knob turns from the first move, the back swipe stays off)
         rt_armed = x < CX ? RT_VOLK : RT_TUNK;
         u.turn = 0, u.turn_on = false, u.vol0 = vol_lvl, u.sc0 = u.sc.x;
       }
     }
+#endif
   }
   // The keys' row scrolls (more than ten folders); the window moves under the finger
   if (f.drag_start && f.horiz) {
@@ -435,6 +511,10 @@ static void radio_update(const FaceScreen &, float dt) {
       case RT_HEART:
         if (const RdSt *s = rt_heart_st()) rd_fav_toggle(*s);
         break;
+      case RT_VOLM:
+      case RT_VOLP:
+        vol_set(vol_level + (rt_armed == RT_VOLP ? 1 : -1));
+        break;
       default:
         break;
     }
@@ -443,6 +523,10 @@ static void radio_update(const FaceScreen &, float dt) {
   press_update(u.p_prev, rt_armed == RT_PREV_B && f.down, dt);
   press_update(u.p_next, rt_armed == RT_NEXT_B && f.down, dt);
   press_update(u.p_heart, rt_armed == RT_HEART && f.down, dt);
+#ifdef HALO_SQUARE
+  press_update(u.p_vol[0], rt_armed == RT_VOLM && f.down, dt);
+  press_update(u.p_vol[1], rt_armed == RT_VOLP && f.down, dt);
+#endif
   if (!u.sc_drag) {
     u.sc.target = rt_target();
     halo_spring_run(u.sc, K_RT_SCALE, dt);
@@ -604,7 +688,7 @@ static void radio_layout(const HaloView &v) {
     const float x = CX + (i - sc) * RT_STEP, d = fabsf(i - sc);
     if (x < RT_WIN_X0 - 30 || x > RT_WIN_X1 + 30) continue;
     const RdSt &o = u.rows[i];
-    const float r = 24 + 6 * halo_clamp01(1 - d), al = (1 - 0.5f * halo_clamp01(d)) * rt_edge(x);
+    const float r = RT_LOGO_R0 + RT_LOGO_R1 * halo_clamp01(1 - d), al = (1 - 0.5f * halo_clamp01(d)) * rt_edge(x);
     HaloItem &lg = u.logo[j];
     rt_circle(lg, x, RT_LOGO_Y, r, o.col, al, v);
     const bool cur = i == ci, eqc = cur && rd_on, near = d < 0.5f;
@@ -641,6 +725,18 @@ static void radio_layout(const HaloView &v) {
   halo_view_commit(u.msg, v);
   rt_rrect(u.needle, CX, (RT_NEEDLE_Y0 + RT_NEEDLE_Y1) / 2.0f, 3, RT_NEEDLE_Y1 - RT_NEEDLE_Y0, 1.5f, RD_ORANGE, 1, v);
   rt_damage(u.mark_dmg, 7, CX - 14, RT_WIN_Y0 + 2, CX + 14, RT_WIN_Y0 + 20);
+#ifdef HALO_SQUARE
+  // The volume: two pills (−, + drawn as bars) and its line under the row
+  for (int i = 0; i < 2; i++) {
+    const float cx = i ? RT_VOLP_X : RT_VOLM_X, p = halo_clamp01(u.p_vol[i].s.x);
+    rt_rrect(u.vbtn[i], cx, RT_BTN_Y, RT_VBTN_W * (1 - 0.05f * p), RT_VBTN_H * (1 - 0.05f * p), RT_VBTN_H / 2 * (1 - 0.05f * p), RD_CARD, 1, v);
+    rt_rrect(u.vsign[i], cx, RT_BTN_Y, 22, 4, 2, RD_TEXT, (i ? vol_level < 10 : vol_level > 0) ? 1 : 0.35f, v, false);
+  }
+  rt_rrect(u.vsign[2], RT_VOLP_X, RT_BTN_Y, 4, 22, 2, RD_TEXT, vol_level < 10 ? 1 : 0.35f, v, false);
+  const float lv = halo_clamp01(vol_lvl), lw = RT_WIN_X1 - RT_WIN_X0;
+  rt_rrect(u.vline[0], (RT_WIN_X0 + RT_WIN_X1) / 2, RT_VLINE_Y, lw, 6, 3, RD_RAY_OFF, 1, v);
+  rt_rrect(u.vline[1], RT_WIN_X0 + fmaxf(6, lw * lv) / 2, RT_VLINE_Y, fmaxf(6, lw * lv), 6, 3, RD_ORANGE, lv > 0.005f ? 1 : 0, v);
+#else
   // The knobs: the volume (its range's arc round it, how far — orange) and the tuning (36 degrees a station)
   const float vf = u.vol_f >= 0 ? u.vol_f : halo_clamp01(vol_lvl);
   const float a0 = 225 * (HALO_PI / 180), A = 270 * (HALO_PI / 180);
@@ -655,6 +751,7 @@ static void radio_layout(const HaloView &v) {
   rt_knob(1, RT_TUNK_X, fmodf(sc * RT_DEG, 360), "TUNING", v);
   rt_damage(u.notch_dmg[0], (uint32_t)(int32_t)(rt_notch[0] * 16) * 2654435761u, RT_VOLK_X - RT_KNOB_R, RT_KNOB_Y - RT_KNOB_R, RT_VOLK_X + RT_KNOB_R, RT_KNOB_Y + RT_KNOB_R);
   rt_damage(u.notch_dmg[1], (uint32_t)(int32_t)(rt_notch[1] * 16) * 2654435761u, RT_TUNK_X - RT_KNOB_R, RT_KNOB_Y - RT_KNOB_R, RT_TUNK_X + RT_KNOB_R, RT_KNOB_Y + RT_KNOB_R);
+#endif
   // Previous, Stop / Play, next
   const bool playing = rd_on && rd_has_cur;
   const float pp = halo_clamp01(u.p_prev.s.x), pn = halo_clamp01(u.p_next.s.x), pl = halo_clamp01(u.p_play.s.x);
@@ -778,6 +875,15 @@ static void rt_draw_window(RtUi &u, const HaloView &v) {  // the frame, the tick
     rt_mark(halo_view_x(v, CX), halo_view_y(v, RT_WIN_Y0 + 4), halo_view_y(v, RT_WIN_Y0 + 18), 12 * v.s, halo_dim(RD_ORANGE, (int)(v.a * 256)));
 }
 static void rt_draw_knobs(RtUi &u, const HaloView &v) {  // the knobs; previous, Stop / Play, next
+#ifdef HALO_SQUARE  // (the square: the volume's pills and line instead of the knobs)
+  for (const auto &it : u.vbtn) halo_item_draw(it);
+  for (const auto &it : u.vsign) halo_item_draw(it);
+  for (const auto &it : u.vline) halo_item_draw(it);
+  halo_item_draw(u.prev_bg), halo_item_draw(u.prev), halo_item_draw(u.next_bg), halo_item_draw(u.next);
+  halo_item_draw(u.play), halo_item_draw(u.play_ic);
+  (void)v;
+  return;
+#endif
   halo_item_draw(u.arc_track), halo_item_draw(u.arc_lvl);
   for (int k = 0; k < 2; k++) {
     const float cx = k ? RT_TUNK_X : RT_VOLK_X;

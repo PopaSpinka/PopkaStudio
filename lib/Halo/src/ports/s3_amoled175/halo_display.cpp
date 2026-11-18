@@ -14,7 +14,7 @@
 // пачка — тут же следующая. Свободный буфер ждём на семафоре (ядро спит, а не крутится в цикле: так было 2–4 мс
 // на кадр в AmoledBoard).
 #include <sdkconfig.h>
-#if CONFIG_IDF_TARGET_ESP32S3 && !defined(HALO_BOARD_WT32SC01P)  // this board's port: other boards build their own
+#if CONFIG_IDF_TARGET_ESP32S3 && !defined(HALO_BOARD_WT32SC01P) && !defined(HALO_BOARD_LCD4B)  // this board's port: other boards build their own
 #include "halo_s3.h"
 
 #include <driver/gpio.h>

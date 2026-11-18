@@ -164,6 +164,9 @@ static void wg_layer_build(const FaceScreen &S, int i) {
     case FL_FORECAST:
     case FL_DATEFRAME:
     case FL_DOTCLOCK: R.g = new HaloItem[wgr_items(L.kind)](); break;
+#ifdef HALO_SQUARE
+    case FL_BATRING: R.g = new HaloItem[wgr_items(L.kind)](); break;  // (the square: the charge along its edges)
+#endif
 #endif
   }
 #ifndef HALO_ROUND
@@ -415,6 +418,9 @@ static void wg_layout(const FaceScreen &S, int i, float a, const HaloView &v0) {
 static void wg_draw(const FaceScreen &S, int i) {
   const FaceLayer &L = S.layers[i];
   const FaceRun &R = S.run[i];
+#ifdef HALO_SQUARE
+  if (L.kind == FL_BATRING && wgr_draw(L, R)) return;  // (the square's: along the edges, not a ring)
+#endif
   if (L.kind == FL_CURVE || L.kind == FL_STEPRING || L.kind == FL_BATRING) return halo_item_draw(R.pill);
 #ifndef HALO_ROUND
   if (wgr_draw(L, R)) return;

@@ -79,6 +79,10 @@ void setup() {
   cfg.name = "PopkaWatch";
   settings_load();  // Display's saved brightness, the battery's history (flash)
   cfg.brightness = pw_awake_level;  // Display's (else HaloWatch's default: Settings -> Display, step 7)
+#if defined(HALO_SQUARE) && HAS_RADIO && FN_WIFI && !defined(__EMSCRIPTEN__)
+  cfg.buffers = 2;  // (the square with the Radio: Wi-Fi, the stream and the speaker left 5 KB of internal memory with three
+                    // band buffers of 15 KB — boards/lcd4b/hardware.md; as the 7″'s hf_tiles(2))
+#endif
   halo_begin(update, draw, cfg);
   power_build();         // the motion sensor (it wakes the board when picked up) and the commands aod, idle, sleep
   steps_build();         // the chip's pedometer, today's steps from flash

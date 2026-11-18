@@ -74,7 +74,7 @@ def bring_old_data():
             os.rmdir(src)
 
 
-VERSION = "2.2"  # PopkaStudio's version (the About window; the release notes)
+VERSION = "2.3"  # PopkaStudio's version (the About window; the release notes)
 
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 import halo_assets as ha  # noqa: E402 — the board's font and image code
@@ -447,6 +447,26 @@ def compact_fonts(lines):
 
 def is_compact(board):
     return bool(passport(board).get("compact"))
+
+
+# A square (the 4″ 480 x 480 board: a small rectangle as wide as it is tall — HALO_SQUARE in its port) has its own
+# layouts of some screens (web/mockups/square-screens.html) and the few fonts they need beyond the small rectangle's:
+# the launcher's icons (2D), its weather tile's sky and temperature; About's icons with the battery (6C); Power's
+# tiles' numbers (square-battery.html 2B); the Recorder's timer (square-media.html 2B)
+SQUARE_FONTS = [
+    "font  gl_q_ic30   fa-solid-900.ttf    30  " + " ".join(f"0x{c:04x}" for c in ICONS.values()) + "   # the gallery's tiles: icons",
+    "font  gl_q_ic48   fa-solid-900.ttf    48  0xf6c4 0xf185 0xf0c2 0xf73d   # the gallery's weather tile: the sky",
+    "font  gl_q_n28    GoogleSansFlex.ttf  28  digits \"°-\"  @wght=660,ROND=100   # the gallery's weather tile: the temperature"]
+SQUARE_APP_FONTS = {
+    "device": ["font  gl_q_ic22   fa-solid-900.ttf    22  0xf2db 0xf538 0xf2c9 0xf130 0xf240   # About: the rows' icons"],
+    "charge": ["font  gl_q_n34    GoogleSansFlex.ttf  34  digits \". °V—\"  @wght=660,ROND=100   # Power: the tiles' numbers"],
+    "recorder": ["font  gl_q_n64    GoogleSansFlex.ttf  64  digits \":\"  @wght=660,ROND=100   # Recorder: the timer"],
+}
+
+
+def is_square(board):
+    p = passport(board)
+    return bool(p.get("compact")) and p.get("shape") == "rect" and p.get("w") == p.get("h")
 
 
 # The round board's apps of its own (shade_round.h): only in a firmware with them; the page's engine — always (build.sh)
@@ -1552,10 +1572,12 @@ def write_sketch(project, folder, meta=None):
         small = is_compact(project.get("board"))
         fit = compact_fonts if small else (lambda lines: lines)
         conf += fit(RECT_FONTS) + (COMPACT_FONTS if small else [])
-        for kinds, lines in RECT_APP_FONTS.items():
+        square = is_square(project.get("board"))
+        conf += SQUARE_FONTS if square else []
+        for kinds, lines in [*RECT_APP_FONTS.items(), *(SQUARE_APP_FONTS.items() if square else [])]:
             kinds = kinds if isinstance(kinds, tuple) else (kinds,)
             if any(layer["type"] in kinds for layer in all_layers):
-                conf += fit(lines)
+                conf += lines if lines in SQUARE_APP_FONTS.values() else fit(lines)
     else:  # (the round board's own: only with their layer; not in the template — the page's engine builds them itself)
         for kind, lines in ROUND_APP_FONTS.items():
             if any(layer["type"] == kind or (kind == "radio" and (layer["type"] in RADIO_PARTS or layer["type"] in dict(RADIO_SCREENS))) for layer in all_layers):
@@ -1760,7 +1782,8 @@ def build_engine(board, force=False):
         return False
     print(f"building the page's engine for {board['short']}{' (' + board['way'] + ')' if board.get('way') else ''} (engine/build.sh) …",
           flush=True)
-    fonts = "round" if board.get("shape") == "round" else "compact" if board.get("compact") else "rect"
+    square = board.get("compact") and board.get("shape") == "rect" and board.get("w") == board.get("h")  # (this way up's: is_square)
+    fonts = "round" if board.get("shape") == "round" else "square" if square else "compact" if board.get("compact") else "rect"
     subprocess.run([os.path.join(HERE, "engine/build.sh"), board["id"], board["engine"], fonts,
                     *board.get("engine_defines", board.get("defines", []))], check=True, env={**env, "PY": PY})
     return True
@@ -2634,11 +2657,17 @@ def flash_steps(project, port, meta=None):
         if not port:
             raise RuntimeError("No board: connect it over USB")
         board = project.get("board") or "amoled175"
-        there = next((p.get("model") for p in boards.status() if p["port"] == port), "")
+        on = next((p for p in boards.status() if p["port"] == port), {})
+        there = on.get("model", "")
+        fw = on.get("fw") or boards.remembered().get(on.get("mac"), {}).get("fw")
+        if fw == "dev":  # (a firmware not made by a Load — a tool's, an experiment's: until 18 Nov 2026 its hello said
+            fits = (on.get("check") or {}).get("fits") or []  # "amoled175" on every board, hello.h; only the board's
+            there = "" if not fits or board in fits else fits[0]  # check, if one was made, knows it then)
         if there and there != board:  # (known by its hello or from last time: a minute of compiling saved, the chip stays safe)
             raise RuntimeError(f"This project is for {passport(board)['short']}, the connected board is {passport(there)['short']}")
         for cmd in load_commands(port, board, orientation_of(project)):
             proc = subprocess.Popen(cmd, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+            too_big = False
             for line in proc.stdout:
                 m = re.search(r"Writing at 0x[0-9a-f]+ (?:\[[^\]]*\]\s+|\.*\s*\()([\d.]+)\s*%", line)
                 if m:
@@ -2646,9 +2675,11 @@ def flash_steps(project, port, meta=None):
                     continue  # 50 progress lines are no news
                 if line.startswith("Sketch uses") or "Connecting" in line:
                     job_set(step="Uploading", progress=40)
+                too_big = too_big or "Sketch too big" in line  # (the small boards' 3 MB for the program)
                 job_log(line)
             if proc.wait():
-                raise RuntimeError(f"arduino-cli {cmd[1]} failed (the log above)")
+                raise RuntimeError("Too much for this board's memory: take out some clock styles, weather widgets or apps"
+                                   if too_big else f"arduino-cli {cmd[1]} failed (the log above)")
         if any(layer["type"] == "music" for scr in clean_screens(project) for layer in scr["layers"] if not layer["hidden"]):
             job_set(step="Music", progress=97)
             try:
@@ -3110,6 +3141,11 @@ def main():
     if "--compact-conf" in sys.argv:  # (engine/build.sh: a small rectangle's — the same, at its sizes, and its own)
         with open(sys.argv[sys.argv.index("--compact-conf") + 1], "w", encoding="utf-8") as f:
             f.write("\n".join(compact_fonts(RECT_FONTS + [line for lines in RECT_APP_FONTS.values() for line in lines]) + COMPACT_FONTS) + "\n")
+        return
+    if "--square-conf" in sys.argv:  # (engine/build.sh: a square's — the small rectangle's and its own)
+        with open(sys.argv[sys.argv.index("--square-conf") + 1], "w", encoding="utf-8") as f:
+            f.write("\n".join(compact_fonts(RECT_FONTS + [line for lines in RECT_APP_FONTS.values() for line in lines]) + COMPACT_FONTS
+                              + SQUARE_FONTS + [line for lines in SQUARE_APP_FONTS.values() for line in lines]) + "\n")
         return
     if "--round-conf" in sys.argv:  # (engine/build.sh: the round board's own, beyond the template's)
         with open(sys.argv[sys.argv.index("--round-conf") + 1], "w", encoding="utf-8") as f:

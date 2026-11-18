@@ -7,6 +7,8 @@
 
 #if defined(HALO_BOARD_WT32SC01P)  // WT32-SC01 Plus: an ESP32-S3 too, so the chip alone does not tell
 #include "ports/s3_wt32sc01p/board.h"
+#elif defined(HALO_BOARD_LCD4B)  // Waveshare ESP32-S3-Touch-LCD-4B: an ESP32-S3 as well
+#include "ports/s3_lcd4b/board.h"
 #elif defined(HALO_WEB_BOARD_P4) || CONFIG_IDF_TARGET_ESP32P4  // (HALO_WEB_BOARD_P4: the browser engine of this board)
 #include "ports/p4_lcd7/board.h"
 #elif defined(__EMSCRIPTEN__) || CONFIG_IDF_TARGET_ESP32S3

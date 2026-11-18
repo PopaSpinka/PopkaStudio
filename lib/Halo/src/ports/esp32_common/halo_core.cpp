@@ -13,6 +13,8 @@
 #if CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32P4  // nothing here depends on the board: the ESP32 family shares it
 #if defined(HALO_BOARD_WT32SC01P)
 #include "../s3_wt32sc01p/halo_wt32.h"
+#elif defined(HALO_BOARD_LCD4B)
+#include "../s3_lcd4b/halo_lcd4b.h"
 #elif CONFIG_IDF_TARGET_ESP32S3
 #include "../s3_amoled175/halo_s3.h"
 #else

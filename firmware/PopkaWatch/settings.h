@@ -71,6 +71,11 @@ static const FaceLayer *dp_link;  // the Display layer laid out now: where its r
 // Panel brightness (command 0x51) for each step: roughly even steps for the eye (it sees brightness about as a
 // logarithm). The lowest must stay visible
 static const uint8_t DP_LEVEL[DP_STEPS + 1] = {24, 34, 48, 66, 90, 118, 150, 180, 255};
+#elif defined(HALO_SQUARE)
+#define DP_STEPS 8     // the square's "−", eight steps, "+" (settings_rect.h: variant 5C, the round board's control)
+#define DP_DEFAULT 6   // 75 %
+static const uint8_t DP_LEVEL[DP_STEPS + 1] = {10, 15, 22, 34, 51, 77, 115, 172, 255};  // the backlight: even for the eye
+extern const HaloFont gl_r_n72, gl_r_t44, gl_r_t32, gl_r_ic36;
 #else
 #define DP_STEPS 20    // a backlight: 5 % a step (settings_rect.h)
 #define DP_DEFAULT 14  // 70 %
@@ -450,9 +455,163 @@ static void bt_texts() {
 static void battery_tick() {
   static uint32_t at;
   if (halo_ms() - at >= 250 || !at) at = halo_ms() | 1, bt_texts();
+#ifndef HALO_SQUARE  // (the square writes its words straight: nothing to bake)
   if (strcmp(bt_top_on, bt_top)) bt_bake(bt_top_m, bt_top_on, bt_top, false, bt_top_x, bt_top_y);
   else if (strcmp(bt_bot_on, bt_bot)) bt_bake(bt_bot_m, bt_bot_on, bt_bot, true, bt_bot_x, bt_bot_y);
+#endif
 }
+
+#if defined(HALO_SQUARE)
+// The square (variant 1B of web/mockups/square-battery.html): the title and the state; the percent with how long it
+// lasts and what it cost beside it; under them the last 24 hours — a bar every 30 min from the history the board keeps
+// (bh: the round watch kept it for its forecast only), dark green where it was on USB, bright since it was unplugged;
+// for how long at the bottom. The bars are three masks (a color each: on USB, on battery before, since the unplug)
+// baked when a slot changes: as 48 items they cost 8.5 ms a frame on each core while the screen moved in.
+#define BQ_X0 16.0f      // the chart: the bars' box
+#define BQ_X1 434.0f
+#define BQ_Y0 196.0f
+#define BQ_Y1 384.0f
+#define BQ_GRID 0x26282C
+#define BQ_USB 0x3E7D52  // a slot on USB
+#define BQ_OLD 0x5FAE79  // on battery before the last unplug
+extern const HaloFont gl_r_title, gl_c_t14;
+static char bq_state[24];
+static float bq_mid_title, bq_mid_14;
+static HaloItem bq_title, bq_state_t, bq_bars[3], bq_grid[3], bq_glab[3], bq_xlab[3], bq_bot;
+static HaloMask bq_m[3];  // the bars: on USB, on battery before the last unplug, since it
+static uint32_t bq_sig;
+static const char *const BQ_GLAB[3] = {"0%", "50%", "100%"};
+static const char *const BQ_XLAB[3] = {"24 h ago", "12 h", "Now"};
+
+// Spaced capitals by the middle of their letters (bt_text with letter spacing)
+static void bq_caps(HaloItem &it, const char *s, float x, float y, int align, const HaloView &v) {
+  it.kind = HI_TEXT, it.font = &gl_c_t14, it.text = s, it.align = align, it.color = GL_DIM, it.on_black = true;
+  it.on = &halo_black, it.x = x, it.y = y + (gl_c_t14.line / 2.0f - bq_mid_14), it.scale = 1, it.alpha = 1, it.spacing = 2;
+  halo_view_commit(it, v);
+}
+
+// Slot k of the chart (0 — 24 h ago, BH_N − 1 — now): the percent (−1 — nothing kept then), on USB
+static int bq_slot(int k, bool &usb) {
+  usb = false;
+  if (bt_demo >= 0) {  // (the made-up states: a made-up day — on battery overnight, charged, on USB, unplugged 3 h 20 min ago)
+    const float h = 24 - k / 2.0f;
+    float p;
+    if (h > 14) p = 60 - (24 - h) * 3.5f;
+    else if (h > 11) p = 25 + (14 - h) * 22, usb = true;
+    else if (h > 3.4f) p = fminf(100, 91 + (11 - h) * 1.3f), usb = true;
+    else p = 100 - (3.4f - h) * 8.4f;
+    return (int)constrain(p, 4.0f, 100.0f);
+  }
+  if (!bh.last) return -1;
+  const uint32_t now = halo_clock_valid() ? (uint32_t)time(nullptr) / BH_SLOT : bh.last, slot = now - (BH_N - 1 - k);
+  if (slot > bh.last || slot + BH_N <= bh.last) return -1;
+  const uint8_t v = bh.v[slot % BH_N];
+  if (v == 0xFF) return -1;
+  usb = v & 0x80;
+  return v & 0x7F;
+}
+
+// The bars into the masks, when a slot, the unplug or the made-up state changed
+static void bq_bake() {
+  const int w = (int)(BQ_X1 - BQ_X0), h = (int)(BQ_Y1 - BQ_Y0), stride = (w + 1) / 2;
+  const uint32_t unplug_slot = bh.unplug ? bh.unplug / BH_SLOT : 0, now_slot = halo_clock_valid() ? (uint32_t)time(nullptr) / BH_SLOT : bh.last;
+  int8_t pct[BH_N];
+  uint8_t cat[BH_N];
+  uint32_t sig = 2166136261u ^ (uint32_t)(bt_demo + 2);
+  for (int i = 0; i < BH_N; i++) {
+    bool usb;
+    pct[i] = (int8_t)bq_slot(i, usb);
+    const bool since = bt_demo >= 0 ? i > 40 : unplug_slot && now_slot - (BH_N - 1 - i) >= unplug_slot;
+    cat[i] = usb ? 0 : since ? 2 : 1;
+    sig = (sig ^ ((uint8_t)pct[i] | cat[i] << 8)) * 16777619u;
+  }
+  if ((sig | 1) == bq_sig) return;
+  for (int c = 0; c < 3; c++) {
+    HaloMask &m = bq_m[c];
+    if (!m.bits) {
+#ifdef __EMSCRIPTEN__
+      m.bits = (const uint8_t *)malloc(stride * h), m.ext = (const uint8_t *)malloc(2 * h);
+#else
+      m.bits = (const uint8_t *)heap_caps_malloc(stride * h, MALLOC_CAP_SPIRAM);
+      m.ext = (const uint8_t *)heap_caps_malloc(2 * h, MALLOC_CAP_SPIRAM);
+#endif
+      if (!m.bits || !m.ext) {
+        free((void *)m.bits), free((void *)m.ext), m = {};
+        return;
+      }
+      m.w = w, m.h = h, m.ox = m.oy = 0, m.adv = w;
+    }
+    uint8_t *bits = (uint8_t *)m.bits, *ext = (uint8_t *)m.ext;
+    memset(bits, 0, stride * h);
+    for (int y = 0; y < h; y++) ext[2 * y] = 1, ext[2 * y + 1] = 0;
+    const float bw = (float)w / BH_N;
+    for (int i = 0; i < BH_N; i++) {
+      if (cat[i] != c || pct[i] < 0) continue;
+      const float top = h - fmaxf(3, h * pct[i] / 100.0f), xa = i * bw + 1, xb = xa + bw - 2.5f;
+      for (int x = (int)xa; x <= (int)xb && x < w; x++) {
+        const float cx = halo_clamp01(fminf(xb, x + 1.0f) - fmaxf(xa, (float)x));  // (the bar's edges: a part of a column)
+        for (int y = max(0, (int)top); y < h; y++) {
+          const float cov = cx * halo_clamp01(y + 1.0f - top);
+          const int a = (int)(cov * 15 + 0.5f);
+          if (a <= 0) continue;
+          bits[y * stride + x / 2] |= (x & 1) ? a : a << 4;
+          if (ext[2 * y] > ext[2 * y + 1]) ext[2 * y] = min(x, 255);
+          ext[2 * y + 1] = min(x, 255);  // (255 — to the end of the row: the mask is wider than a byte)
+        }
+      }
+    }
+  }
+  bq_sig = sig | 1;
+}
+
+static void battery_layout(const HaloView &v) {
+  static bool ready;
+  if (!ready) ready = true, bq_mid_title = halo_text_mid(gl_r_title, "Battery"), bq_mid_14 = halo_text_mid(gl_c_t14, "ON BATTERY 0123456789%");
+  const HaloBattery b = bt_battery();
+  const bool has = b.ok && b.present && b.percent >= 0;
+  const float k = halo_ease(EASE_EMPH, (halo_ms() - bt_enter_ms) / 700.0f);
+  if (has) snprintf(bt_pct, sizeof(bt_pct), "%d%%", (int)lroundf(b.percent * k));
+  else snprintf(bt_pct, sizeof(bt_pct), "--");
+  const char *dot = strstr(bt_top, " \xC2\xB7 ");  // (the state, without the time: the time is at the top right)
+  snprintf(bq_state, sizeof(bq_state), "%.*s", dot ? (int)(dot - bt_top) : (int)strlen(bt_top), bt_top);
+  bt_text(bq_title, gl_r_title, "Battery", bq_mid_title, RG_PAD, RG_TITLE_Y, GL_TEXT, 0, v);
+  bq_caps(bq_state_t, bq_state, 16, 66, 0, v);
+  const float dy = bt_line2[0] ? 0 : 16;  // (one line: by the percent's middle)
+  bt_text(bt_pct_t, gl_n92, bt_pct, bt_mid_pct, 16, 124, has ? GL_TEXT : GL_DIM, 0, v);
+  bt_text(bt_line1_t, gl_t24, bt_line1, bt_mid_t24, 202, 108 + dy, bt_c1, 0, v);
+  bt_text(bt_line2_t, gl_t20, bt_line2, bt_mid_t20, 202, 138, GL_DIM, 0, v, bt_line2[0] ? 1 : 0);
+  for (int j = 0; j < 3; j++) {  // the 0, 50 and 100 % lines, their words at the right
+    const float y = BQ_Y1 - (BQ_Y1 - BQ_Y0) * j / 2;
+    HaloItem &g = bq_grid[j];
+    g.kind = HI_RRECT, g.x = (BQ_X0 + BQ_X1) / 2, g.y = y, g.w = BQ_X1 - BQ_X0, g.h = 1.5f, g.r = 0.75f, g.scale = 1;
+    g.color = BQ_GRID, g.alpha = 1, g.on_black = true, g.on = nullptr;
+    halo_view_commit(g, v);
+    bt_text(bq_glab[j], gl_c_t14, BQ_GLAB[j], bq_mid_14, W - 16, y, GL_DIM, 2, v);
+    bt_text(bq_xlab[j], gl_c_t14, BQ_XLAB[j], bq_mid_14, j == 0 ? BQ_X0 : j == 1 ? (BQ_X0 + BQ_X1) / 2 : BQ_X1, 410, GL_DIM, j, v);
+  }
+  // the bars: on USB dark, on battery before the unplug middle, since it bright (low — red)
+  bq_bake();
+  const uint32_t col[3] = {BQ_USB, BQ_OLD, (uint32_t)(has && !b.usb && b.percent <= 20 ? BT_RED : BT_GREEN)};
+  for (int c = 0; c < 3; c++) {
+    HaloItem &q = bq_bars[c];
+    q.kind = HI_MASK, q.mask = &bq_m[c], q.color = col[c], q.on_black = true, q.on = &halo_black, q.scale = 1;
+    q.x = (BQ_X0 + BQ_X1) / 2, q.y = (BQ_Y0 + BQ_Y1) / 2, q.alpha = bq_m[c].bits ? 1 : 0;
+    q.v = (bq_sig >> (8 * c) & 255) / 256.0f;  // (not used by a mask: new bars in the same memory must redraw it)
+    halo_view_commit(q, v);
+  }
+  bq_caps(bq_bot, bt_bot, CX, 454, 1, v);
+}
+
+static void battery_draw() {
+  halo_item_draw(bq_title), halo_item_draw(bq_state_t);
+  halo_item_draw(bt_pct_t), halo_item_draw(bt_line1_t), halo_item_draw(bt_line2_t);
+  for (auto &g : bq_grid) halo_item_draw(g);
+  for (auto &q : bq_bars) halo_item_draw(q);
+  for (auto &t : bq_glab) halo_item_draw(t);
+  for (auto &t : bq_xlab) halo_item_draw(t);
+  halo_item_draw(bq_bot);
+}
+#else
 
 static void battery_layout(const HaloView &v) {
   const HaloBattery b = bt_battery();
@@ -490,6 +649,7 @@ static void battery_draw() {
   halo_item_draw(bt_top_i), halo_item_draw(bt_bot_i);
   halo_item_draw(bt_pct_t), halo_item_draw(bt_line1_t), halo_item_draw(bt_line2_t);
 }
+#endif  // HALO_SQUARE
 #endif
 
 // ---------- Music: HaloWatch's player and its music, one to one; the Recorder ----------

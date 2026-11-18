@@ -10,7 +10,7 @@
 // Included from widgets.h when HALO_ROUND is not defined.
 
 #ifdef HALO_COMPACT  // a small rectangle (320 × 480 either way up): the same widgets by its own width and height
-#define WR_WIDE (HALO_W > HALO_H)
+#define WR_WIDE (HALO_W >= HALO_H)
 #define WR_WEEK_X0 (WR_WIDE ? 42.0f : 26.0f)
 #define WR_WEEK_STEP ((HALO_W - 2 * WR_WEEK_X0) / 6)
 #define WR_WEEK_LET_Y (HALO_H - 82.0f)
@@ -114,12 +114,63 @@
 #define WR_ICON_UP "\xEF\x83\x98"    // Font Awesome: caret-up, caret-down
 #define WR_ICON_DOWN "\xEF\x83\x97"
 
+#ifdef HALO_SQUARE
+// The battery's charge along the square's own edge (variant 3B of web/mockups/square-battery.html): from the top middle
+// clockwise round the screen — nine pieces: the straight sides (rounded bars) and the four corners (arcs); the track
+// (color2) the whole way, the charge (color) as far as its percent. Its thickness — 6 × the layer's scale
+#define WQ_PIECES 9
+#define WQ_IN 5.0f    // the line's middle from the screen's edge
+#define WQ_R 26.0f    // the corners' radius (of the line's middle)
+static float wq_piece(int k, float &x0, float &y0, float &x1, float &y1, float &cx, float &cy, float &a0) {  // its length
+  const float L = WQ_IN, Rr = WQ_R, X1 = HALO_W - WQ_IN, Y1 = HALO_H - WQ_IN, q = HALO_PI / 2 * Rr;
+  switch (k) {
+    case 0: x0 = CX, y0 = L, x1 = X1 - Rr, y1 = L; return x1 - x0;               // the top's right half
+    case 1: cx = X1 - Rr, cy = L + Rr, a0 = 0; return q;                         // the top right corner
+    case 2: x0 = X1, y0 = L + Rr, x1 = X1, y1 = Y1 - Rr; return y1 - y0;         // the right side
+    case 3: cx = X1 - Rr, cy = Y1 - Rr, a0 = HALO_PI / 2; return q;              // the bottom right corner
+    case 4: x0 = X1 - Rr, y0 = Y1, x1 = L + Rr, y1 = Y1; return x0 - x1;         // the bottom
+    case 5: cx = L + Rr, cy = Y1 - Rr, a0 = HALO_PI; return q;                   // the bottom left corner
+    case 6: x0 = L, y0 = Y1 - Rr, x1 = L, y1 = L + Rr; return y0 - y1;           // the left side
+    case 7: cx = L + Rr, cy = L + Rr, a0 = HALO_PI * 1.5f; return q;             // the top left corner
+    default: x0 = L + Rr, y0 = L, x1 = CX, y1 = L; return x1 - x0;               // the top's left half
+  }
+}
+static void wq_edge(const FaceLayer &L, FaceRun &R, float a, const HaloView &v) {
+  const HaloBattery b = wg_battery();
+  const float f = b.ok && b.present && b.percent > 0 ? fminf(1, b.percent / 100.0f) : 0, w = 6 * L.k;
+  float total = 0, x0 = 0, y0 = 0, x1 = 0, y1 = 0, cx = 0, cy = 0, a0 = 0;
+  for (int k = 0; k < WQ_PIECES; k++) total += wq_piece(k, x0, y0, x1, y1, cx, cy, a0);
+  float left = total * f;  // the charge's length still to lay
+  for (int k = 0; k < WQ_PIECES; k++) {
+    const float len = wq_piece(k, x0, y0, x1, y1, cx, cy, a0);
+    for (int j = 0; j < 2; j++) {  // the track, then the charge
+      HaloItem &it = R.g[j * WQ_PIECES + k];
+      const float part = j ? fmaxf(0, fminf(len, left)) : len;
+      it.scale = 1, it.color = j ? L.color : L.color2, it.on_black = !j, it.on = nullptr;
+      it.alpha = part > 0.01f ? a : 0;
+      if (k % 2) {  // a corner
+        it.kind = HI_ARC, it.x = cx, it.y = cy, it.r = WQ_R, it.w = w, it.a0 = a0, it.a1 = a0 + HALO_PI / 2 * part / len;
+      } else {  // a side: a bar from its start as long as the part, round at its ends
+        const float ex = x0 + (x1 - x0) * part / len, ey = y0 + (y1 - y0) * part / len;
+        it.kind = HI_RRECT, it.x = (x0 + ex) / 2, it.y = (y0 + ey) / 2, it.w = fabsf(ex - x0) + w, it.h = fabsf(ey - y0) + w, it.r = w / 2;
+      }
+      halo_view_commit(it, v);
+    }
+    left -= len;
+  }
+  R.ax = CX + L.dx, R.ay = WQ_IN + L.dy;
+}
+#endif
+
 static int wgr_items(uint8_t kind) {
   switch (kind) {
     case FL_WEEKARC: return 15;          // letters, numbers, the capsule
     case FL_INFOLINE: return 6;          // the icon, the degrees, up and its number, down and its number
     case FL_FORECAST: return 21;         // hours, icons, degrees, dots, the line
     case FL_DATEFRAME: return 4;
+#ifdef HALO_SQUARE
+    case FL_BATRING: return 2 * WQ_PIECES;  // the track's pieces, then the charge's
+#endif
     default: return WG_DOTS;
   }
 }
@@ -210,6 +261,17 @@ static uint32_t wgr_mix(uint32_t c, uint32_t to, float k) {
 static bool wgr_layout(const FaceScreen &S, int i, float a, const HaloView &v0) {
   const FaceLayer &L = S.layers[i];
   FaceRun &R = S.run[i];
+#ifdef HALO_SQUARE
+  if (L.kind == FL_BATRING) {
+    if (!R.g) return true;
+    HaloView v = v0;
+    v.x += L.dx * v0.s, v.y += L.dy * v0.s;
+    wq_edge(L, R, a, v);
+    R.box[0] = R.box[1] = 0, R.box[2] = R.box[3] = -1;
+    for (int j = 0; j < 2 * WQ_PIECES; j++) box_add(R.box, R.g[j]);
+    return true;
+  }
+#endif
   if (L.kind != FL_WEEKARC && L.kind != FL_INFOLINE && L.kind != FL_FORECAST && L.kind != FL_DATEFRAME && L.kind != FL_DOTCLOCK) return false;
   HaloView v = v0;
   v.x += L.dx * v0.s, v.y += L.dy * v0.s;  // (its place moved, as on the watch)
@@ -376,6 +438,13 @@ static bool wgr_layout(const FaceScreen &S, int i, float a, const HaloView &v0) 
 
 // The widgets of this board; false — not one of them
 static bool wgr_draw(const FaceLayer &L, const FaceRun &R) {
+#ifdef HALO_SQUARE
+  if (L.kind == FL_BATRING) {
+    if (R.g)
+      for (int j = 0; j < 2 * WQ_PIECES; j++) halo_item_draw(R.g[j]);
+    return true;
+  }
+#endif
   if (L.kind != FL_WEEKARC && L.kind != FL_INFOLINE && L.kind != FL_FORECAST && L.kind != FL_DATEFRAME && L.kind != FL_DOTCLOCK) return false;
   if (!R.g) return true;
   if (L.kind == FL_WEEKARC) halo_item_draw(R.g[14]);  // (the capsule under today's letter and number)

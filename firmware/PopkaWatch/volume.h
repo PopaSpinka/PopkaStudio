@@ -113,6 +113,53 @@ static float vol_layout(const HaloView &v) {
   halo_view_commit(vol_ic, v);
   return f_own;
 }
+#elif defined(HALO_SQUARE)
+// The square (variant 3B of web/mockups/square-media.html), as on the watch: "+" over the speaker, "−" under it, the
+// level as a bar along the left edge, filled from the bottom
+#define VQ_PLUS_Y 108.0f
+#define VQ_MINUS_Y 372.0f
+#define VQ_BAR_X 31.0f
+#define VQ_BAR_Y0 90.0f
+#define VQ_BAR_H 300.0f
+static bool vol_update(float dt) {
+  HaloFinger &f = halo_finger;
+  vol_active = true;
+  if (!vol_screen_up()) return false;
+  if (f.pressed) vol_armed = fabsf(f.x0 - CX) < 70 && fabsf(f.y0 - VQ_PLUS_Y) < 58 ? 0 : fabsf(f.x0 - CX) < 70 && fabsf(f.y0 - VQ_MINUS_Y) < 58 ? 1 : -1;
+  if (f.dragging) vol_armed = -1;
+  if (f.tap) {
+    if (vol_armed >= 0) vol_set(vol_level + (vol_armed ? -1 : 1)), vol_idle_in = 3;
+    else vol_close();
+  }
+  if ((vol_idle_in -= dt) < 0) vol_close();
+  if (!f.down) vol_armed = -1;
+  return true;
+}
+
+static float vol_layout(const HaloView &v) {
+  const float vs = halo_clamp01(vol_screen.x);
+  const float f_own = halo_clamp01(1 - vs / 0.4f), f_vol = halo_clamp01((vs - 0.4f) / 0.6f);  // fade through
+  const float sc = 0.92f + 0.08f * f_vol, lvl = halo_clamp01(vol_lvl), va = fmaxf(vol_show.x, f_vol);
+  for (int i = 0; i < 2; i++) {  // the level: the track, then (over it) what is filled, from the bottom
+    HaloItem &it = vol_arc[i];
+    const float h = i ? fmaxf(10, VQ_BAR_H * lvl) : VQ_BAR_H;
+    it.kind = HI_RRECT, it.x = VQ_BAR_X, it.y = VQ_BAR_Y0 + VQ_BAR_H - h / 2, it.w = 10, it.h = h, it.r = 5, it.scale = 1;
+    it.color = i ? VOL_FILL : VOL_TRACK, it.alpha = va, it.on_black = !i, it.on = nullptr;
+    halo_view_commit(it, v);
+  }
+  for (int i = 0; i < 2; i++) {
+    const float p = halo_clamp01(vol_btn[i].s.x), my = CY + ((i ? VQ_MINUS_Y : VQ_PLUS_Y) - CY) * sc;
+    HaloItem &b = vol_b[i];
+    b.kind = HI_RRECT, b.x = CX, b.y = my, b.w = 120 * sc, b.h = 96 * sc, b.r = (48 + (16 - 48) * p) * sc, b.scale = 1;
+    b.color = VOL_BTN, b.alpha = f_vol, b.on_black = true, b.on = nullptr;
+    halo_view_commit(b, v);
+    gl_text_mid(vol_b_ic[i], gl_ic24, i ? VOL_MINUS : VOL_PLUS, vol_mid_i, CX, my, 1.4f * sc, VOL_PRIMARY, f_vol, sc == 1 ? &b : nullptr);
+    halo_view_commit(vol_b_ic[i], v);
+  }
+  gl_text_mid(vol_ic, gl_ic24, VOL_SPEAKER, vol_mid_i, CX, CY, 2.25f * sc, VOL_ON_SURFACE, f_vol, nullptr);
+  halo_view_commit(vol_ic, v);
+  return f_own;
+}
 #else
 // The rectangle: the same screen laid out across — "−" at the left, "+" at the right, the speaker between them and the
 // level as a bar under it

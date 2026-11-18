@@ -296,7 +296,12 @@ static float face_base_y(const FaceLayer &L) {
 #else
 // A rectangle's place of each kind (variant S2 of web/mockups/rect-screens.html): a status line along the top — the date
 // from the left edge, the weather up to the right one — and the clock in the middle
-#ifdef HALO_COMPACT  // a small rectangle (320 × 480 either way up): the same picture, by its own size
+#if defined(HALO_SQUARE)  // a square (480 × 480, variant 1A of web/mockups/square-screens.html): the clock — 150 px, the
+                          // passport's — in the middle of the screen
+#define RH_MARGIN 16.0f
+#define RH_LINE_Y 28.0f
+#define RH_CLOCK_Y 242.0f
+#elif defined(HALO_COMPACT)  // a small rectangle (320 × 480 either way up): the same picture, by its own size
 #define RH_MARGIN 14.0f
 #define RH_LINE_Y 28.0f
 #define RH_CLOCK_Y (HALO_H * 0.47f)

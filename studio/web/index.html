@@ -118,30 +118,23 @@
   <div class="start on" id="start" aria-hidden="false">
     <section class="start-win" id="start-win" data-step="1" role="dialog" aria-label="Projects">
       <div class="start-track">
-        <div class="start-pane">
-          <div class="start-ttl">Choose a board</div>
-          <div class="start-boards" id="start-boards"></div>
-          <div class="start-foot">
-            <span class="more-wrap">
-              <button class="more-btn" id="start-more" aria-haspopup="listbox" aria-expanded="false" hidden><span>More boards</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></button>
-              <div class="more-list" id="start-more-list" role="listbox" aria-label="More boards" hidden></div>
-            </span><span class="start-dots"><i class="on"></i><i></i></span>
-            <button class="primary" id="start-next">Continue</button>
-          </div>
-        </div>
-        <div class="start-pane">
-          <div class="start-head">
-            <button class="start-back" id="start-back" aria-label="Boards"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg></button>
+        <!-- Step 1 (start.js: renderBoards, renderProjects): the boards on the left, the picked one and its projects on the right -->
+        <div class="start-pane start-home">
+          <nav class="start-rail" aria-label="Boards">
+            <div class="start-lab">Boards<span id="start-nboards"></span></div>
+            <div class="start-rows" id="start-rail"></div>
+            <a class="start-howto" href="https://github.com/PopaSpinka/PopkaStudio/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">How to add your board<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5M19 5l-8 8M17 14v5H5V7h5"/></svg></a>
+          </nav>
+          <div class="start-main">
             <div class="start-board" id="start-board"></div>
-          </div>
-          <div class="start-grid" id="start-grid"></div>
-          <div class="start-foot">
-            <span></span><span class="start-dots"><i></i><i class="on"></i></span><span></span>
+            <div class="start-lab" id="start-plab">Projects<span id="start-nproj"></span></div>
+            <div class="start-grid" id="start-grid"></div>
           </div>
         </div>
+        <!-- Step 2: a new project's name -->
         <div class="start-pane">
           <div class="start-head">
-            <button class="start-back" id="start-back2" aria-label="Projects"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg></button>
+            <button class="start-back" id="start-back" aria-label="Projects"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg></button>
           </div>
           <div class="start-newbox">
             <span class="new-ring"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>
@@ -149,9 +142,6 @@
             <input class="start-name" id="start-name" maxlength="40" spellcheck="false" autocomplete="off" aria-label="Name">
             <div class="start-ways" id="start-ways" role="group" aria-label="Which way up the screen is" hidden></div>
             <button class="primary" id="start-create">Create</button>
-          </div>
-          <div class="start-foot">
-            <span></span><span class="start-dots"><i></i><i class="on"></i></span><span></span>
           </div>
         </div>
       </div>
