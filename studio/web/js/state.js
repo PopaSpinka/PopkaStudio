@@ -270,6 +270,15 @@ export const ZONES = [
   ['Moscow', 'Europe/Moscow'], ['Dubai', 'Asia/Dubai'], ['Tokyo', 'Asia/Tokyo'], ['Sydney', 'Australia/Sydney'], ['UTC', 'UTC'],
 ];
 export const TIME = { zone: 'New York', h24: false };
+// The project's swipes (project.swipe), for every screen: 'up' — the gallery by a swipe up on the home screen, back down
+// from the top edge, a screen opened on the home screen closes up from the bottom edge; 'side' — the gallery by a swipe
+// to the left, back to the right, and that screen closes to the right from the left edge. On every board
+export const SWIPES = [['up', 'Up / down'], ['side', 'Left / right']];
+export const swipeOf = () => (state.project?.swipe === 'side' ? 'side' : 'up');
+export const swipeSide = () => (swipeOf() === 'side' ? 1 : 0);
+export function setSwipe(v) {
+  change((p) => { p.swipe = v === 'side' ? 'side' : 'up'; }, { structure: true });
+}
 export const timeOf = () => ({ ...TIME, ...(state.project.time || {}) });
 export function setTime(values) {
   change((p) => { p.time = { ...timeOf(), ...values }; }, { structure: true });
@@ -957,7 +966,7 @@ function fixSelection() {
   const s = state.sel;
   if (!s) return;
   const ok = s.type === 'layer' || s.type === 'link' ? layerById(s.id) && (s.type !== 'link' || layerById(s.id).tap)
-    : s.type === 'main' ? mainScreen() : s.type === 'fn' ? FUNCTIONS[s.id] || s.id === 'buttons' : screenById(s.id);
+    : s.type === 'main' ? mainScreen() : s.type === 'fn' ? FUNCTIONS[s.id] || s.id === 'buttons' || s.id === 'swipe' : screenById(s.id);
   if (!ok) state.sel = null;
 }
 

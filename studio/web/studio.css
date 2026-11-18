@@ -1020,3 +1020,6 @@ body.sorting .layer:hover:not(.lifted):not(.sel) { background: none; }
 .start-ways .way span { font-size: 11px; }
 .start-ways .way:hover { background: var(--panel-2); }
 .start-ways .way.picked { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* System → Swipes: what the chosen way means */
+.swipe-note { margin: 10px 0 0; font-size: 12px; line-height: 1.45; opacity: .6; }

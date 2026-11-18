@@ -9,7 +9,7 @@ import {
   pagesOf, pageName, weatherPaged,
   LISTED, listed, moveInList, newLayer, FACE_SCREEN, FUNCTIONS, fnOf, setFn, ZONES, timeOf, setTime, citiesOf, unitsOf,
   setWeather, WX_MAX, moveCity, isGallery, galleryFor, SECTIONS, sectionParts, sectionPart, addSection, addAbout, DEVS, SECTION_PATH, titleOf, subGallery, keepHead, gamesGallery, newList, stepsSet, STEP_FAMILY,
-  savedFaces, saveFace, removeFace, faceLayers,
+  savedFaces, saveFace, removeFace, faceLayers, SWIPES, swipeOf, setSwipe,
   roomFor, relayClock, relaySizes, WXW, wxLooksOf, FACE_PRESETS, FOUR_SIDES, CURVES, INFOS, PIXEL_ART, SHADE_LOOKS, CLOCK_LOOKS, clockLook,
   RADIO_PARTS, isRadio, allowedOn, RADIO_LINKED, radioTarget,
 } from './state.js';
@@ -108,6 +108,7 @@ const ICON = {
   functions: '<svg viewBox="0 0 16 16"><path d="M3 4.5h5M11 4.5h2M3 11.5h2M8 11.5h5"/><circle cx="9.5" cy="4.5" r="1.5"/><circle cx="6.5" cy="11.5" r="1.5"/></svg>',
   // System (the watch's functions: the fourth tile at the top of the left card): a chip
   system: '<svg viewBox="0 0 16 16"><rect x="4" y="4" width="8" height="8" rx="1.6"/><path d="M6.5 1.8V4M9.5 1.8V4M6.5 12v2.2M9.5 12v2.2M1.8 6.5H4M1.8 9.5H4M12 6.5h2.2M12 9.5h2.2"/></svg>',
+  swipe: '<svg viewBox="0 0 16 16"><path d="M2 8h12M5 5 2 8l3 3M11 5l3 3-3 3"/></svg>',
   aod: '<svg viewBox="0 0 16 16"><path d="M13 9.6A5.5 5.5 0 1 1 6.4 3a4.3 4.3 0 0 0 6.6 6.6z"/></svg>',
   boot: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.8"/><circle cx="8" cy="8" r="2"/></svg>',
   pwr: '<svg viewBox="0 0 16 16"><path d="M8 2.5V8M4.6 4.6a4.8 4.8 0 1 0 6.8 0"/></svg>',
@@ -331,7 +332,26 @@ function sysMenu() {
       h('span', { class: 'sys-st' }, f.on ? 'On' : 'Off'));
     b.addEventListener('click', () => select({ type: 'fn', id }));
     return b;
-  }));
+  }), swipeRow());
+}
+// Swipes: the whole project's, not a function — no switch, its way in place of On / Off
+function swipeRow() {
+  const way = SWIPES.find(([v]) => v === swipeOf())[1], picked = state.sel?.type === 'fn' && state.sel.id === 'swipe';
+  const b = h('button', { class: 'sys-row' + (picked ? ' sel' : ''), role: 'menuitem' },
+    h('span', { class: 'sys-ic', html: ICON.swipe }),
+    h('span', { class: 'sys-txt' }, h('span', { class: 'sys-name' }, 'Swipes'), h('span', { class: 'sys-sub' }, 'Between screens')),
+    h('span', { class: 'sys-st' }, way));
+  b.addEventListener('click', () => select({ type: 'fn', id: 'swipe' }));
+  return b;
+}
+function swipeProps() {
+  const side = swipeOf() === 'side', hm = home().name;
+  return [head(ICON.swipe, 'Swipes', 'Project'),
+    h('div', { class: 'group' },
+      segmented('Direction', swipeOf(), SWIPES, (v) => { setSwipe(v); renderFunctions(); renderProps(paletteStage, true); }),
+      h('p', { class: 'swipe-note' }, side
+        ? `For every screen: a swipe to the left on ${hm} opens the gallery, to the right — back. A screen opened by a tap closes with a swipe to the right from the left edge.`
+        : `For every screen: a swipe up on ${hm} opens the gallery, down from the top edge — back. A screen opened by a tap on ${hm} closes with a swipe up from the bottom edge.`))];
 }
 
 // The open folder's content: its categories at the left, the chosen one's tiles at the right (scrolling when they are
@@ -1323,6 +1343,7 @@ export function renderProps(stage, force = false) {
   if (s && s.type === 'link' && layerById(s.id)?.tap) return show(linkProps(stage, layerById(s.id)));
   if (s && s.type === 'main' && mainScreen()) return show(mainProps(stage, mainScreen()));
   if (s && (s.type === 'screen' || s.type === 'back') && screenById(s.id)) return show(screenProps(stage, screenById(s.id)));
+  if (s && s.type === 'fn' && s.id === 'swipe') return show(swipeProps(), true);
   if (s && s.type === 'fn' && FN_ROWS.includes(fnRowOf(s.id))) return show(fnProps(fnRowOf(s.id)), true);  // (Bluetooth: its switch alone)
   show([]);  // nothing selected: the head alone
 }
@@ -1658,16 +1679,17 @@ function linkProps(stage, l) {
 // The gallery: a swipe up on the face opens it
 function mainProps(stage, m) {
   return [
-    head(ICON.gallery, `${home().name} → ${m.name}`, 'Swipe up',
+    head(ICON.gallery, `${home().name} → ${m.name}`, swipeLabel(),
       { title: 'Remove', fn: () => { change((p) => { p.main = null; }, { structure: true }); select(null); } }),
     h('div', { class: 'group' }, mainChoice(stage)),
   ];
 }
 
-// Which screen a swipe up on the face opens
+const swipeLabel = () => (swipeOf() === 'side' ? 'Swipe left' : 'Swipe up');
+// Which screen a swipe up on the face opens (to the left — with the project's swipes sideways)
 function mainChoice(stage) {
   const m = mainScreen();
-  return choice('Swipe up', m ? m.id : '', [['', 'Nothing'], ...screens().slice(1).map((s) => [s.id, s.name])], (v) => {
+  return choice(swipeLabel(), m ? m.id : '', [['', 'Nothing'], ...screens().slice(1).map((s) => [s.id, s.name])], (v) => {
     change((p) => {
       p.main = v || null;
       for (const l of p.screens[0].layers) if (l.tap && l.tap.to === v) l.tap = null;  // the gallery is not opened by a tap

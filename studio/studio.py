@@ -1278,6 +1278,12 @@ def main_index(project, screens):
     return ids.index(main) if main in ids[1:] else -1
 
 
+def main_side(project):
+    """Which swipe on the home screen opens the gallery, for the whole project ("swipe": "side" — to the left):
+    0 — up, 1 — left (halo_nav_side)."""
+    return 1 if project.get("swipe") == "side" else 0
+
+
 def c_string(text):
     """A C string literal of a UTF-8 text (bytes past ASCII as octal escapes: a hex one would eat the next letter)."""
     out = ""
@@ -1517,8 +1523,9 @@ def live_key(layer, home, rect=False):
 def live_shape(project, screens):
     """What only a Load brings for the whole watch: the screens and their order, the gallery, the Functions, the clock,
     the cities — 8 hex digits (LIVE_SHAPE)."""
+    side = main_side(project)  # (only when sideways: a project without it keeps the number it had)
     return live_hash([[scr["id"] for scr in screens], main_index(project, screens), clean_functions(project),
-                      clean_time(project), clean_weather(project)], 8)
+                      clean_time(project), clean_weather(project)] + ([side] if side else []), 8)
 
 
 # ---------- The board sketch from a project ----------
@@ -1600,6 +1607,8 @@ def write_sketch(project, folder, meta=None):
          "// screen (-1 — no link) with the transition, the radius of the clock along the top edge; the gallery's text.",
          "#pragma once", "", f"#define SCREEN_N {len(screens)}",
          f"#define MAIN_SCREEN {main} // the gallery: a swipe up on the face (-1 — none)"]
+    if main_side(project):
+        h.append(f"#define MAIN_SIDE {main_side(project)} // the swipes sideways: the gallery by a swipe to the left")
     fn = clean_functions(project)
     radio = any(layer["type"] == "radio" or layer["type"] in RADIO_PARTS or layer["type"] in dict(RADIO_SCREENS) for layer in all_layers)
     wifi = fn["wifi"]["on"] or radio  # (the Radio brings Wi-Fi along — and Bluetooth goes: both don't fit)

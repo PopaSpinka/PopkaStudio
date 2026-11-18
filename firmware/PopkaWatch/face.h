@@ -1048,7 +1048,12 @@ static HaloScreen level(int d, uint8_t home) {
 }
 
 // The gallery — lib/Halo's main screen (none — the face is alone: a swipe up on it leads nowhere)
+#ifndef MAIN_SIDE
+#define MAIN_SIDE 0  // (layers.h: which swipe on the face opens it — 0 up, 1 left, 2 right)
+#endif
 static void gallery_begin() {
+  static bool side_set;
+  if (!side_set) side_set = true, halo_nav_side(MAIN_SIDE);
   if (nav_scr[0] > 0 && nav_scr[0] < face_scr_n) halo_nav_begin(level(0, 0));  // to the face — down from the top edge
 }
 

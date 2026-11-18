@@ -609,6 +609,9 @@ void halo_nav_begin(const HaloScreen &home);
 // циферблат — один, свайп вверх по нему никуда не ведёт, экраны поверх него (halo_nav_face_open) — как обычно
 void halo_nav_face(const HaloScreen &face, float zone = 90);
 bool halo_nav_on_face();  // виден циферблат (и не едет)
+// Which swipe on the face leads to the main screen: 0 — up (as it was), 1 — left, 2 — right; sideways the way back is
+// the opposite swipe on the main screen, and the transition runs along x
+void halo_nav_side(int side);
 void halo_nav_to_face(bool face);  // на циферблат / на главный экран (как команды face, face off; с главного или открытого на нём)
 // Экран прямо поверх циферблата (нажали на его элемент — плашку погоды): переход fx из элемента с центром (x, y) и
 // размером w×h. Назад — свайп вверх от нижнего края (начат ниже H − 70): переход идёт за пальцем, отпустили на трети
