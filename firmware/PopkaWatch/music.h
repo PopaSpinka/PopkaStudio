@@ -16,12 +16,20 @@
 #include <esp_partition.h>
 #endif
 
+#if defined(HALO_SD_CS) && !defined(__EMSCRIPTEN__)
+#define MU_MAX 48  // a board with a microSD card: its tracks too (music_sd.h); the list in PSRAM
+#else
 #define MU_MAX 8
+#endif
 struct MuTrack {
   uint32_t off, bytes, samples;
   char title[57], artist[57];
 };
+#if defined(HALO_SD_CS) && !defined(__EMSCRIPTEN__)
+static MuTrack *mu_tracks;  // MU_MAX (PSRAM, music_begin)
+#else
 static MuTrack mu_tracks[MU_MAX];
+#endif
 static int mu_n, mu_rate = 22050, mu_block = 256, mu_spb = 505;
 #ifndef __EMSCRIPTEN__
 static const esp_partition_t *mu_part;
@@ -54,9 +62,22 @@ static void music_begin() {
 }
 static void music_start_audio() {}
 #else
+#ifdef HALO_SD_CS
+#include "music_sd.h"  // the tracks of a microSD card
+#endif
 static void music_begin() {
+#ifdef HALO_SD_CS
+  mu_tracks = (MuTrack *)heap_caps_calloc(MU_MAX, sizeof(MuTrack), MALLOC_CAP_SPIRAM);
+  if (!mu_tracks) return;
+  // music — the flash's tracks (studio.py: a Load writes the free tracks once when there are none); the card's — sd
+  halo_command("music", [](const char *) { LOG("music: %d tracks%s\n", mu_flash_n, mu_sd ? " (the player plays the microSD's: sd)" : ""); });
+  struct Then {  // the card is looked at after the flash's tracks are read, whichever way music_begin returns
+    ~Then() { mu_flash_n = mu_n, ms_begin(); }
+  } then;
+#else
   // music — how many tracks the board has (studio.py: a Load writes the free tracks once when there are none)
   halo_command("music", [](const char *) { LOG("music: %d tracks\n", mu_n); });
+#endif
 #ifdef HALO_ROUND
   mu_part = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_FAT, "ffat");
 #else
@@ -144,6 +165,9 @@ static const uint8_t *mu_block_at(const MuTrack &t, uint32_t b) {
 
 // The audio task: n samples of the current track (fewer — it ran out, or nothing is playing)
 static int mu_fill(int16_t *out, int n) {
+#ifdef HALO_SD_CS
+  if (mu_sd) return ms_fill(out, n);
+#endif
   const int cmd = mu_cmd;
   if (cmd >= 0 && cmd < mu_n) {
     mu_cmd = -1;

@@ -55,7 +55,8 @@ what the watch shows, pixel for pixel — the same fonts, the same animations, t
   AMOLED, 466 × 466, touch, a motion sensor, a speaker and microphones.
 - [Waveshare ESP32-S3-Touch-AMOLED-1.75](https://www.waveshare.com/product/esp32-s3-touch-amoled-1.75.htm) — the same
   round watch without the “C”: 16 MB of flash and a microSD slot; the screen, sound and motion sensor are wired to other
-  pins, and the board has its own firmware build. The microSD slot and the GPS place aren't used yet.
+  pins, and the board has its own firmware build. The Music player plays MP3 and WAV files from the microSD card
+  (the /music folder); the GPS place isn't used yet.
 - [Waveshare ESP32-P4-WIFI6-Touch-LCD-7B](https://www.waveshare.com/esp32-p4-wifi6-touch-lcd-7b.htm) (new in 2.0): a 7″
   screen, 1024 × 600, touch, Wi-Fi 6 through its ESP32-C6, a speaker, microphones and a microSD card slot. Its
   screens are laid out for a wide display — a grid gallery, weather with a chart, a home screen with the date and the

@@ -1550,7 +1550,7 @@ def write_sketch(project, folder, meta=None):
     if os.path.abspath(folder) != os.path.abspath(FIRMWARE):
         for name in ("PopkaWatch.ino", "face.h", "weather.h", "wxscreen.h", "gallery.h", "wxscreen_rect.h", "gallery_rect.h", "player_rect.h", "recorder_rect.h", "settings_rect.h", "device_rect.h", "game_dots_rect.h", "power.h", "steps.h", "stars.h",
                      "pixelart.h", "parrot.h", "bt.h", "wxfetch.h", "settings.h", "stepscreen.h", "widgets.h", "widgets_rect.h", "wxwidgets.h",
-                     "music.h", "player.h", "sound.h", "volume.h", "recorder.h", "radio.h", "radio_net.h", "radio_rect.h", "video.h", "video_hw.h", "video_net.h", "snake.h", "games.h", "game_dots.h",
+                     "music.h", "music_sd.h", "player.h", "sound.h", "volume.h", "recorder.h", "radio.h", "radio_net.h", "radio_rect.h", "video.h", "video_hw.h", "video_net.h", "snake.h", "games.h", "game_dots.h",
                      "game_space.h", "game_iso.h", "live.h", "device.h", "hello.h", "wifiscan.h", "shade_rect.h", "shade_round.h",
                      "sclock.h"):
             shutil.copy(os.path.join(FIRMWARE, name), os.path.join(folder, name))

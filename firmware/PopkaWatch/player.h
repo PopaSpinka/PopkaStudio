@@ -675,7 +675,11 @@ static void pl_texts(float alpha) {
   if (!mu_n) {
     halo_text(gl_title, "No music", halo_view_x(v, CX), halo_view_y(v, PL_TITLE_Y) - pl_mid_t * v.s,
               halo_dim(PL_ON_SURFACE, (int)(alpha * 256)), 1, 1, v.s, 0, 0);
-    halo_text(gl_t24, "tools/halo_music.py --flash", halo_view_x(v, CX), halo_view_y(v, PL_ARTIST_Y) - pl_mid_a * v.s,
+#ifdef HALO_SD_CS
+    halo_text(gl_t24, "MP3 / WAV in /music on microSD",
+#else
+    halo_text(gl_t24, "tools/halo_music.py --flash",
+#endif halo_view_x(v, CX), halo_view_y(v, PL_ARTIST_Y) - pl_mid_a * v.s,
               halo_dim(GL_DIM, (int)(alpha * 256)), 1, 1, v.s, 0, 0);
     return;
   }
