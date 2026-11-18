@@ -2672,6 +2672,9 @@ def flash_steps(project, port, meta=None):
         if fw == "dev":  # (a firmware not made by a Load — a tool's, an experiment's: until 18 Nov 2026 its hello said
             fits = (on.get("check") or {}).get("fits") or []  # "amoled175" on every board, hello.h; only the board's
             there = "" if not fits or board in fits else fits[0]  # check, if one was made, knows it then)
+        twins = passport(board).get("twins", [])  # (the same chip and screen, other pins: the 1.75 with and without the C —
+        if there in twins:  # a hello can't tell them apart when the other one's firmware is on it; the project's is trusted)
+            there = board
         if there and there != board:  # (known by its hello or from last time: a minute of compiling saved, the chip stays safe)
             raise RuntimeError(f"This project is for {passport(board)['short']}, the connected board is {passport(there)['short']}")
         for cmd in load_commands(port, board, orientation_of(project)):

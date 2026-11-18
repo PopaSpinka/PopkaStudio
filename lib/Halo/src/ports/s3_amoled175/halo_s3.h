@@ -4,23 +4,45 @@
 #include "halo_internal.h"
 #include "../esp32_common/halo_esp32.h"
 
-// Пины платы (схема Waveshare ESP32-S3-Touch-AMOLED-1.75C)
+// Пины платы (схема Waveshare ESP32-S3-Touch-AMOLED-1.75C).
+// Тот же порт служит и плате без «C» — ESP32-S3-Touch-AMOLED-1.75 (-DHALO_BOARD_AMOLED175N, boards/amoled175n): та же
+// панель CO5300, тач CST9217, AXP2101, ES8311 + ES7210, но по её схеме иначе разведены сброс экрана (GPIO39), сброс тача
+// (GPIO40) и MCLK (GPIO42); INT1 датчика движения ушёл на расширитель TCA9554 (EXIO6), а на GPIO21 — его INT2.
+// У неё же слот microSD (SPI: GPIO1/2/3, CS 41) и место под GPS — порт их не трогает.
 #define HALO_PIN_SD0 4
 #define HALO_PIN_SD1 5
 #define HALO_PIN_SD2 6
 #define HALO_PIN_SD3 7
 #define HALO_PIN_SCLK 38
 #define HALO_PIN_CS 12
-#define HALO_PIN_RST 1
 #define HALO_PIN_TE 13
 #define HALO_PIN_SDA 15
 #define HALO_PIN_SCL 14
 #define HALO_PIN_TP_INT 11
-#define HALO_PIN_TP_RST 2
 #define HALO_PIN_BOOT 0
+#if defined(HALO_BOARD_AMOLED175N)
+#define HALO_PIN_RST 39
+#define HALO_PIN_TP_RST 40
+#define HALO_PIN_IMU_INT1 21  // QMI8658 INT2 (сеть QMI_INT2): пробуждение по движению шлётся на него (HALO_IMU_*)
+#define HALO_PIN_MCLK 42
+// Какой вывод QMI8658 ведёт к ESP32: INT2. CAL1_H [7:6] = 11 — WoM на INT2, начальный уровень высокий; CTRL1 бит 4 —
+// выход INT2; CTRL8 бит 6 = 1 — прерывания движков (шагомер) на INT1, который сюда не подведён
+#define HALO_IMU_WOM_PIN 0xC0
+#define HALO_IMU_INT_EN 0x10
+#define HALO_IMU_ENGINES_PIN 0x40
+#define HALO_IMU_PIN_NAME "QMI8658 INT2, GPIO21"
+#else
+#define HALO_PIN_RST 1
+#define HALO_PIN_TP_RST 2
 #define HALO_PIN_IMU_INT1 21  // QMI8658 INT1 (сеть QMI_INT1 на схеме; INT2 не подведён)
-// Звук: I2S к кодеку ES8311 (динамик) и АЦП ES7210 (микрофоны) — одна шина, и усилитель динамика
 #define HALO_PIN_MCLK 16
+// INT1 ведёт к ESP32: CAL1_H [7:6] = 10 — WoM на INT1, высокий; CTRL1 бит 3 — выход INT1; CTRL8 бит 6 = 0 — движки на INT2
+#define HALO_IMU_WOM_PIN 0x80
+#define HALO_IMU_INT_EN 0x08
+#define HALO_IMU_ENGINES_PIN 0x00
+#define HALO_IMU_PIN_NAME "QMI8658 INT1, GPIO21"
+#endif
+// Звук: I2S к кодеку ES8311 (динамик) и АЦП ES7210 (микрофоны) — одна шина, и усилитель динамика
 #define HALO_PIN_BCLK 9
 #define HALO_PIN_LRCK 45
 #define HALO_PIN_DOUT 8

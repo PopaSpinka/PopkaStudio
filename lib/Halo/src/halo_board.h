@@ -11,7 +11,7 @@
 #include "ports/s3_lcd4b/board.h"
 #elif defined(HALO_WEB_BOARD_P4) || CONFIG_IDF_TARGET_ESP32P4  // (HALO_WEB_BOARD_P4: the browser engine of this board)
 #include "ports/p4_lcd7/board.h"
-#elif defined(__EMSCRIPTEN__) || CONFIG_IDF_TARGET_ESP32S3
+#elif defined(__EMSCRIPTEN__) || CONFIG_IDF_TARGET_ESP32S3  // (and -DHALO_BOARD_AMOLED175N — the 1.75 without the C: same port, its pins)
 #include "ports/s3_amoled175/board.h"
 #else
 #error "Halo: no port for this board yet (lib/Halo/src/ports/README.md)"
