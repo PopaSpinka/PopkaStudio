@@ -641,7 +641,7 @@ export class Stage {
       arcs.push(this.arc('link', k.layer.id, start, ring(tc, start.p)));
     }
     const m = mainScreen(), f = screens()[0];
-    if (m) {  // the face and the gallery: a swipe up, a swipe down from the top edge back
+    if (m) {  // the face and the gallery: a swipe up, a swipe down from the top edge back (or the project's swipes sideways)
       const fc = [f.x + CX, f.y + CY], mc = [m.x + CX, m.y + CY];
       arcs.push(this.arc('main', m.id, ring(fc, mc), ring(mc, fc)));
     }

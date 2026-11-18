@@ -74,7 +74,7 @@ def bring_old_data():
             os.rmdir(src)
 
 
-VERSION = "2.3"  # PopkaStudio's version (the About window; the release notes)
+VERSION = "2.4"  # PopkaStudio's version (the About window; the release notes)
 
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 import halo_assets as ha  # noqa: E402 — the board's font and image code
@@ -1278,6 +1278,12 @@ def main_index(project, screens):
     return ids.index(main) if main in ids[1:] else -1
 
 
+def main_side(project):
+    """The project's swipes sideways ("swipe": "side"): the gallery by a swipe to the left on the home screen, back — to
+    the right from the left edge (halo_nav_side). No "swipe" or "up" — up, as before."""
+    return project.get("swipe") == "side"
+
+
 def c_string(text):
     """A C string literal of a UTF-8 text (bytes past ASCII as octal escapes: a hex one would eat the next letter)."""
     out = ""
@@ -1517,8 +1523,9 @@ def live_key(layer, home, rect=False):
 def live_shape(project, screens):
     """What only a Load brings for the whole watch: the screens and their order, the gallery, the Functions, the clock,
     the cities — 8 hex digits (LIVE_SHAPE)."""
+    side = [1] if main_side(project) else []  # (only when sideways: a project without it keeps the number it had)
     return live_hash([[scr["id"] for scr in screens], main_index(project, screens), clean_functions(project),
-                      clean_time(project), clean_weather(project)], 8)
+                      clean_time(project), clean_weather(project)] + side, 8)
 
 
 # ---------- The board sketch from a project ----------
@@ -1600,6 +1607,8 @@ def write_sketch(project, folder, meta=None):
          "// screen (-1 — no link) with the transition, the radius of the clock along the top edge; the gallery's text.",
          "#pragma once", "", f"#define SCREEN_N {len(screens)}",
          f"#define MAIN_SCREEN {main} // the gallery: a swipe up on the face (-1 — none)"]
+    if main_side(project):  # (only then: a project without it builds the same sketch)
+        h.append("#define MAIN_SIDE 1 // the swipes sideways: the gallery to the left, back from the left edge")
     fn = clean_functions(project)
     radio = any(layer["type"] == "radio" or layer["type"] in RADIO_PARTS or layer["type"] in dict(RADIO_SCREENS) for layer in all_layers)
     wifi = fn["wifi"]["on"] or radio  # (the Radio brings Wi-Fi along — and Bluetooth goes: both don't fit)

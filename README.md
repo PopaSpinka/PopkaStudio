@@ -18,7 +18,7 @@ what the watch shows, pixel for pixel — the same fonts, the same animations, t
 - **Watch faces from layers** — sixteen clock styles (Hairline, LCD, Neon, Flip, Comet, Hands and more), a dot
   clock, date lines, curved text along the edge, weather, steps, battery, forecast, a starry sky with meteors, pixel
   art (meet **Popka**, the parrot). Move, resize, recolor everything; any number of copies.
-- **Apps** — a gallery of cards (as on modern smartwatches), Weather with real data and several cities, Steps (the
+- **Apps** — a gallery of cards (as on modern smartwatches) that comes up from below or in from the side, Weather with real data and several cities, Steps (the
   motion chip's own pedometer), Display brightness, Battery, a Music player, a voice Recorder, three self-playing
   snake games, and About and Power — live cards about the board itself (processor, memory, battery, temperature,
   sound, motion; voltages).
@@ -210,7 +210,8 @@ Made by **[PopaSpinka](https://github.com/PopaSpinka)** together with **Claude O
 every spring, every pixel. Thank you, Claude.
 
 The WT32-SC01 Plus board — its Halo port, its passport and the screens laid out for its small display — is by
-**[dimonmontana](https://github.com/dimonmontana)**, the first community board. Thank you!
+**[dimonmontana](https://github.com/dimonmontana)**, the first community board. The gallery that comes in from the
+side started from his pull request too. Thank you!
 
 The code is written from scratch. The motion follows published open-source numbers, no firmware or app was
 decompiled, and no code was taken from GPL projects:

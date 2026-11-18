@@ -2,14 +2,14 @@
 // functions: Always On, the buttons, Wi-Fi, Bluetooth — a fourth tile, its menu to the right; each one's switch is in its
 // Properties), Screens and Layers (of the active screen, a line between them to drag) and Properties (of a layer, a
 // screen, a link, the way to the gallery or a function: what can be set, no more).
-import { BOARD, ROUND, allowed, lacks } from './screen.js';
+import { BOARD, ROUND, TW, TH, allowed, lacks } from './screen.js';
 import {
   state, screens, home, screenById, activeScreen, layers, selected, select, change, KINDS, layerById, screenOf,
   linkedScreens, links, newScreen, emit, PAGED, sync as saved, mainScreen, canLink, targetsFor, ICONS, TAPS, PAGES, paged,
   pagesOf, pageName, weatherPaged,
   LISTED, listed, moveInList, newLayer, FACE_SCREEN, FUNCTIONS, fnOf, setFn, ZONES, timeOf, setTime, citiesOf, unitsOf,
   setWeather, WX_MAX, moveCity, isGallery, galleryFor, SECTIONS, sectionParts, sectionPart, addSection, addAbout, DEVS, SECTION_PATH, titleOf, subGallery, keepHead, gamesGallery, newList, stepsSet, STEP_FAMILY,
-  savedFaces, saveFace, removeFace, faceLayers,
+  savedFaces, saveFace, removeFace, faceLayers, SWIPES, swipeOf, setSwipe, swipeWords,
   roomFor, relayClock, relaySizes, WXW, wxLooksOf, FACE_PRESETS, FOUR_SIDES, CURVES, INFOS, PIXEL_ART, SHADE_LOOKS, CLOCK_LOOKS, clockLook,
   RADIO_PARTS, isRadio, allowedOn, RADIO_LINKED, radioTarget,
 } from './state.js';
@@ -163,7 +163,6 @@ const FOLDERS = [
 ];
 if (BOARD.faces_name) FOLDERS[0].name = BOARD.faces_name;
 const FACE_SUB = 'HaloWatch\'s watch face: the date, the clock and the weather pill — becomes the watch face in place of the one before';
-const GALLERY_SUB = 'A new gallery: the title, the top clock, one card and More; a swipe up on the face opens it';
 // Where a straight line stands on a rectangle (widgets: the angle, as on the round watch's four sides)
 const LINE_PLACES = [['-90', 'Top left'], ['0', 'Top'], ['90', 'Top right'], ['-150', 'Bottom left'], ['180', 'Bottom'], ['150', 'Bottom right'], ['-100', 'Left side'], ['100', 'Right side']];
 const SCREEN_CARDS = {
@@ -171,14 +170,16 @@ const SCREEN_CARDS = {
   fours: { name: 'Four sides', icon: 'whole', kind: 'foursides', sub: 'The clock, and the weekday, the date, the weather and the steps along the four sides — becomes the watch face in place of the one before' },
   fempty: { name: 'Empty', icon: 'empty', kind: 'blankface', sub: 'An empty watch face: nothing on it — put on it what you like (Layers) — in place of the one before' },
   fscreen: { name: 'Watch face', icon: 'clock', kind: 'face', sub: FACE_SUB },
-  gscreen: { name: 'Gallery', icon: 'gallery', kind: 'gallery', sub: GALLERY_SUB },
+  gscreen: { name: 'Gallery', icon: 'gallery', kind: 'gallery', get sub() {  // (the project's swipes: up or to the left)
+    return ROUND ? `A new gallery: the title, the top clock, one card and More; ${swipeWords()} on the face opens it`
+      : `A new gallery: the title, the time and a card; ${swipeWords()} on the home screen opens it`;
+  } },
   empty: { name: 'Empty', icon: 'empty', kind: 'empty', sub: 'A blank screen' },
 };
 if (!ROUND) {
   SCREEN_CARDS.fwhole.name = 'Status line';
   SCREEN_CARDS.fwhole.sub = 'The date and the weather along the top, a big clock in the middle — becomes the home screen in place of the one before';
   SCREEN_CARDS.fours.sub = 'The clock, and the weekday, the date, the weather and the city along the four sides — becomes the home screen in place of the one before';
-  SCREEN_CARDS.gscreen.sub = 'A new gallery: the title, the time and a card; a swipe up on the home screen opens it';
 }
 // A folder's tiles by category (the column at the left of its content: a click shows that category's tiles)
 const SHELVES = {
@@ -787,7 +788,7 @@ export function addScreen(stage, linkFrom, kind = 'empty', opts = {}) {
   if (kind === 'weather') saved.note = `${s.name}: HaloWatch's Weather screen` + (linkFrom ? ` · ${layerById(linkFrom).name} on ${home().name} opens it` : '');
   if (kind === 'face') saved.note = `${s.name}: HaloWatch's watch face on a screen of its own (the home is ${home().name})`;
   if (kind === 'foursides') saved.note = `${s.name}: the clock and four curved lines (the home is ${home().name})`;
-  if (kind === 'gallery') saved.note = `${s.name}: the title, the top clock, a card and More` + (main ? ` · a swipe up on ${home().name} opens it` : '');
+  if (kind === 'gallery') saved.note = `${s.name}: the title, the top clock, a card and More` + (main ? ` · ${swipeWords()} on ${home().name} opens it` : '');
   if (kind === 'list') saved.note = `${s.name}: the title, the top clock, a card and More · ${layerById(linkFrom).name} opens it`;
   select(linkFrom && kind === 'empty' ? { type: 'link', id: linkFrom } : { type: 'screen', id: s.id });
   state.screen = s.id;
@@ -1658,22 +1659,62 @@ function linkProps(stage, l) {
 // The gallery: a swipe up on the face opens it
 function mainProps(stage, m) {
   return [
-    head(ICON.gallery, `${home().name} → ${m.name}`, 'Swipe up',
+    head(ICON.gallery, `${home().name} → ${m.name}`, swipeLabel(),
       { title: 'Remove', fn: () => { change((p) => { p.main = null; }, { structure: true }); select(null); } }),
-    h('div', { class: 'group' }, mainChoice(stage)),
+    h('div', { class: 'group' }, mainChoice(stage), swipeWays(stage)),
   ];
 }
 
-// Which screen a swipe up on the face opens
+const swipeLabel = () => (swipeOf() === 'side' ? 'Swipe left' : 'Swipe up');
+// Which screen a swipe up on the face opens (to the left — with the project's swipes sideways)
 function mainChoice(stage) {
   const m = mainScreen();
-  return choice('Swipe up', m ? m.id : '', [['', 'Nothing'], ...screens().slice(1).map((s) => [s.id, s.name])], (v) => {
+  return choice(swipeLabel(), m ? m.id : '', [['', 'Nothing'], ...screens().slice(1).map((s) => [s.id, s.name])], (v) => {
     change((p) => {
       p.main = v || null;
       for (const l of p.screens[0].layers) if (l.tap && l.tap.to === v) l.tap = null;  // the gallery is not opened by a tap
     }, { structure: true });
     renderProps(stage, true);
   });
+}
+
+// The project's swipes (web/mockups/swipe-direction.html, variant D): two tiles, each a picture in this board's own
+// shape (round, wide, tall or square) — the home screen with the gallery coming in from the bottom or from the right,
+// the arrow the finger's way. Up: as HaloWatch, back down from the top edge; Left: back to the right from the left edge
+let waysN = 0;
+function swipeWays(stage) {
+  const way = swipeOf();
+  return h('div', { class: 'swipe-ways', role: 'radiogroup', 'aria-label': 'Swipe' }, ...SWIPES.map(([v, label]) => {
+    const b = h('button', { class: 'sway' + (v === way ? ' on' : ''), role: 'radio', 'aria-checked': String(v === way),
+      html: swipePicture(v === 'side') });
+    b.append(h('b', {}, label));
+    b.addEventListener('click', () => { if (v !== swipeOf()) setSwipe(v), renderProps(stage, true); });
+    return b;
+  }));
+}
+function swipePicture(side) {
+  const k = Math.min(86 / TW, 56 / TH), w = TW * k, h = TH * k, u = Math.min(w, h), id = `way${++waysN}`;
+  const f = (n) => Math.round(n * 10) / 10;
+  const shape = (x, y, more) => (ROUND ? `<circle cx="${f(x + w / 2)}" cy="${f(y + h / 2)}" r="${f(w / 2)}" ${more}/>`
+    : `<rect x="${f(x)}" y="${f(y)}" width="${f(w)}" height="${f(h)}" rx="${f(u * 0.12)}" ${more}/>`);
+  const bar = (x, y, bw, bh, cls) => `<rect class="${cls}" x="${f(x)}" y="${f(y)}" width="${f(bw)}" height="${f(bh)}" rx="${f(bh / 2)}"/>`;
+  // The gallery: the same screen 60 % of the way in, its cards along its top (up) or down its left side (left)
+  const gx = side ? w * 0.62 : 0, gy = side ? 0 : h * 0.62;
+  const cards = side
+    ? bar(gx + w * 0.08, h * 0.3, w * 0.5, u * 0.13, 'c') + bar(gx + w * 0.08, h * 0.52, w * 0.4, u * 0.13, 'c2')
+    : bar(w * 0.2, gy + h * 0.08, w * 0.6, u * 0.13, 'c') + bar(w * 0.26, gy + h * 0.25, w * 0.48, u * 0.13, 'c2');
+  // The home: its clock (and the date over it) in the part that stays
+  const hx = side ? w * 0.29 : w / 2, hy = side ? h * 0.5 : h * 0.29, cw = Math.min(side ? w * 0.36 : w * 0.56, u * 0.66);
+  const home = bar(hx - cw / 2, hy - u * 0.04, cw, u * 0.15, 'k') + bar(hx - cw * 0.3, hy - u * 0.15, cw * 0.6, u * 0.06, 'k2');
+  // The finger: from inside the gallery towards the home
+  const arrow = side
+    ? `M${f(w * 0.92)} ${f(h / 2)}H${f(w * 0.6)}m${f(u * 0.1)} ${f(-u * 0.1)}-${f(u * 0.1)} ${f(u * 0.1)} ${f(u * 0.1)} ${f(u * 0.1)}`
+    : `M${f(w / 2)} ${f(h * 0.92)}V${f(h * 0.6)}m${f(-u * 0.1)} ${f(u * 0.1)} ${f(u * 0.1)}-${f(u * 0.1)} ${f(u * 0.1)} ${f(u * 0.1)}`;
+  return `<svg viewBox="-1.5 -1.5 ${f(w + 3)} ${f(h + 3)}" width="${f(w + 3)}" height="${f(h + 3)}" aria-hidden="true">
+    <defs><clipPath id="${id}">${shape(0, 0, '')}</clipPath></defs>
+    ${shape(0, 0, 'class="scr"')}
+    <g clip-path="url(#${id})">${shape(gx, gy, 'class="gal"')}${cards}</g>
+    ${home}<path class="fin-bg" d="${arrow}"/><path class="fin" d="${arrow}"/>${shape(0, 0, 'class="rim"')}</svg>`;
 }
 
 // A function: its switch in the head; Always On — after how long idle, how bright, out of it on the watch face or where
@@ -1750,7 +1791,7 @@ function screenProps(stage, s) {
   return [
     head(face ? ICON.home : main ? ICON.gallery : ICON.screen, name, face ? 'Home' : main ? 'Gallery' : 'Screen',
       face ? null : { title: 'Delete the screen', fn: () => removeScreen(s.id) }),
-    face ? h('div', { class: 'group' }, mainChoice(stage)) : null,
+    face ? h('div', { class: 'group' }, mainChoice(stage), mainScreen() ? swipeWays(stage) : null) : null,
     !face && !main && !isGallery(s) && !s.layers.some((l) => KINDS[l.type]?.group === 'section')
       ? h('div', { class: 'group' }, h('button', { class: 'primary', onclick: () => makeHome(stage, s) }, BOARD.home ? 'Make it the home screen' : 'Make it the watch face')) : null,
     weatherPaged(s) ? citiesGroup(stage, s) : null,

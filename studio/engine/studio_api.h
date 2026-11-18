@@ -403,6 +403,12 @@ EMSCRIPTEN_KEEPALIVE void studio_main(int s) {
   gallery_begin();
 }
 
+// The project's swipes: 0 — up (the gallery by a swipe up on the face), 1 — sideways (to the left; back — to the right
+// from the left edge)
+EMSCRIPTEN_KEEPALIVE void studio_side(int side) {
+  halo_nav_side(side != 0);
+}
+
 // A pinned screen's list scrolled so that layer i is in view (the editor selected it): a title or a card — in the
 // middle as far as the list goes, the button at the bottom edge — the end; -1 — the top. As if the list stood there
 EMSCRIPTEN_KEEPALIVE void studio_scroll(int s, int i) {

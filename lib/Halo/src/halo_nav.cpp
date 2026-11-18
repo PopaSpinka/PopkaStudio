@@ -101,6 +101,11 @@ static bool has_face, sheet_drag;
 static bool has_main;  // был halo_nav_begin: с циферблата есть куда уйти свайпом вверх (без него циферблат — один)
 static bool sheet_in;  // переход к главному (уходит циферблат); false — к циферблату
 static bool main_seen;  // главный был виден с тех пор, как пришли на циферблат (по приходе — закрыть и в начало)
+// The way to the main screen (halo_nav_side): false — a swipe up anywhere on the face, back down from the top edge (as
+// HaloWatch); true — a swipe to the left anywhere on the face, back to the right from the left edge, as every screen's
+// back (the rest of the main screen stays its own: the weather's pages, the radio's window). The screens opened on the
+// main keep their back. sheet_ax — the transition in hand runs along x (sheet_dir is 1 then: to the main — leftwards)
+static bool nav_side, sheet_ax;
 static float sheet_dir = 1;  // 1 — к главному вверх (к циферблату — вниз), −1 — к циферблату вверх (жест снизу)
 static HaloSpring sheet = {1, 0, 1};  // 0 — циферблат, 1 — главный
 static HaloSpring sheet_pull;  // жест на циферблат снизу: насколько тянут, px (точки страниц)
@@ -119,6 +124,7 @@ static HaloView v_face;
 const char *const HALO_FX_NAME[HALO_FX_COUNT] = {"Zoom", "Fade", "Slide"};
 static HaloScreen over;
 static bool over_on, over_drag, over_closing;
+static bool over_ax;  // closed sideways (halo_nav_side): to the right from the left edge, the screen goes along x
 static uint8_t over_fx;
 static float over_x, over_y, over_s;  // откуда открыли: центр элемента и его размер относительно экрана
 static HaloSpring over_q, over_pull;  // 0 — циферблат, 1 — экран; насколько тянут снизу, px
@@ -262,6 +268,10 @@ void halo_nav_face(const HaloScreen &f, float zone) {
   halo_command("back", [](const char *) { cmd_back = true; });  // и без главного: закрыть экран поверх циферблата
 }
 
+void halo_nav_side(bool side) {
+  nav_side = side;
+}
+
 void halo_nav_to_face(bool f) {
   cmd_face = f ? 0 : 1;
 }
@@ -283,7 +293,7 @@ void halo_nav_face_open(const HaloScreen &s, uint8_t fx, float x, float y, float
   // его пружины, и плашка погоды не нажималась
   if (over_on && !over_drag && over_q.target < 0.5f && over_q.x < 0.5f) over_forget();
   if (!halo_nav_on_face()) return;
-  over = s, over_on = true, over_fx = fx < HALO_FX_COUNT ? fx : 0, over_closing = false, over_drag = false;
+  over = s, over_on = true, over_fx = fx < HALO_FX_COUNT ? fx : 0, over_closing = false, over_drag = false, over_ax = false;
   over_x = x, over_y = y, over_s = fmaxf(w, h) / HALO_W;
   halo_spring_set(over_q, 0), halo_spring_set(over_pull, 0);
   over_q.target = 1;
@@ -309,19 +319,30 @@ static bool over_update(float dt) {
   const bool open = over_q.target > 0.5f;
   if (open && f.drag_start && !f.horiz && f.y < f.y0 && f.y0 > HALO_H - OVER_ZONE && !over_drag &&
       halo_finger_claim(&over_owner))
-    over_drag = over_closing = true, over_y0 = f.y;
+    over_drag = over_closing = true, over_ax = false, over_y0 = f.y;
+  // Sideways (halo_nav_side): back is also a swipe to the right from the left edge, as every screen's (the rest of the
+  // screen is its own: the weather's pages start past it). over_y0 is then the finger's x
+  if (nav_side && open && f.drag_start && f.horiz && f.x > f.x0 && f.x0 < back_zone && !over_drag &&
+      halo_finger_claim(&over_owner))
+    over_drag = over_closing = over_ax = true, over_y0 = f.x;
   if (cmd_back) {
     cmd_back = false;
-    if (!over_drag) over_closing = true, over_q.target = 0;
+    if (!over_drag) over_closing = true, over_ax = nav_side, over_q.target = 0;
   }
   if (over_drag) {
     if (f.down && f.owner == &over_owner) {  // переход — за пальцем
-      const float d = fmaxf(0, over_y0 - f.y);
-      over_pull.x = d, over_pull.v = -f.vy, over_pull.target = 0;
-      over_q.x = 1 - halo_clamp01(d / OVER_TRAVEL), over_q.v = f.vy / OVER_TRAVEL;
-    } else {  // отпустили: дальше трети пути или бросок вверх быстрее 700 px/с — закрыть, иначе обратно
+      if (over_ax) {  // (to the right; nothing is pulled from the bottom — the page dots stay)
+        const float d = fmaxf(0, f.x - over_y0);
+        over_pull = {0, 0, 0};
+        over_q.x = 1 - halo_clamp01(d / OVER_TRAVEL), over_q.v = -f.vx / OVER_TRAVEL;
+      } else {
+        const float d = fmaxf(0, over_y0 - f.y);
+        over_pull.x = d, over_pull.v = -f.vy, over_pull.target = 0;
+        over_q.x = 1 - halo_clamp01(d / OVER_TRAVEL), over_q.v = f.vy / OVER_TRAVEL;
+      }
+    } else {  // отпустили: дальше трети пути или бросок вверх (вбок — вправо) быстрее 700 px/с — закрыть, иначе обратно
       over_drag = false;
-      over_q.target = over_q.x < 0.67f || f.vy < -700 ? 0 : 1;
+      over_q.target = over_q.x < 0.67f || (over_ax ? f.vx > 700 : f.vy < -700) ? 0 : 1;
     }
   }
   if (!over_drag) {
@@ -386,6 +407,9 @@ static void over_views(HaloView &vf, HaloView &vo) {
       break;
     }
   }
+  // Closed sideways: the same path turned along x — the screen goes to the right with the finger, the face comes from
+  // the left (Zoom goes back into its element as it is)
+  if (over_ax && over_closing && over_fx != HALO_FX_ZOOM) vo.x = -vo.y, vo.y = 0, vf.x = -vf.y, vf.y = 0;
   // Последние доли процента масштаба не видны, а рисовать с масштабом в разы дороже: у 1 — ровно 1
   if (fabsf(vo.s - 1) < 0.006f) vo.s = 1;
   if (fabsf(vf.s - 1) < 0.006f) vf.s = 1;
@@ -456,19 +480,28 @@ static bool sheet_update(float dt) {
   }
   const bool up = sheet.target > 0.5f;
   const bool here = view == V_HOME || view == V_TOP;  // не посреди перехода Android 16 между ними
-  // Вверх по циферблату (откуда угодно); с главного или открытого на нём экрана — его жест
-  if (f.drag_start && !f.horiz && here && !sheet_drag) {
-    const float dir = up ? home_gesture(f) : f.y < f.y0 ? 1 : 0;
+  // Вверх по циферблату (откуда угодно); с главного или открытого на нём экрана — его жест. Sideways (halo_nav_side):
+  // to the left anywhere on the face; back from the main itself — also to the right from the left edge (a screen opened
+  // on the main has that gesture as its own back: top_frame)
+  if (f.drag_start && here && !sheet_drag) {
+    float dir = 0;
+    bool ax = false;
+    if (!f.horiz) {
+      dir = up ? home_gesture(f) : !nav_side && f.y < f.y0 ? 1 : 0;
+    } else if (nav_side) {
+      ax = up ? view == V_HOME && f.x > f.x0 && f.x0 < back_zone : f.x < f.x0;
+      dir = ax ? 1 : 0;
+    }
     if (dir != 0 && halo_finger_claim(&sheet_owner)) {
       // Подхватили на ходу движением в ту же сторону — переход идёт дальше (вперёд или назад) без скачка. В другую
       // (ушли с погоды вверх и сразу свайп вверх к галерее) — прошлый доигрывается сразу, новый — с места
-      if (sheet.x != sheet.target && dir != sheet_dir) {
+      if (sheet.x != sheet.target && (dir != sheet_dir || ax != sheet_ax)) {
         halo_spring_set(sheet, sheet.target), halo_spring_set(sheet_pull, 0);
         if (sheet.x == 0) face_arrived();
       }
       // Куда переход, решаем только с места: подхватили в пути — масштаб у того, кого сейчас видно, не скачет
-      if (sheet.x == sheet.target) sheet_in = sheet.x < 0.5f, sheet_dir = dir;
-      sheet_drag = true, sheet_g0 = sheet.x, sheet_y0 = f.y;
+      if (sheet.x == sheet.target) sheet_in = sheet.x < 0.5f, sheet_dir = dir, sheet_ax = ax;
+      sheet_drag = true, sheet_g0 = sheet.x, sheet_y0 = sheet_ax ? f.x : f.y;
       // Экран поверх циферблата ещё доезжал к закрытию — закрыть сразу: новый жест уже о другом
       if (over_on) halo_spring_set(over_q, 0), halo_spring_set(over_pull, 0);
     }
@@ -477,7 +510,8 @@ static bool sheet_update(float dt) {
     if (here && !sheet_drag) {
       if (sheet.x == sheet.target) {  // с места; в пути — тот же переход вперёд или назад
         sheet_in = cmd_face == 1;
-        sheet_dir = cmd_face == 0 && view == V_TOP && scr[depth].home == HALO_HOME_UP ? -1 : 1;
+        sheet_ax = nav_side;  // (sideways — by a command too)
+        sheet_dir = !sheet_ax && cmd_face == 0 && view == V_TOP && scr[depth].home == HALO_HOME_UP ? -1 : 1;
       }
       sheet.target = cmd_face;
     }
@@ -485,18 +519,20 @@ static bool sheet_update(float dt) {
   }
   if (sheet_drag) {
     if (f.down && f.owner == &sheet_owner) {  // переход — за пальцем: путь 280 px, как жест назад у экрана поверх
-      const float d = (sheet_y0 - f.y) * sheet_dir;  // px к главному
-      sheet.x = halo_clamp01(sheet_g0 + d / OVER_TRAVEL), sheet.v = -f.vy * sheet_dir / OVER_TRAVEL;
+      const float fp = sheet_ax ? f.x : f.y, fv = sheet_ax ? f.vx : f.vy;
+      const float d = (sheet_y0 - fp) * sheet_dir;  // px к главному
+      sheet.x = halo_clamp01(sheet_g0 + d / OVER_TRAVEL), sheet.v = -fv * sheet_dir / OVER_TRAVEL;
 #ifndef HALO_ROUND
       // (скорость — только жесту снизу, которому «потягивание» и нужно: при свайпе вверх к главному его пружина
-      // раскачивалась от скорости пальца, и экран перерисовывался целиком ещё ~0,4 с после конца перехода)
+      // раскачивалась от скорости пальца, и экран перерисовывался целиком ещё ~0,4 с после конца перехода; sideways
+      // sheet_dir is 1 — nothing is pulled)
       sheet_pull = {sheet_dir < 0 ? fmaxf(0, sheet_y0 - f.y) : 0, sheet_dir < 0 ? -f.vy : 0, 0};
 #else
-      sheet_pull = {sheet_dir < 0 ? fmaxf(0, sheet_y0 - f.y) : 0, -f.vy, 0};
+      sheet_pull = {sheet_dir < 0 ? fmaxf(0, sheet_y0 - f.y) : 0, sheet_ax ? 0 : -f.vy, 0};  // (sideways — nothing)
 #endif
     } else {  // отпустили: бросок быстрее 700 px/с — куда бросили, иначе — дальше трети пути от начала
       sheet_drag = false;
-      const float u = -f.vy * sheet_dir;  // скорость к главному, px/с
+      const float u = -(sheet_ax ? f.vx : f.vy) * sheet_dir;  // скорость к главному, px/с
       sheet.target = u > 700 ? 1 : u < -700 ? 0 : sheet_in ? (sheet.x > 0.33f ? 1 : 0) : (sheet.x < 0.67f ? 0 : 1);
 #ifndef HALO_ROUND
       sh_restart = true;
@@ -708,26 +744,28 @@ void halo_nav_update(float dt) {
     if (p <= 0.0005f) {
       v_face = id, v_home = v_top = hidden;
     } else if (p >= 0.9995f) {
-      v_face = hidden, v_home.y += oy, v_top.y += oy;
+      v_face = hidden, (sheet_ax ? v_home.x : v_home.y) += oy, (sheet_ax ? v_top.x : v_top.y) += oy;
     } else {
 #ifndef HALO_ROUND
       // Прямоугольник — Material shared axis Y (как открыть и назад, только вертикально): тот, от кого уходим, за
       // первые 35 % пути уходит на 40 px по ходу пальца и гаснет, потом тот, к кому идём, приходит с той стороны и
-      // проявляется. Без масштаба (уменьшаясь к середине, экраны с содержимым наверху съезжали вниз) и без пружины
+      // проявляется. Без масштаба (уменьшаясь к середине, экраны с содержимым наверху съезжали вниз) и без пружины.
+      // Sideways (sheet_ax) — the same along x: to the main leftwards, to the face rightwards
       const float e = sheet_in ? p : 1 - p, a = halo_clamp01(e / 0.35f), b = halo_clamp01((e - 0.35f) / 0.65f);
       const float out = 1 - a, in = b, dy_out = SH_SHIFT * a, dy_in = SH_SHIFT * (1 - b);
       // (sheet_dir 1: к главному — вверх, к циферблату — вниз; −1 — наоборот)
       const float yf = sheet_in ? -sheet_dir * dy_out : -sheet_dir * dy_in, ym = sheet_in ? sheet_dir * dy_in : sheet_dir * dy_out;
-      v_face = {0, yf, 1, sheet_in ? out : in};
-      for (HaloView *v : {&v_home, &v_top}) v->y += ym, v->a *= sheet_in ? in : out, v->over = false;
+      v_face = {sheet_ax ? yf : 0, sheet_ax ? 0 : yf, 1, sheet_in ? out : in};
+      for (HaloView *v : {&v_home, &v_top}) (sheet_ax ? v->x : v->y) += ym, v->a *= sheet_in ? in : out, v->over = false;
 #else
       const float kf = halo_clamp01(1 - p / 0.5f), km = halo_clamp01((p - 0.5f) / 0.5f);  // видно циферблат / главный
       float sf = sheet_in ? 0.92f + 0.08f * kf : 1 + 0.08f * (1 - kf);
       float sm = sheet_in ? 1 + 0.08f * (1 - km) : 0.92f + 0.08f * km;
       if (fabsf(sf - 1) < 0.006f) sf = 1;  // последние доли процента масштаба не видны, а рисовать с ним дороже
       if (fabsf(sm - 1) < 0.006f) sm = 1;
-      v_face = {0, -sheet_dir * p * T, sf, kf};
-      for (HaloView *v : {&v_home, &v_top}) v->y += oy, v->s *= sm, v->a *= km, v->over = false;
+      const float of = -sheet_dir * p * T;
+      v_face = {sheet_ax ? of : 0, sheet_ax ? 0 : of, sf, kf};
+      for (HaloView *v : {&v_home, &v_top}) (sheet_ax ? v->x : v->y) += oy, v->s *= sm, v->a *= km, v->over = false;
 #endif
     }
     if (p != sheet.target || sheet_drag || sheet_pull.x != 0) halo_subpixel = true, settle_frame = true;

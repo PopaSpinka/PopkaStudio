@@ -904,6 +904,18 @@ body.sorting .layer:hover:not(.lifted):not(.sel) { background: none; }
   background: var(--accent); color: #fff; font-size: 9.5px; font-weight: 700; line-height: 15px; text-align: center;
   box-shadow: 0 0 0 2px var(--panel); pointer-events: none;
 }
+/* The start window's heart (variant 1 of web/mockups/start-update.html): in its corner while an update waits; the
+   number pops in as the window opens, then a quiet ring leaves it every 6 s (once, for those who want less motion) */
+.start-main { position: relative; }
+.start-heart { position: absolute; top: 18px; right: 18px; z-index: 2; }
+.start-heart[hidden] { display: none; }
+.start.on .start-heart .upd-badge { animation: upd-pop 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) 0.7s both, upd-ring 6s ease-out 1.4s infinite; }
+@keyframes upd-pop { 0% { transform: scale(0); } 60% { transform: scale(1.22); } 100% { transform: scale(1); } }
+@keyframes upd-ring {
+  0% { box-shadow: 0 0 0 2px var(--panel), 0 0 0 2px rgba(76, 141, 255, 0.6); }
+  22%, 100% { box-shadow: 0 0 0 2px var(--panel), 0 0 0 11px rgba(76, 141, 255, 0); }
+}
+@media (prefers-reduced-motion: reduce) { .start.on .start-heart .upd-badge { animation-iteration-count: 1; } }
 .upd-ov {
   position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; padding: 16px;
   background: rgba(10, 10, 12, 0.38); backdrop-filter: blur(12px) saturate(1.1); -webkit-backdrop-filter: blur(12px) saturate(1.1);
@@ -1020,3 +1032,26 @@ body.sorting .layer:hover:not(.lifted):not(.sel) { background: none; }
 .start-ways .way span { font-size: 11px; }
 .start-ways .way:hover { background: var(--panel-2); }
 .start-ways .way.picked { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* The project's swipes (panels.js swipeWays; web/mockups/swipe-direction.html, variant D): two tiles under the gallery's
+   choice — each a picture in the board's own shape: the home, the gallery coming in from the bottom or the right, the
+   finger's arrow; the picked one — blue, as the start window's ways */
+.swipe-ways { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 2px; }
+.sway { display: grid; grid-template-rows: 62px auto; justify-items: center; align-items: center; gap: 4px; padding: 8px 6px 7px;
+  border: 1px solid var(--line); border-radius: 10px; background: none; color: var(--dim); cursor: pointer; }
+.sway:hover { background: var(--panel-2); }
+.sway.on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); color: var(--text); }
+.sway b { font-weight: 600; font-size: 12.5px; }
+.sway svg { display: block; overflow: visible; }
+.sway .scr { fill: #000; }
+.sway .rim { fill: none; stroke: #44454b; stroke-width: 1.5; }
+.sway.on .rim { stroke: #5b5c63; }
+.sway .gal { fill: #14203a; stroke: rgba(76, 141, 255, 0.55); stroke-width: 1; }
+.sway .c { fill: var(--accent); opacity: 0.9; }
+.sway .c2 { fill: var(--accent); opacity: 0.45; }
+.sway .k { fill: #8d8e95; }
+.sway .k2 { fill: #5c5d63; }
+.sway .fin-bg { fill: none; stroke: #000; stroke-width: 4.6; stroke-linecap: round; stroke-linejoin: round; }
+.sway .fin { fill: none; stroke: #fff8ee; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.sway:not(.on) .c, .sway:not(.on) .c2 { opacity: 0.35; }
+.sway:not(.on) .fin { stroke: #b9bac0; }

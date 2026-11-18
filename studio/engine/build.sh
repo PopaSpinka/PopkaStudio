@@ -55,7 +55,7 @@ FLAGS=(-O3 -ffast-math -std=gnu++17 -I"$ENGINE/shim" -I"$HALO" -I"$ROOT/lib/Ardu
        -Wno-unused-variable -Wno-deprecated-declarations)
 EXPORTS='["_main","_web_frame","_web_touch","_web_command","_web_rgba","_web_dirty","_web_clock_ms","_studio_font","_studio_icons",'
 EXPORTS+='"_studio_set","_studio_pin","_studio_boxes","_studio_radii","_studio_places","_studio_bases","_studio_open","_studio_stub",'
-EXPORTS+='"_studio_main","_studio_scroll","_studio_tap","_studio_fn","_studio_clock","_studio_page","_studio_pages","_studio_city","_studio_weather","_web_finger_y","_web_nav_pull","_malloc","_free"]'
+EXPORTS+='"_studio_main","_studio_side","_studio_scroll","_studio_tap","_studio_fn","_studio_clock","_studio_page","_studio_pages","_studio_city","_studio_weather","_web_finger_y","_web_nav_pull","_malloc","_free"]'
 
 echo "building PopkaWatch for the browser…"
 em++ "${FLAGS[@]}" ${EXTRA[@]+"${EXTRA[@]}"} "${SRCS[@]}" \

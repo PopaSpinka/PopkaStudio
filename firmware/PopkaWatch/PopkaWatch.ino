@@ -74,6 +74,9 @@ void setup() {
 #endif
   face_build();
   gallery_begin();      // the gallery (if the project has one) — lib/Halo's main screen: a swipe up on the face
+#ifdef MAIN_SIDE
+  halo_nav_side(true);  // (layers.h: the project's swipes sideways — the gallery to the left, back from the left edge)
+#endif
   halo_nav_face(FACE);  // the home: the board starts on it
   HaloConfig cfg;
   cfg.name = "PopkaWatch";

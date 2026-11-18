@@ -1,6 +1,7 @@
 // update.js — updates (6 Nov 2026, the user's pick: variant 3 of web/mockups/updates.html). An installed PopkaStudio
 // asks studio.py once at the start (/api/update — GitHub at most once an hour); newer versions → a blue number on the
-// heart: how many. The heart then opens "What's new" instead of About: two columns as a folder's content — the versions
+// heart: how many — and the same heart in the start window's corner, so it is seen before a board is picked (18 Nov
+// 2026, variant 1 of web/mockups/start-update.html). The heart then opens "What's new" instead of About: two columns as a folder's content — the versions
 // newer than this one on the left (the newest first, LATEST; this one at the bottom, grey — yours), the picked one's
 // notes on the right (its GitHub release notes: the English part, without the install command — Update does that).
 // Update — as Load: a fill and the percent (studio.py update_job: git, then install.sh), then Restart PopkaStudio:
@@ -91,14 +92,16 @@ export function notesHtml(md) {
 // ---------- The badge on the heart ----------
 export const updatesPending = () => !!info?.newer?.length;
 function badge() {
-  const btn = $('about-btn');
-  if (!btn) return;
-  let b = btn.querySelector('.upd-badge');
   const n = info?.newer?.length || 0;
-  if (!n) return void b?.remove();
-  if (!b) b = Object.assign(document.createElement('span'), { className: 'upd-badge' }), btn.append(b);
-  b.textContent = n > 9 ? '9+' : String(n);
-  btn.title = `PopkaStudio ${info.newer[0].v} is out — what's new`;
+  for (const btn of [$('about-btn'), $('start-heart')]) {  // (the start window's heart: only while one waits)
+    if (!btn) continue;
+    if (btn.id === 'start-heart') btn.hidden = !n;
+    let b = btn.querySelector('.upd-badge');
+    if (!n) { b?.remove(); continue; }
+    if (!b) b = Object.assign(document.createElement('span'), { className: 'upd-badge' }), btn.append(b);
+    b.textContent = n > 9 ? '9+' : String(n);
+    btn.title = `PopkaStudio ${info.newer[0].v} is out — what's new`;
+  }
 }
 const listeners = [];
 export const onUpdates = (fn) => listeners.push(fn);  // (About's version row)
@@ -237,6 +240,7 @@ export function openUpdates(i = info) {
 
 // ---------- At the start: ask once (studio.py asks GitHub at most once an hour, and only from an installed copy) ----------
 export function initUpdate() {
+  $('start-heart')?.addEventListener('click', () => openUpdates());
   fetch('/api/update').then((r) => r.json()).then((i) => {
     setUpdates(i);
     if (WAS && (!WAS.to || WAS.to === i.version))  // (once the editor shows the project again)

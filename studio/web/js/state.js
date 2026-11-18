@@ -270,6 +270,17 @@ export const ZONES = [
   ['Moscow', 'Europe/Moscow'], ['Dubai', 'Asia/Dubai'], ['Tokyo', 'Asia/Tokyo'], ['Sydney', 'Australia/Sydney'], ['UTC', 'UTC'],
 ];
 export const TIME = { zone: 'New York', h24: false };
+// The project's swipes (project.swipe; idea and first code — dimonmontana, PR #4), on every board: 'up' (none — as before)
+// — the gallery by a swipe up on the home screen, back down from the top edge; 'side' — by a swipe to the left anywhere
+// on it, back to the right from the left edge (as every screen's back), and a screen opened by a tap on the home screen
+// closes that way too (lib/Halo's halo_nav_side). The firmware gets it from layers.h (MAIN_SIDE): a Load, not Live
+export const SWIPES = [['up', 'Up'], ['side', 'Left']];
+export const swipeOf = () => (state.project?.swipe === 'side' ? 'side' : 'up');
+export const swipeSide = () => (swipeOf() === 'side' ? 1 : 0);
+export const swipeWords = () => (swipeOf() === 'side' ? 'a swipe to the left' : 'a swipe up');
+export function setSwipe(v) {
+  change((p) => { p.swipe = v === 'side' ? 'side' : 'up'; }, { structure: true });
+}
 export const timeOf = () => ({ ...TIME, ...(state.project.time || {}) });
 export function setTime(values) {
   change((p) => { p.time = { ...timeOf(), ...values }; }, { structure: true });

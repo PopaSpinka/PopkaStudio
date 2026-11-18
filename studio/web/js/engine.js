@@ -10,7 +10,7 @@
 // on a layer with a link, HaloWatch's transition, back with a swipe up from the bottom edge; the gallery (a swipe up on
 // the face), its cards, the Android 16 transition, back with a swipe from the left edge.
 import { BOARD, TW, TH, ROUND, lacks } from './screen.js';
-import { state, KIND_INDEX, FX, KINDS, ICONS, TAPS, RADIO_LINKED, fnOf, timeOf, zoneShift, citiesOf, weatherOf, CLOCK_LOOKS, clockLook, WXLOOKS } from './state.js';
+import { state, KIND_INDEX, FX, KINDS, ICONS, TAPS, RADIO_LINKED, fnOf, timeOf, zoneShift, citiesOf, weatherOf, CLOCK_LOOKS, clockLook, WXLOOKS, swipeSide } from './state.js';
 
 const PERIOD = 1000 / 60;
 // Pictures put on the page since it opened (all copies): the overlay draws again only after one (a layer's box may have
@@ -308,6 +308,8 @@ export class Engine {
       this.M._studio_set(p);
       this.M._free(p);
     }
+    const side = swipeSide();  // the project's swipes: up, or sideways (lib/Halo's halo_nav_side)
+    if (side !== this.side) this.side = side, this.M._studio_side(side);
     if (main !== this.main) this.main = main, this.M._studio_main(main);  // after the screens: it must be one of them
     // The weather (every copy): the cities — its pages — and their numbers from studio.py ("--" until they come)
     const wx = JSON.stringify({ c: citiesOf().map((c, k) => ({ n: c.name, ...weatherOf(k) })) });
