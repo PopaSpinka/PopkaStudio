@@ -88,10 +88,10 @@ static bool imu_wom(int mg, int tries, int step_ms) {
   halo_i2c_write(imu, 0x06, 0x00);         // CTRL5: no filters (as after a reset)
   halo_i2c_write(imu, 0x03, 0x2C);         // CTRL2: ±8 g, low-power 128 Hz
   halo_i2c_write(imu, 0x0B, (uint8_t)mg);  // CAL1_L: threshold, 1 mg per step
-  halo_i2c_write(imu, 0x0C, 0x80 | 0x20);  // CAL1_H: INT1 starting high, skip 32 samples
+  halo_i2c_write(imu, 0x0C, HALO_IMU_WOM_PIN | 0x20);  // CAL1_H: INT1 (INT2 on the 1.75) starting high, skip 32 samples
   const bool done = imu_wom_cmd(tries, step_ms);
   halo_i2c_write(imu, 0x08, 0x01);         // CTRL7: accelerometer on
-  halo_i2c_write(imu, 0x02, 0x40 | 0x08);  // CTRL1: INT1 output on
+  halo_i2c_write(imu, 0x02, 0x40 | HALO_IMU_INT_OUT);  // CTRL1: INT1 (INT2 on the 1.75) output on
   return done;
 }
 
@@ -179,7 +179,7 @@ bool halo_motion_begin(int mg) {
     gpio_isr_handler_add((gpio_num_t)HALO_PIN_IMU_INT1, imu_isr, nullptr);
     imu_on = true;
   }
-  LOG("motion: wake-on-motion %d mg (QMI8658 INT1, GPIO21)%s\n", mg, done ? "" : ", settings NOT confirmed");
+  LOG("motion: wake-on-motion %d mg (QMI8658 " HALO_IMU_INT_NAME ", GPIO21)%s\n", mg, done ? "" : ", settings NOT confirmed");
   return done;
 }
 

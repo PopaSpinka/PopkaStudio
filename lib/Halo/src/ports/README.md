@@ -14,6 +14,7 @@ Halo состоит из двух половин.
 | Порт | Плата | Где |
 |---|---|---|
 | `s3_amoled175` | ESP32-S3-Touch-AMOLED-1.75C, круг 466×466 | здесь |
+| `s3_amoled175` | ESP32-S3-Touch-AMOLED-1.75 (-B, -G) — те же чипы, свои пины, часы PCF85063 (`-DHALO_BOARD_AMOLED175G`) | здесь: отличия под `#ifdef`, часы — `halo_rtc175g.cpp` |
 | `p4_lcd7` | ESP32-P4-WIFI6-Touch-LCD-7B, 1024×600 | здесь |
 | `s3_wt32sc01p` | WT32-SC01 Plus, 320×480 (плата сообщества) | здесь |
 | `s3_lcd4b` | ESP32-S3-Touch-LCD-4B, 480×480 (`-DHALO_BOARD_LCD4B`) | здесь |

@@ -69,6 +69,12 @@ what the watch shows, pixel for pixel — the same fonts, the same animations, t
   and Power, Music, Recorder, Radio, the weather widgets; Bluetooth, the buttons and Always On too. **Early support:**
   it runs at 60 fps, but some things haven't been tried on the board yet (a real battery, the speaker by ear, Bluetooth
   from a phone), screens drop frames while the radio plays, and the motion sensor isn't used yet. No Video.
+- [Waveshare ESP32-S3-Touch-AMOLED-1.75](https://www.waveshare.com/esp32-s3-touch-amoled-1.75.htm), also -B and -G
+  (new in 2.5): the same round 1.75″ watch as the 1.75C, with its chips wired to other pins, plus a clock chip that
+  keeps the time, 16 MB of flash, a microSD slot and, on the -G, GPS. Everything the 1.75C has works on it, and its
+  Music player also plays MP3 and WAV files from the microSD card (the `/music` folder) — that part is by
+  [YKatrechko](https://github.com/YKatrechko). **Early support:** a real battery, waking up by motion and the clock
+  keeping the time while the board is off haven't been tried yet, and GPS isn't used yet. No Video.
 
 Choose the board when you create a project; each project is for one board.
 
@@ -213,6 +219,9 @@ The WT32-SC01 Plus board — its Halo port, its passport and the screens laid ou
 **[dimonmontana](https://github.com/dimonmontana)**, the first community board. The gallery that comes in from the
 side started from his pull request too. Thank you!
 
+The Music player's tracks from the microSD card on the AMOLED-1.75 are by **[YKatrechko](https://github.com/YKatrechko)**,
+whose pull request also tried the screen, touch, sound, Recorder and Bluetooth on a 1.75 without the “C”. Thank you!
+
 The code is written from scratch. The motion follows published open-source numbers, no firmware or app was
 decompiled, and no code was taken from GPL projects:
 
@@ -232,12 +241,12 @@ Third-party parts:
 | Instrument Serif and JetBrains Mono fonts (the Serif and Terminal clocks; downloaded when first used, glyphs rendered into the firmware) | Instrument; JetBrains | [SIL OFL 1.1](https://openfontlicense.org) |
 | Nunito font (Cyrillic letters in Radio; downloaded when first used, glyphs rendered into the firmware) | Vernon Adams, Jacques Le Bailly | [SIL OFL 1.1](https://openfontlicense.org) |
 | Radio station catalog | [Radio Browser](https://www.radio-browser.info) community | free API, for free and non-free software |
-| Helix MP3 decoder (Radio; part of the ESP32 Arduino core, not in this repository) | RealNetworks; [esp-libhelix-mp3](https://github.com/chmorgan/esp-libhelix-mp3) | RPSL 1.0 / RCSL |
+| Helix MP3 decoder (Radio, and Music from a microSD card; part of the ESP32 Arduino core, not in this repository) | RealNetworks; [esp-libhelix-mp3](https://github.com/chmorgan/esp-libhelix-mp3) | RPSL 1.0 / RCSL |
 | Font Awesome Free icons (downloaded by the installer; rendered into the firmware) | Fonticons, Inc. | [CC BY 4.0](https://fontawesome.com/license/free) |
 | Weather data | [Open-Meteo.com](https://open-meteo.com) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 | US ZIP code lookup | [Zippopotam.us](https://zippopotam.us) | free API |
 | ES8311 codec register sequence (`lib/Halo/src/halo_audio.cpp`) | based on Espressif's es8311 driver | Apache 2.0 |
-| Board pins and display start-up sequence | based on Waveshare's examples ([AMOLED-1.75C](https://github.com/waveshareteam/ESP32-S3-Touch-AMOLED-1.75C), [LCD-4B](https://github.com/waveshareteam/ESP32-S3-Touch-LCD-4B) and its [board support package](https://github.com/waveshareteam/Waveshare-ESP32-components)) | Apache 2.0 |
+| Board pins and display start-up sequence | based on Waveshare's examples ([AMOLED-1.75C](https://github.com/waveshareteam/ESP32-S3-Touch-AMOLED-1.75C), [AMOLED-1.75](https://github.com/waveshareteam/ESP32-S3-Touch-AMOLED-1.75), [LCD-4B](https://github.com/waveshareteam/ESP32-S3-Touch-LCD-4B) and its [board support package](https://github.com/waveshareteam/Waveshare-ESP32-components)) | Apache 2.0 |
 | [ArduinoJson](https://arduinojson.org) (`lib/ArduinoJson`) | Benoît Blanchon | MIT |
 | [Emscripten](https://emscripten.org) runtime (`studio/web/build`) | Emscripten authors | MIT |
 | [Electron](https://www.electronjs.org) (the optional Mac app) | OpenJS Foundation | MIT |

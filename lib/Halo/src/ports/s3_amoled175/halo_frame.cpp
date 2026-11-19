@@ -682,6 +682,9 @@ bool halo_begin(HaloUpdate update, HaloDraw draw, const HaloConfig &c) {
   if (!hd_begin(cfg.bus_hz, cfg.buffers, cfg.brightness)) return hc_boot_done(), false;
   hc_stage(4);
   if (cfg.touch) ht_begin();
+#ifdef HALO_BOARD_AMOLED175G
+  hr_begin();  // (the 1.75's clock chip: on the touch's I2C bus — after ht_begin)
+#endif
   pinMode(0, INPUT_PULLUP);  // кнопка BOOT
   hc_stage(5);
   hc_boot_done();
@@ -717,6 +720,9 @@ bool halo_begin(HaloUpdate update, HaloDraw draw, const HaloConfig &c) {
 
 void halo_loop() {
   hc_loop();
+#ifdef HALO_BOARD_AMOLED175G
+  hr_tick();
+#endif
   if (report_ready) {
     const Stats &s = report;
     const float sec = cfg.report_ms / 1000.0f;

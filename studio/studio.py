@@ -74,7 +74,7 @@ def bring_old_data():
             os.rmdir(src)
 
 
-VERSION = "2.4"  # PopkaStudio's version (the About window; the release notes)
+VERSION = "2.5"  # PopkaStudio's version (the About window; the release notes)
 
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 import halo_assets as ha  # noqa: E402 — the board's font and image code
@@ -1550,7 +1550,7 @@ def write_sketch(project, folder, meta=None):
     if os.path.abspath(folder) != os.path.abspath(FIRMWARE):
         for name in ("PopkaWatch.ino", "face.h", "weather.h", "wxscreen.h", "gallery.h", "wxscreen_rect.h", "gallery_rect.h", "player_rect.h", "recorder_rect.h", "settings_rect.h", "device_rect.h", "game_dots_rect.h", "power.h", "steps.h", "stars.h",
                      "pixelart.h", "parrot.h", "bt.h", "wxfetch.h", "settings.h", "stepscreen.h", "widgets.h", "widgets_rect.h", "wxwidgets.h",
-                     "music.h", "player.h", "sound.h", "volume.h", "recorder.h", "radio.h", "radio_net.h", "radio_rect.h", "video.h", "video_hw.h", "video_net.h", "snake.h", "games.h", "game_dots.h",
+                     "music.h", "music_sd.h", "player.h", "sound.h", "volume.h", "recorder.h", "radio.h", "radio_net.h", "radio_rect.h", "video.h", "video_hw.h", "video_net.h", "snake.h", "games.h", "game_dots.h",
                      "game_space.h", "game_iso.h", "live.h", "device.h", "hello.h", "wifiscan.h", "shade_rect.h", "shade_round.h",
                      "sclock.h"):
             shutil.copy(os.path.join(FIRMWARE, name), os.path.join(folder, name))
@@ -1988,6 +1988,12 @@ def known_board(board):
     return any(b["id"] == board for b in BOARDS)
 
 
+def fits_of(check):
+    """Which of our boards a board check's chip, PSRAM and flash fit — counted now, so a board added since counts too."""
+    return [b["id"] for b in BOARDS if check.get("chip") and b.get("chip") == check["chip"]
+            and b.get("psram") == check.get("psram") and b.get("flash") == check.get("flash")]
+
+
 # A board whose screen is used either way up (its passport's "orientations": each one — what it changes in the passport:
 # w, h, engine, defines, looks…) is, for everything that builds, one board per way: a project picks the way when it is
 # made ("orientation"), and each way has its own firmware build and its own engine of the page.
@@ -2354,8 +2360,7 @@ def board_check_once(port):
                  "empty": not parts or desc is None,
                  "copy": None if desc is None else (lambda n: {"bytes": n, "seconds": round(n / COPY_RATE)})(
                      sum(r[2] for r in copy_regions(parts, app, size))),
-                 "fits": [b["id"] for b in BOARDS if b.get("chip") == info["chip"] and b.get("psram") == info["psram"]
-                          and b.get("flash") == info["flash"]],
+                 "fits": fits_of(info),
                  "at": int(time.time())})
     boards.remember_check(info["mac"], info)
     return info
@@ -2478,6 +2483,18 @@ def build_defines(board, way=None):
     return ["--build-property", f"compiler.cpp.extra_flags={flags}", "--build-property", f"compiler.c.extra_flags={flags}"] if flags else []
 
 
+def own_partitions(board):
+    """A board's own partition table (its passport's "partitions": a CSV in its folder, "app_max" — the program's room in
+    it): the core's hooks copy the fqbn scheme's table into the build folder before the build, this one runs after them
+    and puts the board's in its place (the hooks go by number). No such key — the fqbn's scheme, as it is."""
+    p = passport(board)
+    if not p.get("partitions"):
+        return []
+    csv = os.path.join(ROOT, "boards", p["id"], p["partitions"])
+    return ["--build-property", f'recipe.hooks.prebuild.9.pattern=/bin/cp -f "{csv}" "{{build.path}}/partitions.csv"',
+            "--build-property", f"upload.maximum_size={p['app_max']}"]
+
+
 def load_commands(port, board="amoled175", way=None):
     """How a board's firmware is built and written: its passport's fqbn; each board (and each way up) its own build folder."""
     if not known_board(board):  # (the name goes into a folder's path)
@@ -2487,7 +2504,7 @@ def load_commands(port, board="amoled175", way=None):
     first = way == passport(board).get("orientation")
     name = "PopkaWatch" if board == "amoled175" else f"PopkaWatch-{board}" + (f"-{way}" if way and not first else "")
     cli, out = arduino_cli(), os.path.join(ROOT, "build", name + tail)
-    return [[cli, "compile", "--fqbn", fqbn, *build_defines(board, way), "--libraries", os.path.join(ROOT, "lib"), "--build-path", out, SKETCH],
+    return [[cli, "compile", "--fqbn", fqbn, *build_defines(board, way), *own_partitions(board), "--libraries", os.path.join(ROOT, "lib"), "--build-path", out, SKETCH],
             [cli, "upload", "--fqbn", fqbn, "-p", port, "--input-dir", out, SKETCH]]
 
 
@@ -2670,8 +2687,20 @@ def flash_steps(project, port, meta=None):
         there = on.get("model", "")
         fw = on.get("fw") or boards.remembered().get(on.get("mac"), {}).get("fw")
         if fw == "dev":  # (a firmware not made by a Load — a tool's, an experiment's: until 18 Nov 2026 its hello said
-            fits = (on.get("check") or {}).get("fits") or []  # "amoled175" on every board, hello.h; only the board's
+            fits = fits_of(on.get("check") or {})  # "amoled175" on every board, hello.h; only the board's
             there = "" if not fits or board in fits else fits[0]  # check, if one was made, knows it then)
+        if there and there != board and known_board(there) and passport(there).get("chip") == passport(board).get("chip"):
+            # (a hello names the firmware, not the board: a 1.75 (-B, -G) once Loaded as a 1.75C says amoled175. The
+            # board check's flash and PSRAM tell: the project's board fits and the hello's does not — the project wins)
+            check = on.get("check") or {}
+            if not check.get("flash"):
+                job_set(step="Checking the board", progress=8)
+                try:
+                    check = board_check(port)
+                except RuntimeError:
+                    check = {}
+            if board in fits_of(check) and there not in fits_of(check):
+                there = board
         if there and there != board:  # (known by its hello or from last time: a minute of compiling saved, the chip stays safe)
             raise RuntimeError(f"This project is for {passport(board)['short']}, the connected board is {passport(there)['short']}")
         for cmd in load_commands(port, board, orientation_of(project)):

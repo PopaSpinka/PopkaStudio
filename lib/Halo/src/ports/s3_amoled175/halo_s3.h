@@ -5,27 +5,41 @@
 #include "../esp32_common/halo_esp32.h"
 
 // Пины платы (схема Waveshare ESP32-S3-Touch-AMOLED-1.75C)
+// ESP32-S3-Touch-AMOLED-1.75 и -G (с GPS, -DHALO_BOARD_AMOLED175G) — те же чипы, свои сбросы экрана и тача, MCLK,
+// и у датчика движения на GPIO21 вывод INT2 (INT1 — на расширителе TCA9554): boards/amoled175g/hardware.md
 #define HALO_PIN_SD0 4
 #define HALO_PIN_SD1 5
 #define HALO_PIN_SD2 6
 #define HALO_PIN_SD3 7
 #define HALO_PIN_SCLK 38
 #define HALO_PIN_CS 12
-#define HALO_PIN_RST 1
 #define HALO_PIN_TE 13
 #define HALO_PIN_SDA 15
 #define HALO_PIN_SCL 14
 #define HALO_PIN_TP_INT 11
-#define HALO_PIN_TP_RST 2
 #define HALO_PIN_BOOT 0
-#define HALO_PIN_IMU_INT1 21  // QMI8658 INT1 (сеть QMI_INT1 на схеме; INT2 не подведён)
+#define HALO_PIN_IMU_INT1 21  // QMI8658: the interrupt wired to the ESP32 (1.75C — INT1, its INT2 is not wired; 1.75 — INT2)
 // Звук: I2S к кодеку ES8311 (динамик) и АЦП ES7210 (микрофоны) — одна шина, и усилитель динамика
-#define HALO_PIN_MCLK 16
 #define HALO_PIN_BCLK 9
 #define HALO_PIN_LRCK 45
 #define HALO_PIN_DOUT 8
 #define HALO_PIN_DIN 10  // ← ES7210 SDOUT1 (микрофоны 1 и 2 — левый и правый)
 #define HALO_PIN_PA 46
+#if defined(HALO_BOARD_AMOLED175G)
+#define HALO_PIN_RST 39
+#define HALO_PIN_TP_RST 40
+#define HALO_PIN_MCLK 42
+#define HALO_IMU_WOM_PIN 0xC0  // CAL1_H[7:6] of wake-on-motion: INT2, starting high (datasheet, table 39)
+#define HALO_IMU_INT_OUT 0x10  // CTRL1: INT2 output on
+#define HALO_IMU_INT_NAME "INT2"
+#else
+#define HALO_PIN_RST 1
+#define HALO_PIN_TP_RST 2
+#define HALO_PIN_MCLK 16
+#define HALO_IMU_WOM_PIN 0x80  // CAL1_H[7:6]: INT1, starting high
+#define HALO_IMU_INT_OUT 0x08  // CTRL1: INT1 output on
+#define HALO_IMU_INT_NAME "INT1"
+#endif
 
 // ---------- Дисплей (halo_display.cpp) ----------
 bool hd_begin(uint32_t hz, int buffers, uint8_t brightness);
@@ -56,6 +70,12 @@ void ht_kick();  // прочитать отчёт тача сейчас (его 
 // ---------- Сон и кнопки (halo_power.cpp, halo_frame.cpp) ----------
 void hp_frame_end();  // движок, когда кадр уже на экране: уснуть, если просили; «притворяясь» — ждать пробуждения
 void hf_swallow_boot();   // нажатие BOOT, которое разбудило: не нажатие (halo_frame.cpp)
+
+#ifdef HALO_BOARD_AMOLED175G
+// ---------- Clock chip PCF85063 of the 1.75 (halo_rtc175g.cpp) ----------
+void hr_begin();  // the system clock from the chip, when it has a time
+void hr_tick();   // halo_loop: the chip follows the system clock's jumps
+#endif
 
 // ---------- Тач (halo_touch.cpp) ----------
 bool ht_begin();
