@@ -73,7 +73,8 @@ what the watch shows, pixel for pixel — the same fonts, the same animations, t
   (new in 2.5): the same round 1.75″ watch as the 1.75C, with its chips wired to other pins, plus a clock chip that
   keeps the time, 16 MB of flash, a microSD slot and, on the -G, GPS. Everything the 1.75C has works on it, and its
   Music player also plays MP3 and WAV files from the microSD card (the `/music` folder) — that part is by
-  [YKatrechko](https://github.com/YKatrechko). **Early support:** a real battery, waking up by motion and the clock
+  [YKatrechko](https://github.com/YKatrechko). The card must be FAT32: exFAT isn't read, and most cards over 32 GB come
+  in exFAT, so format those to FAT32 first. **Early support:** a real battery, waking up by motion and the clock
   keeping the time while the board is off haven't been tried yet, and GPS isn't used yet. No Video.
 
 Choose the board when you create a project; each project is for one board.
