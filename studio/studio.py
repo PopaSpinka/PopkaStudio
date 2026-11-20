@@ -117,7 +117,8 @@ KINDS = {"date": 0, "clock": 1, "weather": 2,                                   
          "devcard": 38, "device": 39, "charge": 40, "video": 41, "shade": 42, "sclock": 43, "radio": 44,
          "rtime": 45, "rname": 46, "rsong": 47, "rbtn": 48, "rline": 49, "rrays": 50, "rplay": 51,
          "rbrowse": 52, "rfolder": 53, "rvolume": 54,
-         "wxdigits": 55, "wxcurve": 56, "wxbaro": 57, "wxwear": 58, "wxbuddy": 59, "wxpixel": 60, "wxweek": 61}
+         "wxdigits": 55, "wxcurve": 56, "wxbaro": 57, "wxwear": 58, "wxbuddy": 59, "wxpixel": 60, "wxweek": 61,
+         "pomodoro": 62}
 # The weather widgets (wxwidgets.h; web/mockups/weather-widgets.html, the variants the user kept on 14 Nov 2026): the
 # round board's; only those a project has go into its firmware (FN_WXW: a bit a widget, from wxdigits)
 WXW = ("wxdigits", "wxcurve", "wxbaro", "wxwear", "wxbuddy", "wxpixel", "wxweek")
@@ -258,6 +259,10 @@ DEFAULTS = {
     "battery": {"name": "Battery"},
     "music": {"name": "Music"},  # HaloWatch's player (player.h, music.h): the music — the flash's "ffat" partition
     "recorder": {"name": "Recorder"},  # record, play back, forget (recorder.h): the microphones
+    # Pomodoro (pomodoro.h), every board's: the minutes of Focus, the short and the long break, the long one after
+    # this many focus intervals; the alert, Auto-start — the watch's starting settings (its own Settings change them)
+    "pomodoro": {"name": "Pomodoro", "pm_focus": 25, "pm_short": 5, "pm_long": 15, "pm_after": 4, "pm_sound": True,
+                 "pm_auto": False},
     "video": {"name": "Video"},  # tiles and a player, clips from the microSD card (video.h): a board with a passport listing it
     # The Radio (radio.h, the round board's): the favourites — the tuner's scale at first — and Browse's folders of the
     # Radio Browser catalog. The defaults are only stations whose broadcasters publish these links for other players
@@ -415,6 +420,14 @@ RECT_APP_FONTS = {
               "font  gl_r_n40    GoogleSansFlex.ttf  40  digits @wght=660,ROND=100   # Video: the volume",
               "font  gl_r_ic64   fa-solid-900.ttf    64  0xf04b 0xf04c 0xf028   # Video: play, pause, the volume"],
     "recorder": ["font  gl_r_n190   GoogleSansFlex.ttf  190  digits \":\" @wght=660,ROND=100   # Recorder: the timer"],
+    # Pomodoro (pomodoro.h): the round screen's, in the 7″ board's square (× 1.31: its 600 px; a small one's — × 0.7 more,
+    # pomodoro.h scales the rest): the time, the settings' values, the icons, the words
+    "pomodoro": ["font  gl_r_pm_n110  GoogleSansFlex.ttf  110  digits \":\" @wght=660,ROND=100   # Pomodoro: the time",
+                 "font  gl_r_pm_n52   GoogleSansFlex.ttf  52  digits @wght=660,ROND=100   # Pomodoro: the settings' values",
+                 "font  gl_r_pm_ic40  fa-solid-900.ttf    40  0xf06e 0xf7b6 0xf5ca 0xf051 0xf0e2 0xf013 0xf00d 0xf054 0xf053 0xf068 0xf067"
+                 "   # Pomodoro: the modes' icons, the buttons'",
+                 "font  gl_r_pm_t26   GoogleSansFlex.ttf  26  latin punct @wght=620,wdth=104,ROND=100   # Pomodoro: the small words",
+                 "font  gl_r_pm_t32   GoogleSansFlex.ttf  32  latin punct @wght=620,wdth=104,ROND=100   # Pomodoro: the buttons, the rows"],
     # The quick settings panel (shade_rect.h): the clock, the weather, the tiles' labels; Font Awesome's wifi, clock,
     # volume-xmark, lock, power-off, music, microphone, film, sun, gear, play, pause, volume-high, the sky (4)
     "shade": ["font  gl_sh_n64    GoogleSansFlex.ttf  64  digits \":\" @wght=660,ROND=100   # Shade: the big clock",
@@ -478,6 +491,13 @@ ROUND_APP_FONTS = {
               "font  gl_shr_n18   GoogleSansFlex.ttf  18  digits \"%\" @wght=660,ROND=100   # Shade: the battery's percent"],
 }
 RADIO_LETTERS = 'latin cyrillic punct "àáâãäåæçèéêëìíîïñòóôõöøùúûüýÿÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÑÒÓÔÕÖØÙÚÛÜÝßœŒšŠžŽłŁńśźżąęćőűĞğİıŞşŢţ’‘€£¥©®™"'
+# Pomodoro (pomodoro.h): the time and the −/+ value, the settings' values; Font Awesome's eye, mug-hot, umbrella-beach,
+# forward-step, rotate-left, gear, xmark, chevron-right, chevron-left, minus, plus
+ROUND_APP_FONTS["pomodoro"] = [
+    "font  gl_pm_n84   GoogleSansFlex.ttf  84  digits \":\" @wght=660,ROND=100   # Pomodoro: the time",
+    "font  gl_pm_n40   GoogleSansFlex.ttf  40  digits @wght=660,ROND=100   # Pomodoro: the settings' values",
+    "font  gl_pm_ic30  fa-solid-900.ttf    30  0xf06e 0xf7b6 0xf5ca 0xf051 0xf0e2 0xf013 0xf00d 0xf054 0xf053 0xf068 0xf067"
+    "   # Pomodoro: the modes' icons, the buttons'"]
 ROUND_APP_FONTS["radio"] = [  # the Radio (radio.h): names and songs from anywhere in the world
     f"font  gl_ra_n52   GoogleSansFlex.ttf  52  {RADIO_LETTERS} @wght=620,wdth=104,ROND=100 +else=Nunito.ttf:700   # Radio: the station (big)",
     f"font  gl_ra_n32   GoogleSansFlex.ttf  32  {RADIO_LETTERS} @wght=620,wdth=104,ROND=100 +else=Nunito.ttf:700   # Radio: a long station, the lists' heads",
@@ -532,7 +552,8 @@ LIMITS = {"size": (8, 300, int), "weight": (1, 1000, int), "width": (25, 151, in
           "scale": (0.3, 3, float), "radius": (60, 260, float), "dx": (-500, 500, float), "dy": (-500, 500, float),
           "goal": (100, 100000, int), "count": (10, 200, int), "twinkle": (0, 3, float), "meteors": (0, 30, float),
           "angle": (-180, 180, float), "rainbow": (1, 5, float), "gap": (40, 330, int), "span": (2, 466, int), "span2": (2, 466, int),
-          "size2": (8, 120, int)}
+          "size2": (8, 120, int),
+          "pm_focus": (1, 90, int), "pm_short": (1, 30, int), "pm_long": (1, 60, int), "pm_after": (2, 8, int)}  # (pomodoro.h PM_ROWS)
 
 
 SPARKLES = {"off": 0, "around": 1, "screen": 2}  # what is around a pixel art picture (pixelart.h: p2)
@@ -647,7 +668,7 @@ def clean_layer(raw):
         layer["format"] = DEFAULTS[kind]["format"]
     if "icon" in layer and layer["icon"] not in ICONS:
         layer["icon"] = DEFAULTS[kind]["icon"]
-    for key in ("lines", "clock"):  # (the weather widgets' switches)
+    for key in ("lines", "clock", "pm_sound", "pm_auto"):  # (the weather widgets' switches; Pomodoro's)
         if key in layer:
             layer[key] = bool(layer[key])
     if kind == "radio":
@@ -1550,12 +1571,13 @@ def write_sketch(project, folder, meta=None):
     if os.path.abspath(folder) != os.path.abspath(FIRMWARE):
         for name in ("PopkaWatch.ino", "face.h", "weather.h", "wxscreen.h", "gallery.h", "wxscreen_rect.h", "gallery_rect.h", "player_rect.h", "recorder_rect.h", "settings_rect.h", "device_rect.h", "game_dots_rect.h", "power.h", "steps.h", "stars.h",
                      "pixelart.h", "parrot.h", "bt.h", "wxfetch.h", "settings.h", "stepscreen.h", "widgets.h", "widgets_rect.h", "wxwidgets.h",
-                     "music.h", "music_sd.h", "player.h", "sound.h", "volume.h", "recorder.h", "radio.h", "radio_net.h", "radio_rect.h", "video.h", "video_hw.h", "video_net.h", "snake.h", "games.h", "game_dots.h",
+                     "music.h", "music_sd.h", "player.h", "pomodoro.h", "sound.h", "volume.h", "recorder.h", "radio.h", "radio_net.h", "radio_rect.h", "video.h", "video_hw.h", "video_net.h", "snake.h", "games.h", "game_dots.h",
                      "game_space.h", "game_iso.h", "live.h", "device.h", "hello.h", "wifiscan.h", "shade_rect.h", "shade_round.h",
                      "sclock.h"):
             shutil.copy(os.path.join(FIRMWARE, name), os.path.join(folder, name))
     fonts, icons = {}, {}  # spec -> name, (set, scale) -> name
     all_layers = [layer for scr in screens for layer in scr["layers"]]
+    pomo = next((layer for layer in all_layers if layer["type"] == "pomodoro" and not layer["hidden"]), None)  # (pomodoro.h)
     rect = is_rect(project.get("board"))
     for layer in all_layers:
         if font_spec(layer, rect):
@@ -1635,6 +1657,12 @@ def write_sketch(project, folder, meta=None):
           f"#define FN_BATTERY {1 if any(layer['type'] == 'battery' for layer in all_layers) else 0}",
           f"#define FN_MUSIC {1 if any(layer['type'] == 'music' for layer in all_layers) else 0}",
           f"#define FN_RECORDER {1 if any(layer['type'] == 'recorder' for layer in all_layers) else 0}",
+          f"#define FN_POMODORO {1 if pomo else 0}",
+          *(["// Pomodoro's starting settings (pomodoro.h): minutes, the long break after N, the alert, Auto-start",
+             f"#define FN_PM_FOCUS {pomo['pm_focus']}", f"#define FN_PM_SHORT {pomo['pm_short']}",
+             f"#define FN_PM_LONG {pomo['pm_long']}", f"#define FN_PM_AFTER {pomo['pm_after']}",
+             f"#define FN_PM_SOUND {1 if pomo['pm_sound'] else 0}", f"#define FN_PM_AUTO {1 if pomo['pm_auto'] else 0}"]
+            if pomo else []),
           f"#define FN_VIDEO {1 if any(layer['type'] == 'video' for layer in all_layers) else 0}",
           "// The Radio (radio.h, radio_net.h): only with its layer — it needs Wi-Fi (on with it) and not Bluetooth",
           f"#define FN_RADIO {1 if radio else 0}",

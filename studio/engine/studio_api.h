@@ -337,6 +337,7 @@ EMSCRIPTEN_KEEPALIVE float *studio_bases() {
   st_bases[FL_BATTERY * 2] = st_bases[FL_BATTERY * 2 + 1] = CX;
   st_bases[FL_MUSIC * 2] = st_bases[FL_MUSIC * 2 + 1] = CX;
   st_bases[FL_RECORDER * 2] = st_bases[FL_RECORDER * 2 + 1] = CX;
+  st_bases[FL_POMODORO * 2] = st_bases[FL_POMODORO * 2 + 1] = CX;
   st_bases[FL_VIDEO * 2] = st_bases[FL_VIDEO * 2 + 1] = CX;
   st_bases[FL_SHADE * 2] = CX, st_bases[FL_SHADE * 2 + 1] = CY;
   st_bases[FL_SCLOCK * 2] = CX, st_bases[FL_SCLOCK * 2 + 1] = CY;  // (a clock of sclock.h: by the screen's middle)

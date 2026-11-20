@@ -118,6 +118,9 @@ const ICON = {
   snkspace: '<svg viewBox="0 0 16 16"><path d="M3 13h4v-4h6V3"/></svg>',
   snkiso: '<svg viewBox="0 0 16 16"><path d="M3 13h4v-4h6V3"/></svg>',
   recorder: '<svg viewBox="0 0 16 16"><rect x="5.8" y="1.8" width="4.4" height="7.6" rx="2.2"/><path d="M3.6 7.6a4.4 4.4 0 0 0 8.8 0M8 12v2.2"/></svg>',
+  // Pomodoro: a ring with a part of it gone, a hand
+  pomodoro: '<svg viewBox="0 0 16 16"><path d="M8 2.2a5.8 5.8 0 1 1-5.4 3.7"/><path d="M8 5v3l2 1.4M6.6 1.4h2.8"/></svg>',
+  tools: '<svg viewBox="0 0 16 16"><path d="M8 2.2a5.8 5.8 0 1 1-5.4 3.7"/><path d="M8 5v3l2 1.4M6.6 1.4h2.8"/></svg>',
   video: '<svg viewBox="0 0 16 16"><rect x="1.8" y="3.2" width="12.4" height="9.6" rx="2"/><path d="M6.6 6v4l3.4-2z"/></svg>',
   radio: '<svg viewBox="0 0 16 16"><rect x="1.8" y="5.4" width="12.4" height="8.4" rx="2"/><path d="M4 5.4l7.4-3.4"/><circle cx="10.6" cy="9.6" r="1.8"/><path d="M4.4 8.2h2.6M4.4 10.8h2.6"/></svg>',
   // The quick settings panel: a sheet pulled down from the top edge, a slider and switches on it
@@ -204,6 +207,7 @@ const SHELVES = {
     { name: 'Media', icon: 'music', items: ['music', 'recorder', 'radio', 'video'] },
     { name: 'Info', icon: 'info', items: ['wxscreen', 'stepscreen'] },
     { name: 'Games', icon: 'games', items: ['snkdots', 'snkspace', 'snkiso'] },  // (in the Games gallery: toGames)
+    { name: 'Tools', icon: 'tools', items: ['pomodoro'] },  // (Pomodoro: every board's — a rectangle's in its shorter side's square)
   ],
 };
 // A face part or piece not put in a category yet (a new one) — in "More" at the end of Face, never lost
@@ -1552,6 +1556,14 @@ function layerProps(stage, l) {
   } else if (l.type === 'display' || l.type === 'battery' || l.type === 'music' || l.type === 'recorder' || l.type === 'radio' || l.type === 'charge' || KINDS[l.type]?.game
     || l.type === 'rbrowse' || l.type === 'rfolder' || l.type === 'rvolume') {
     // (HaloWatch's screen as it is: nothing to set)
+  } else if (l.type === 'pomodoro') {  // the watch's starting settings (pomodoro.h: its Settings change them there)
+    const mins = (label, prop, max) => slider(label, () => l[prop], (v, k) => upd(prop)(Math.round(v), k), { min: 1, max, unit: 'min', key: prop });
+    const sw = (label, prop) => h('div', { class: 'switch-row' }, h('label', {}, label),
+      toggle(!!l[prop], (v) => change(() => { l[prop] = v; }, { structure: true }), label));
+    groups.push(h('div', { class: 'group' }, h('h3', {}, 'Duration'),
+      mins('Focus', 'pm_focus', 90), mins('Short break', 'pm_short', 30), mins('Long break', 'pm_long', 60),
+      slider('Long break after', () => l.pm_after, (v, k) => upd('pm_after')(Math.round(v), k), { min: 2, max: 8, unit: '', key: 'pm_after' })),
+      h('div', { class: 'group' }, h('h3', {}, 'Notifications'), sw('Sound', 'pm_sound'), sw('Auto-start', 'pm_auto')));
   } else if (l.type === 'video') {
     groups.push(clipsGroup(h, ICON), streamGroup(h, ICON));
   } else if (l.type === 'shade') {

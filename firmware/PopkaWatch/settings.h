@@ -33,6 +33,14 @@
 #else
 #define HAS_RECORDER 0
 #endif
+// Pomodoro (pomodoro.h): every board's — a rectangle draws the round screen's in the square of its shorter side — in a
+// firmware with it and in the page (its fonts: studio.py ROUND_APP_FONTS / RECT_APP_FONTS, the page's engine builds
+// them too — engine/build.sh)
+#if defined(__EMSCRIPTEN__) || (defined(FN_POMODORO) && FN_POMODORO)
+#define HAS_POMODORO 1
+#else
+#define HAS_POMODORO 0
+#endif
 
 // The Radio (radio.h; a rectangle's screen — radio_rect.h): in a firmware with it and in the page
 #if defined(__EMSCRIPTEN__) || (defined(FN_RADIO) && FN_RADIO)
@@ -653,7 +661,7 @@ static void battery_draw() {
 #endif
 
 // ---------- Music: HaloWatch's player and its music, one to one; the Recorder ----------
-#if HAS_MUSIC || HAS_RECORDER || HAS_VIDEO || HAS_RADIO
+#if HAS_MUSIC || HAS_RECORDER || HAS_VIDEO || HAS_RADIO || HAS_POMODORO
 #include "sound.h"   // one speaker for both: the recorder's playback first, else the music
 #endif
 #if HAS_MUSIC || HAS_RECORDER || HAS_SHADE || HAS_RADIO
@@ -668,6 +676,9 @@ static void rd_other_sound();  // (radio.h: the Music or the Recorder starts —
 #endif
 #if HAS_RECORDER
 #include "recorder.h"  // the Recorder: the microphones, a dotted wave, play it back, forget it
+#endif
+#if HAS_POMODORO
+#include "pomodoro.h"  // Pomodoro: focus intervals and breaks, the alert, its settings
 #endif
 #if HAS_RADIO
 #include "radio.h"  // the Radio: the tuner, Browse (the catalog's folders), the stream (radio_net.h)
@@ -725,6 +736,9 @@ static void settings_build() {  // the fonts' middles (face_build)
 #if HAS_RECORDER
   recorder_build();
 #endif
+#if HAS_POMODORO
+  pomodoro_build();
+#endif
 #if HAS_RADIO
   radio_build();
 #endif
@@ -757,6 +771,9 @@ static void settings_poll() {
 #if HAS_RADIO
   radio_poll();  // the favourites (hearts) into flash
 #endif
+#if HAS_POMODORO
+  pm_save_poll();  // its settings into flash
+#endif
 }
 
 static void settings_tick(float dt) {  // every frame, whatever is on screen
@@ -776,6 +793,9 @@ static void settings_tick(float dt) {  // every frame, whatever is on screen
 #if HAS_RECORDER
   recorder_tick(dt);  // the microphones, the wave, the timer; the screen gone — the recording stops
 #endif
+#if HAS_POMODORO
+  pomodoro_tick(dt);  // the interval runs out with the screen closed too
+#endif
 #if HAS_RADIO
   radio_tick(dt);  // the scale settling, the song's line — it plays with the screen closed too
 #endif
@@ -792,6 +812,9 @@ static bool settings_busy() {
 #if HAS_RECORDER
   busy |= rc_busy();
 #endif
+#if HAS_POMODORO
+  busy |= pm_busy();  // (the alert ringing)
+#endif
 #if HAS_GAMES
   busy |= games_busy();
 #endif
@@ -799,6 +822,22 @@ static bool settings_busy() {
   busy |= video_busy();
 #endif
   return busy;
+}
+// Asleep: when something wants the board up again — ms from now (0 — nothing does): power.h sets its timer so
+static uint32_t settings_wake_ms() {
+#if HAS_POMODORO
+  return pm_wake_ms();  // the interval's end
+#else
+  return 0;
+#endif
+}
+// … and it is time now: power.h brings the screen back (before the frame's tick, which would let it sleep again)
+static bool settings_due() {
+#if HAS_POMODORO
+  return pm_due();
+#else
+  return false;
+#endif
 }
 
 // A screen with a section: opened, on top and still, laid out, drawn (face.h)
@@ -814,6 +853,9 @@ static void settings_enter(const FaceScreen &S) {
 #endif
 #if HAS_RECORDER
   if (st_has(S, FL_RECORDER)) recorder_enter();
+#endif
+#if HAS_POMODORO
+  if (st_has(S, FL_POMODORO)) pomodoro_enter();
 #endif
 #if HAS_RADIO
   if (st_has(S, FL_RADIO)) radio_enter();
@@ -836,6 +878,9 @@ static void settings_update(const FaceScreen &S, float dt) {
 #endif
 #if HAS_RECORDER
   if (st_has(S, FL_RECORDER)) recorder_update(dt);
+#endif
+#if HAS_POMODORO
+  if (st_has(S, FL_POMODORO)) pomodoro_update(dt);
 #endif
 #if HAS_RADIO
   if (st_has(S, FL_RADIO)) radio_update(S, dt);
@@ -861,6 +906,9 @@ static void settings_layout(FaceRun &R, uint8_t kind, const HaloView &v) {
 #endif
 #if HAS_RECORDER
   if (kind == FL_RECORDER) recorder_layout(v);
+#endif
+#if HAS_POMODORO
+  if (kind == FL_POMODORO) pomodoro_layout(v);
 #endif
 #if HAS_RADIO
   if (kind == FL_RADIO) radio_layout(v);
@@ -895,6 +943,9 @@ static void settings_draw(uint8_t kind) {
 #endif
 #if HAS_RECORDER
   if (kind == FL_RECORDER) recorder_draw();
+#endif
+#if HAS_POMODORO
+  if (kind == FL_POMODORO) pomodoro_draw();
 #endif
 #if HAS_RADIO
   if (kind == FL_RADIO) radio_draw();  // (round: its parts draw themselves, the volume screen goes over them: face.h)

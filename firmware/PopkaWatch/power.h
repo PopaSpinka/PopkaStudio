@@ -95,6 +95,13 @@ static bool pw_wakes(uint8_t w) {
   return w == HALO_WAKE_TOUCH ? pw_wake_tap : w == HALO_WAKE_MOTION ? pw_wake_raise : w == HALO_WAKE_BOOT ? pw_wake_btn : true;
 }
 
+// Asleep until something wants the board (settings_wake_ms: Pomodoro's interval ending) — or until ms, if sooner (0 — no
+// timer of its own)
+static void pw_sleep(uint32_t ms = 0) {
+  const uint32_t want = settings_wake_ms();
+  halo_sleep(want && (!ms || want < ms) ? want : ms);
+}
+
 static uint32_t pw_ms_to_minute() {  // until the next minute, +30 ms to be sure it has turned
   struct timeval tv;
   gettimeofday(&tv, nullptr);
@@ -169,6 +176,12 @@ static void power_tick(float dt) {
     if (!w && (pw_mode == PW_AOD || pw_mode == PW_DARK)) w = PW_WAKE_CMD;
     else if (pw_mode == PW_FADING && !pw_locked) pw_mode = PW_ACTIVE, pw_amb.target = 0;
   }
+  if (settings_due() && (pw_mode == PW_AOD || pw_mode == PW_DARK || (pw_mode == PW_FADING && !pw_locked))) {
+    // Pomodoro's interval ran out: the screen comes back for the alert (locked — the lock stays, the board stays up a
+    // while for the sound); this frame's tick plays it
+    if (pw_locked) pw_listen_us = now + PW_LISTEN_S * 1000000ll;
+    else pw_wake(4), w = 0;
+  }
   const bool boot = halo_boot_click(), boot_held = halo_boot_long();
   const uint8_t pwr = halo_pwr_event();
   if (halo_finger_blocked() && pw_locked) pw_shake_at = halo_ms() | 1, pw_listen_us = now + PW_LISTEN_S * 1000000ll;
@@ -194,7 +207,7 @@ static void power_tick(float dt) {
         } else {
           pw_mode = PW_DARK;
           halo_display_on(false), LOG("screen off\n");
-          halo_sleep();
+          pw_sleep();
         }
       }
       break;
@@ -204,12 +217,12 @@ static void power_tick(float dt) {
       } else {
         if (w == HALO_WAKE_TIMER) fc_check = true;  // a new minute: face_tick sets the digits
         if (w && pw_locked) pw_listen_us = now + PW_LISTEN_S * 1000000ll;  // locked: up a while, for the button
-        if (!halo_asleep() && now >= pw_listen_us) halo_sleep(pw_ms_to_minute());  // until the next minute
+        if (!halo_asleep() && now >= pw_listen_us) pw_sleep(pw_ms_to_minute());  // until the next minute (or sooner)
       }
       break;
     case PW_DARK:
       if (w && pw_wakes(w)) pw_wake(w);
-      else if (w && !halo_asleep()) halo_sleep();  // (a way that is off: back to sleep)
+      else if (w && !halo_asleep()) pw_sleep();  // (a way that is off: back to sleep)
       break;
   }
   pw_cmd_sleep = false;  // sent while already asleep — it must not put the board back to sleep right after it wakes
