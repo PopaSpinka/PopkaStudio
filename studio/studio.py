@@ -2717,6 +2717,9 @@ def flash_steps(project, port, meta=None):
         if fw == "dev":  # (a firmware not made by a Load — a tool's, an experiment's: until 18 Nov 2026 its hello said
             fits = fits_of(on.get("check") or {})  # "amoled175" on every board, hello.h; only the board's
             there = "" if not fits or board in fits else fits[0]  # check, if one was made, knows it then)
+        if there and not known_board(there):  # (a board this PopkaStudio has not got — an earlier build's name, as the
+            job_log(f"The board calls itself {there}, a board this PopkaStudio doesn't know: not checked against it")
+            there = ""                           # 1.75's amoled175n before 2.5: it says nothing, it must not stop a Load)
         if there and there != board and known_board(there) and passport(there).get("chip") == passport(board).get("chip"):
             # (a hello names the firmware, not the board: a 1.75 (-B, -G) once Loaded as a 1.75C says amoled175. The
             # board check's flash and PSRAM tell: the project's board fits and the hello's does not — the project wins)
