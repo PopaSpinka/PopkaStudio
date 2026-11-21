@@ -74,7 +74,7 @@ def bring_old_data():
             os.rmdir(src)
 
 
-VERSION = "2.5"  # PopkaStudio's version (the About window; the release notes)
+VERSION = "2.6"  # PopkaStudio's version (the About window; the release notes)
 
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 import halo_assets as ha  # noqa: E402 — the board's font and image code
@@ -117,7 +117,8 @@ KINDS = {"date": 0, "clock": 1, "weather": 2,                                   
          "devcard": 38, "device": 39, "charge": 40, "video": 41, "shade": 42, "sclock": 43, "radio": 44,
          "rtime": 45, "rname": 46, "rsong": 47, "rbtn": 48, "rline": 49, "rrays": 50, "rplay": 51,
          "rbrowse": 52, "rfolder": 53, "rvolume": 54,
-         "wxdigits": 55, "wxcurve": 56, "wxbaro": 57, "wxwear": 58, "wxbuddy": 59, "wxpixel": 60, "wxweek": 61}
+         "wxdigits": 55, "wxcurve": 56, "wxbaro": 57, "wxwear": 58, "wxbuddy": 59, "wxpixel": 60, "wxweek": 61,
+         "pomodoro": 62}
 # The weather widgets (wxwidgets.h; web/mockups/weather-widgets.html, the variants the user kept on 14 Nov 2026): the
 # round board's; only those a project has go into its firmware (FN_WXW: a bit a widget, from wxdigits)
 WXW = ("wxdigits", "wxcurve", "wxbaro", "wxwear", "wxbuddy", "wxpixel", "wxweek")
@@ -258,6 +259,10 @@ DEFAULTS = {
     "battery": {"name": "Battery"},
     "music": {"name": "Music"},  # HaloWatch's player (player.h, music.h): the music — the flash's "ffat" partition
     "recorder": {"name": "Recorder"},  # record, play back, forget (recorder.h): the microphones
+    # Pomodoro (pomodoro.h), every board's: the minutes of Focus, the short and the long break, the long one after
+    # this many focus intervals; the alert, Auto-start — the watch's starting settings (its own Settings change them)
+    "pomodoro": {"name": "Pomodoro", "pm_focus": 25, "pm_short": 5, "pm_long": 15, "pm_after": 4, "pm_sound": True,
+                 "pm_auto": False},
     "video": {"name": "Video"},  # tiles and a player, clips from the microSD card (video.h): a board with a passport listing it
     # The Radio (radio.h, the round board's): the favourites — the tuner's scale at first — and Browse's folders of the
     # Radio Browser catalog. The defaults are only stations whose broadcasters publish these links for other players
@@ -415,6 +420,14 @@ RECT_APP_FONTS = {
               "font  gl_r_n40    GoogleSansFlex.ttf  40  digits @wght=660,ROND=100   # Video: the volume",
               "font  gl_r_ic64   fa-solid-900.ttf    64  0xf04b 0xf04c 0xf028   # Video: play, pause, the volume"],
     "recorder": ["font  gl_r_n190   GoogleSansFlex.ttf  190  digits \":\" @wght=660,ROND=100   # Recorder: the timer"],
+    # Pomodoro (pomodoro_rect.h: variant B and settings S2 of web/mockups/pomodoro-rect.html): the time, the modes'
+    # icons (Font Awesome's eye, mug-hot, umbrella-beach), the buttons' (forward-step, rotate-left, gear, xmark, minus,
+    # plus), the settings' values, the small words (DURATION, the units); a small rectangle's — COMPACT_APP_FONTS
+    "pomodoro": ["font  gl_r_pm_n190  GoogleSansFlex.ttf  190  digits \":\" @wght=660,ROND=100   # Pomodoro: the time",
+                 "font  gl_r_pm_ic44  fa-solid-900.ttf    44  0xf06e 0xf7b6 0xf5ca   # Pomodoro: the modes' icons",
+                 "font  gl_r_pm_ic30  fa-solid-900.ttf    30  0xf051 0xf0e2 0xf013 0xf00d 0xf068 0xf067   # Pomodoro: the buttons",
+                 "font  gl_r_pm_n40   GoogleSansFlex.ttf  40  digits @wght=660,ROND=100   # Pomodoro: the settings' values",
+                 "font  gl_r_pm_t18   GoogleSansFlex.ttf  18  latin punct @wght=620,wdth=104,ROND=100   # Pomodoro: the small words"],
     # The quick settings panel (shade_rect.h): the clock, the weather, the tiles' labels; Font Awesome's wifi, clock,
     # volume-xmark, lock, power-off, music, microphone, film, sun, gear, play, pause, volume-high, the sky (4)
     "shade": ["font  gl_sh_n64    GoogleSansFlex.ttf  64  digits \":\" @wght=660,ROND=100   # Shade: the big clock",
@@ -437,6 +450,14 @@ RECT_APP_FONTS = {
 # own, the line under a card's title (the watch's 20 px would be as big as the title here)
 COMPACT_K = 0.7
 COMPACT_FONTS = ["font  gl_c_t14    GoogleSansFlex.ttf  14  latin punct  @wght=620,wdth=104,ROND=100   # the line under a card's title"]
+# A small rectangle's own fonts of an app, in place of its RECT_APP_FONTS × 0.7 (that would not fit): Pomodoro's time
+# (the WT32's; the square's — SQUARE_APP_FONTS), icons, values (pomodoro_rect.h)
+COMPACT_APP_FONTS = {
+    "pomodoro": ["font  gl_c_pm_n84   GoogleSansFlex.ttf  84  digits \":\" @wght=660,ROND=100   # Pomodoro: the time",
+                 "font  gl_c_pm_ic24  fa-solid-900.ttf    24  0xf06e 0xf7b6 0xf5ca   # Pomodoro: the modes' icons",
+                 "font  gl_c_pm_ic22  fa-solid-900.ttf    22  0xf051 0xf0e2 0xf013 0xf00d 0xf068 0xf067   # Pomodoro: the buttons",
+                 "font  gl_c_pm_n24   GoogleSansFlex.ttf  24  digits @wght=660,ROND=100   # Pomodoro: the settings' values"],
+}
 
 
 def compact_fonts(lines):
@@ -461,6 +482,7 @@ SQUARE_APP_FONTS = {
     "device": ["font  gl_q_ic22   fa-solid-900.ttf    22  0xf2db 0xf538 0xf2c9 0xf130 0xf240   # About: the rows' icons"],
     "charge": ["font  gl_q_n34    GoogleSansFlex.ttf  34  digits \". °V—\"  @wght=660,ROND=100   # Power: the tiles' numbers"],
     "recorder": ["font  gl_q_n64    GoogleSansFlex.ttf  64  digits \":\"  @wght=660,ROND=100   # Recorder: the timer"],
+    "pomodoro": ["font  gl_q_pm_n104  GoogleSansFlex.ttf  104  digits \":\" @wght=660,ROND=100   # Pomodoro: the time"],
 }
 
 
@@ -478,6 +500,13 @@ ROUND_APP_FONTS = {
               "font  gl_shr_n18   GoogleSansFlex.ttf  18  digits \"%\" @wght=660,ROND=100   # Shade: the battery's percent"],
 }
 RADIO_LETTERS = 'latin cyrillic punct "àáâãäåæçèéêëìíîïñòóôõöøùúûüýÿÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÑÒÓÔÕÖØÙÚÛÜÝßœŒšŠžŽłŁńśźżąęćőűĞğİıŞşŢţ’‘€£¥©®™"'
+# Pomodoro (pomodoro.h): the time and the −/+ value, the settings' values; Font Awesome's eye, mug-hot, umbrella-beach,
+# forward-step, rotate-left, gear, xmark, chevron-right, chevron-left, minus, plus
+ROUND_APP_FONTS["pomodoro"] = [
+    "font  gl_pm_n84   GoogleSansFlex.ttf  84  digits \":\" @wght=660,ROND=100   # Pomodoro: the time",
+    "font  gl_pm_n40   GoogleSansFlex.ttf  40  digits @wght=660,ROND=100   # Pomodoro: the settings' values",
+    "font  gl_pm_ic30  fa-solid-900.ttf    30  0xf06e 0xf7b6 0xf5ca 0xf051 0xf0e2 0xf013 0xf00d 0xf054 0xf053 0xf068 0xf067"
+    "   # Pomodoro: the modes' icons, the buttons'"]
 ROUND_APP_FONTS["radio"] = [  # the Radio (radio.h): names and songs from anywhere in the world
     f"font  gl_ra_n52   GoogleSansFlex.ttf  52  {RADIO_LETTERS} @wght=620,wdth=104,ROND=100 +else=Nunito.ttf:700   # Radio: the station (big)",
     f"font  gl_ra_n32   GoogleSansFlex.ttf  32  {RADIO_LETTERS} @wght=620,wdth=104,ROND=100 +else=Nunito.ttf:700   # Radio: a long station, the lists' heads",
@@ -532,7 +561,8 @@ LIMITS = {"size": (8, 300, int), "weight": (1, 1000, int), "width": (25, 151, in
           "scale": (0.3, 3, float), "radius": (60, 260, float), "dx": (-500, 500, float), "dy": (-500, 500, float),
           "goal": (100, 100000, int), "count": (10, 200, int), "twinkle": (0, 3, float), "meteors": (0, 30, float),
           "angle": (-180, 180, float), "rainbow": (1, 5, float), "gap": (40, 330, int), "span": (2, 466, int), "span2": (2, 466, int),
-          "size2": (8, 120, int)}
+          "size2": (8, 120, int),
+          "pm_focus": (1, 90, int), "pm_short": (1, 30, int), "pm_long": (1, 60, int), "pm_after": (2, 8, int)}  # (pomodoro.h PM_ROWS)
 
 
 SPARKLES = {"off": 0, "around": 1, "screen": 2}  # what is around a pixel art picture (pixelart.h: p2)
@@ -647,7 +677,7 @@ def clean_layer(raw):
         layer["format"] = DEFAULTS[kind]["format"]
     if "icon" in layer and layer["icon"] not in ICONS:
         layer["icon"] = DEFAULTS[kind]["icon"]
-    for key in ("lines", "clock"):  # (the weather widgets' switches)
+    for key in ("lines", "clock", "pm_sound", "pm_auto"):  # (the weather widgets' switches; Pomodoro's)
         if key in layer:
             layer[key] = bool(layer[key])
     if kind == "radio":
@@ -1550,12 +1580,13 @@ def write_sketch(project, folder, meta=None):
     if os.path.abspath(folder) != os.path.abspath(FIRMWARE):
         for name in ("PopkaWatch.ino", "face.h", "weather.h", "wxscreen.h", "gallery.h", "wxscreen_rect.h", "gallery_rect.h", "player_rect.h", "recorder_rect.h", "settings_rect.h", "device_rect.h", "game_dots_rect.h", "power.h", "steps.h", "stars.h",
                      "pixelart.h", "parrot.h", "bt.h", "wxfetch.h", "settings.h", "stepscreen.h", "widgets.h", "widgets_rect.h", "wxwidgets.h",
-                     "music.h", "music_sd.h", "player.h", "sound.h", "volume.h", "recorder.h", "radio.h", "radio_net.h", "radio_rect.h", "video.h", "video_hw.h", "video_net.h", "snake.h", "games.h", "game_dots.h",
+                     "music.h", "music_sd.h", "player.h", "pomodoro.h", "pomodoro_rect.h", "sound.h", "volume.h", "recorder.h", "radio.h", "radio_net.h", "radio_rect.h", "video.h", "video_hw.h", "video_net.h", "snake.h", "games.h", "game_dots.h",
                      "game_space.h", "game_iso.h", "live.h", "device.h", "hello.h", "wifiscan.h", "shade_rect.h", "shade_round.h",
                      "sclock.h"):
             shutil.copy(os.path.join(FIRMWARE, name), os.path.join(folder, name))
     fonts, icons = {}, {}  # spec -> name, (set, scale) -> name
     all_layers = [layer for scr in screens for layer in scr["layers"]]
+    pomo = next((layer for layer in all_layers if layer["type"] == "pomodoro" and not layer["hidden"]), None)  # (pomodoro.h)
     rect = is_rect(project.get("board"))
     for layer in all_layers:
         if font_spec(layer, rect):
@@ -1581,10 +1612,11 @@ def write_sketch(project, folder, meta=None):
         conf += fit(RECT_FONTS) + (COMPACT_FONTS if small else [])
         square = is_square(project.get("board"))
         conf += SQUARE_FONTS if square else []
-        for kinds, lines in [*RECT_APP_FONTS.items(), *(SQUARE_APP_FONTS.items() if square else [])]:
-            kinds = kinds if isinstance(kinds, tuple) else (kinds,)
+        for key, lines in [*RECT_APP_FONTS.items(), *(SQUARE_APP_FONTS.items() if square else [])]:
+            kinds = key if isinstance(key, tuple) else (key,)
             if any(layer["type"] in kinds for layer in all_layers):
-                conf += lines if lines in SQUARE_APP_FONTS.values() else fit(lines)
+                conf += (lines if lines in SQUARE_APP_FONTS.values() else COMPACT_APP_FONTS[key] if small and key in COMPACT_APP_FONTS
+                         else fit(lines))
     else:  # (the round board's own: only with their layer; not in the template — the page's engine builds them itself)
         for kind, lines in ROUND_APP_FONTS.items():
             if any(layer["type"] == kind or (kind == "radio" and (layer["type"] in RADIO_PARTS or layer["type"] in dict(RADIO_SCREENS))) for layer in all_layers):
@@ -1635,6 +1667,12 @@ def write_sketch(project, folder, meta=None):
           f"#define FN_BATTERY {1 if any(layer['type'] == 'battery' for layer in all_layers) else 0}",
           f"#define FN_MUSIC {1 if any(layer['type'] == 'music' for layer in all_layers) else 0}",
           f"#define FN_RECORDER {1 if any(layer['type'] == 'recorder' for layer in all_layers) else 0}",
+          f"#define FN_POMODORO {1 if pomo else 0}",
+          *(["// Pomodoro's starting settings (pomodoro.h): minutes, the long break after N, the alert, Auto-start",
+             f"#define FN_PM_FOCUS {pomo['pm_focus']}", f"#define FN_PM_SHORT {pomo['pm_short']}",
+             f"#define FN_PM_LONG {pomo['pm_long']}", f"#define FN_PM_AFTER {pomo['pm_after']}",
+             f"#define FN_PM_SOUND {1 if pomo['pm_sound'] else 0}", f"#define FN_PM_AUTO {1 if pomo['pm_auto'] else 0}"]
+            if pomo else []),
           f"#define FN_VIDEO {1 if any(layer['type'] == 'video' for layer in all_layers) else 0}",
           "// The Radio (radio.h, radio_net.h): only with its layer — it needs Wi-Fi (on with it) and not Bluetooth",
           f"#define FN_RADIO {1 if radio else 0}",
@@ -2689,6 +2727,9 @@ def flash_steps(project, port, meta=None):
         if fw == "dev":  # (a firmware not made by a Load — a tool's, an experiment's: until 18 Nov 2026 its hello said
             fits = fits_of(on.get("check") or {})  # "amoled175" on every board, hello.h; only the board's
             there = "" if not fits or board in fits else fits[0]  # check, if one was made, knows it then)
+        if there and not known_board(there):  # (a board this PopkaStudio has not got — an earlier build's name, as the
+            job_log(f"The board calls itself {there}, a board this PopkaStudio doesn't know: not checked against it")
+            there = ""                           # 1.75's amoled175n before 2.5: it says nothing, it must not stop a Load)
         if there and there != board and known_board(there) and passport(there).get("chip") == passport(board).get("chip"):
             # (a hello names the firmware, not the board: a 1.75 (-B, -G) once Loaded as a 1.75C says amoled175. The
             # board check's flash and PSRAM tell: the project's board fits and the hello's does not — the project wins)
@@ -3176,14 +3217,15 @@ def main():
         with open(sys.argv[sys.argv.index("--rect-conf") + 1], "w", encoding="utf-8") as f:
             f.write("\n".join(RECT_FONTS + [line for lines in RECT_APP_FONTS.values() for line in lines]) + "\n")
         return
+    small = (compact_fonts(RECT_FONTS + [line for key, lines in RECT_APP_FONTS.items() if key not in COMPACT_APP_FONTS for line in lines])
+             + COMPACT_FONTS + [line for lines in COMPACT_APP_FONTS.values() for line in lines])
     if "--compact-conf" in sys.argv:  # (engine/build.sh: a small rectangle's — the same, at its sizes, and its own)
         with open(sys.argv[sys.argv.index("--compact-conf") + 1], "w", encoding="utf-8") as f:
-            f.write("\n".join(compact_fonts(RECT_FONTS + [line for lines in RECT_APP_FONTS.values() for line in lines]) + COMPACT_FONTS) + "\n")
+            f.write("\n".join(small) + "\n")
         return
     if "--square-conf" in sys.argv:  # (engine/build.sh: a square's — the small rectangle's and its own)
         with open(sys.argv[sys.argv.index("--square-conf") + 1], "w", encoding="utf-8") as f:
-            f.write("\n".join(compact_fonts(RECT_FONTS + [line for lines in RECT_APP_FONTS.values() for line in lines]) + COMPACT_FONTS
-                              + SQUARE_FONTS + [line for lines in SQUARE_APP_FONTS.values() for line in lines]) + "\n")
+            f.write("\n".join(small + SQUARE_FONTS + [line for lines in SQUARE_APP_FONTS.values() for line in lines]) + "\n")
         return
     if "--round-conf" in sys.argv:  # (engine/build.sh: the round board's own, beyond the template's)
         with open(sys.argv[sys.argv.index("--round-conf") + 1], "w", encoding="utf-8") as f:

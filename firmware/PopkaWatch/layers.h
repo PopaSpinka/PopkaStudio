@@ -25,6 +25,7 @@
 #define FN_BATTERY 0
 #define FN_MUSIC 0
 #define FN_RECORDER 0
+#define FN_POMODORO 0
 #define FN_VIDEO 0
 // The Radio (radio.h, radio_net.h): only with its layer — it needs Wi-Fi (on with it) and not Bluetooth
 #define FN_RADIO 0

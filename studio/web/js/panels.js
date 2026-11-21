@@ -118,6 +118,10 @@ const ICON = {
   snkspace: '<svg viewBox="0 0 16 16"><path d="M3 13h4v-4h6V3"/></svg>',
   snkiso: '<svg viewBox="0 0 16 16"><path d="M3 13h4v-4h6V3"/></svg>',
   recorder: '<svg viewBox="0 0 16 16"><rect x="5.8" y="1.8" width="4.4" height="7.6" rx="2.2"/><path d="M3.6 7.6a4.4 4.4 0 0 0 8.8 0M8 12v2.2"/></svg>',
+  // Pomodoro: a ring with a part of it gone, a hand
+  pomodoro: '<svg viewBox="0 0 16 16"><path d="M8 2.2a5.8 5.8 0 1 1-5.4 3.7"/><path d="M8 5v3l2 1.4M6.6 1.4h2.8"/></svg>',
+  // The Tools shelf: a wrench
+  tools: '<svg viewBox="0 0 16 16"><path d="M10.4 2a3.4 3.4 0 0 0-3.2 4.5L2.4 11.3a1.3 1.3 0 0 0 1.9 1.9l4.8-4.8A3.4 3.4 0 0 0 13.6 5l-2 2-1.8-.6-.6-1.8 2-2a3.4 3.4 0 0 0-.8-.6z"/></svg>',
   video: '<svg viewBox="0 0 16 16"><rect x="1.8" y="3.2" width="12.4" height="9.6" rx="2"/><path d="M6.6 6v4l3.4-2z"/></svg>',
   radio: '<svg viewBox="0 0 16 16"><rect x="1.8" y="5.4" width="12.4" height="8.4" rx="2"/><path d="M4 5.4l7.4-3.4"/><circle cx="10.6" cy="9.6" r="1.8"/><path d="M4.4 8.2h2.6M4.4 10.8h2.6"/></svg>',
   // The quick settings panel: a sheet pulled down from the top edge, a slider and switches on it
@@ -204,6 +208,7 @@ const SHELVES = {
     { name: 'Media', icon: 'music', items: ['music', 'recorder', 'radio', 'video'] },
     { name: 'Info', icon: 'info', items: ['wxscreen', 'stepscreen'] },
     { name: 'Games', icon: 'games', items: ['snkdots', 'snkspace', 'snkiso'] },  // (in the Games gallery: toGames)
+    { name: 'Tools', icon: 'tools', items: ['pomodoro'] },  // (Pomodoro: every board's — a rectangle's in its shorter side's square)
   ],
 };
 // A face part or piece not put in a category yet (a new one) — in "More" at the end of Face, never lost
@@ -494,13 +499,21 @@ function shadeCard(stage, key) {
   return b;
 }
 
+// Who sent an app (its kind's "by"): "by <name>" under a shelf's tile — the name opens their GitHub (not the tile's click)
+function byLine(by) {
+  const a = h('span', { class: 'by-link', role: 'link', title: by.url }, by.name);
+  a.addEventListener('click', (e) => { e.stopPropagation(), e.preventDefault(), window.open(by.url, '_blank', 'noopener'); });
+  return h('span', { class: 'tool-by' }, 'by ', a);
+}
+
 function sectionCard(stage, kind) {
   const sub = SECTIONS[kind].sub || KINDS[kind].sub, what = sub.startsWith('HaloWatch') ? `HaloWatch's ${sub.replace(/^HaloWatch's \w+: /, '')}` : sub;
   const where = SECTION_PATH[kind] ? `Gallery › ${SECTION_PATH[kind].join(' › ')}` : KINDS[kind]?.game ? 'the Games gallery' : 'the gallery';
-  const b = h('button', { class: 'tool', title: `${SECTIONS[kind].tile || SECTIONS[kind].text} — ${what}: its card in ${where} and its screen` },
+  const by = KINDS[kind]?.by;
+  const b = h('button', { class: 'tool', title: `${SECTIONS[kind].tile || SECTIONS[kind].text} — ${what}: its card in ${where} and its screen${by ? ` · Community · by ${by.name}` : ''}` },
     thumb('section:' + kind, ICON[SECTIONS[kind].tile ? 'whole' : kind],
       apart(sectionParts(kind).map(sectionPart)), true),
-    SECTIONS[kind].tile || SECTIONS[kind].text);
+    SECTIONS[kind].tile || SECTIONS[kind].text, by ? byLine(by) : null);
   b.addEventListener('click', () => { KINDS[kind]?.game ? toGames(stage, kind) : toGallery(stage, kind); });
   return b;
 }
@@ -1237,12 +1250,12 @@ function num(label, get, set, { step = 1, min, max, unit = '', key }) {
   return h('label', { class: 'field' }, h('span', {}, label), input, unit ? h('span', { class: 'unit' }, unit) : null);
 }
 
-function slider(label, get, set, { min, max, step = 1, unit = '', key }) {
+function slider(label, get, set, { min, max, step = 1, unit = '', key, wide = false }) {
   const range = h('input', { type: 'range', min, max, step });
   range.value = get();
   range.addEventListener('input', () => set(parseFloat(range.value), key));
   refreshers.push(() => { if (document.activeElement !== range) range.value = get(); });
-  return h('div', { class: 'slider' }, h('label', {}, label), range, num('', get, set, { step, min, max, unit, key }));
+  return h('div', { class: 'slider' + (wide ? ' wide' : '') }, h('label', {}, label), range, num('', get, set, { step, min, max, unit, key }));
 }
 
 function color(label, get, set, key) {
@@ -1301,7 +1314,7 @@ function head(icon, title, kind, right) {
   return h('div', { class: 'props-head' },
     icon ? h('div', { class: 'layer-icon', html: icon }) : null,
     h('div', { class: 'props-name' }, typeof title === 'string' ? h('div', { class: 'props-title' }, title) : title,
-      kind ? h('div', { class: 'props-kind' }, kind) : null),
+      kind instanceof Element ? kind : kind ? h('div', { class: 'props-kind' }, kind) : null),
     right instanceof Element ? right
       : right ? h('button', { class: 'icon-btn del', title: right.title, 'aria-label': right.title, html: ICON.trash, onclick: right.fn }) : null);
 }
@@ -1333,7 +1346,10 @@ function layerProps(stage, l) {
   const upd = (prop) => (v, key) => change(() => { l[prop] = v; }, { key: l.id + prop });
   const title = h('div', { class: 'props-title' }, l.name);
   refreshers.push(() => { title.textContent = l.name; });  // (a card's name follows its title)
-  const groups = [head(ICON[l.type], title, `${d.name} · ${scr.name}`, { title: 'Delete', fn: () => remove(l.id) })];
+  // (an app someone sent: "Community · by <name>", the name — a link to their GitHub, as a community board's mark)
+  const kindLine = d.by ? h('div', { class: 'props-kind' }, 'Community · by ', h('a', { href: d.by.url, target: '_blank', rel: 'noopener' }, d.by.name))
+    : `${d.name} · ${scr.name}`;
+  const groups = [head(ICON[l.type], title, kindLine, { title: 'Delete', fn: () => remove(l.id) })];
   if (canLink(l) && !RADIO_LINKED.has(l.type)) groups.push(onTap(stage, l));  // (the Radio's: set by what it opens)
   if (LISTED.has(l.type)) {
     groups.push(h('div', { class: 'group' }, h('h3', {}, 'Position', listOrder(l, scr))));
@@ -1552,6 +1568,15 @@ function layerProps(stage, l) {
   } else if (l.type === 'display' || l.type === 'battery' || l.type === 'music' || l.type === 'recorder' || l.type === 'radio' || l.type === 'charge' || KINDS[l.type]?.game
     || l.type === 'rbrowse' || l.type === 'rfolder' || l.type === 'rvolume') {
     // (HaloWatch's screen as it is: nothing to set)
+  } else if (l.type === 'pomodoro') {  // the watch's starting settings (pomodoro.h: its Settings change them there)
+    const mins = (label, prop, max) => slider(label, () => l[prop], (v, k) => upd(prop)(Math.round(v), k), { min: 1, max, unit: 'min', key: prop, wide: true });
+    const sw = (label, prop) => h('div', { class: 'switch-row' }, h('label', {}, label),
+      toggle(!!l[prop], (v) => change(() => { l[prop] = v; }, { structure: true }), label));
+    groups.push(h('div', { class: 'group' }, h('h3', {}, 'Duration'),
+      mins('Focus', 'pm_focus', 90), mins('Short break', 'pm_short', 30), mins('Long break', 'pm_long', 60),
+      slider('Long break after', () => l.pm_after, (v, k) => upd('pm_after')(Math.round(v), k), { min: 2, max: 8, unit: '', key: 'pm_after', wide: true })),
+      // (a board without a speaker — no Speaker in its passport's "has", the WT32: no Sound, the screen flashes)
+      h('div', { class: 'group' }, h('h3', {}, 'Notifications'), (BOARD.has || []).includes('Speaker') ? sw('Sound', 'pm_sound') : null, sw('Auto-start', 'pm_auto')));
   } else if (l.type === 'video') {
     groups.push(clipsGroup(h, ICON), streamGroup(h, ICON));
   } else if (l.type === 'shade') {

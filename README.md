@@ -22,6 +22,10 @@ what the watch shows, pixel for pixel — the same fonts, the same animations, t
   motion chip's own pedometer), Display brightness, Battery, a Music player, a voice Recorder, three self-playing
   snake games, and About and Power — live cards about the board itself (processor, memory, battery, temperature,
   sound, motion; voltages).
+- **Pomodoro** (new in 2.6, by [YKatrechko](https://github.com/YKatrechko)) — a focus timer on every board: focus
+  intervals and breaks, a long break after every four, Skip, Reset and Auto-start, three beeps when one ends, its own
+  settings on the watch. On the round watch the time left runs along a ring at the edge; on a rectangle — along the
+  screen's frame.
 - **Weather widgets** (new in 2.2) — the temperature huge with the sky moving inside its digits, the next 12 hours
   as a curve, an old barometer, what to wear, a little weather buddy, pixel weather, the week ahead. The big clock
   makes room for them by itself; on the rectangular boards each has two layouts.
@@ -221,7 +225,8 @@ The WT32-SC01 Plus board — its Halo port, its passport and the screens laid ou
 side started from his pull request too. Thank you!
 
 The Music player's tracks from the microSD card on the AMOLED-1.75 are by **[YKatrechko](https://github.com/YKatrechko)**,
-whose pull request also tried the screen, touch, sound, Recorder and Bluetooth on a 1.75 without the “C”. Thank you!
+whose pull request also tried the screen, touch, sound, Recorder and Bluetooth on a 1.75 without the “C”. The
+**Pomodoro** app is theirs too — its timer, its round screen and its settings. Thank you!
 
 The code is written from scratch. The motion follows published open-source numbers, no firmware or app was
 decompiled, and no code was taken from GPL projects:

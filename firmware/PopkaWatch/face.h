@@ -100,7 +100,8 @@ enum : uint8_t {
   FL_RBROWSE, FL_RFOLDER, FL_RVOLUME,
   // The weather widgets (wxwidgets.h, 14 Nov 2026), the round board's: the sky inside the digits, the next 12 hours'
   // line, a barometer, what to wear, a buddy, pixel weather, the next five days
-  FL_WXDIGITS, FL_WXCURVE, FL_WXBARO, FL_WXWEAR, FL_WXBUDDY, FL_WXPIXEL, FL_WXWEEK
+  FL_WXDIGITS, FL_WXCURVE, FL_WXBARO, FL_WXWEAR, FL_WXBUDDY, FL_WXPIXEL, FL_WXWEEK,
+  FL_POMODORO  // Pomodoro: focus intervals and breaks, a screen of its own (settings.h, pomodoro.h)
 };
 static inline bool fl_wxw(uint8_t k) {  // a weather widget (wxwidgets.h)
   return k >= FL_WXDIGITS && k <= FL_WXWEEK;
@@ -460,6 +461,9 @@ static inline bool fl_section(uint8_t k) {
          || k == FL_VIDEO || k == FL_RADIO  // (a rectangle's: the Radio is one screen of one layer, radio_rect.h)
 #else
          || k == FL_RADIO || k == FL_RBROWSE || k == FL_RFOLDER || k == FL_RVOLUME  // (the round board's only)
+#endif
+#if HAS_POMODORO  // (pomodoro.h: in a firmware without it the board's code stays as it was)
+         || k == FL_POMODORO
 #endif
       ;
 }
