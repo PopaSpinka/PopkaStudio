@@ -202,8 +202,8 @@ free and helps a lot — there's a button for it in the heart's window too.
 
 PopkaStudio is free and open source. If you'd like to say thanks and help it grow — every new board in it starts with
 buying that board — you can support it through [GitHub Sponsors](https://github.com/sponsors/PopaSpinka) (monthly or
-once, any amount) or on [Boosty](https://boosty.to/popaspinka). The **Sponsor** button at the top of this page on
-GitHub leads there too.
+once, any amount), on [Buy Me a Coffee](https://buymeacoffee.com/popaspinka) (by card, no account needed) or on
+[Boosty](https://boosty.to/popaspinka). The **Sponsor** button at the top of this page on GitHub leads there too.
 
 ## License
 

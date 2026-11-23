@@ -198,8 +198,9 @@ Swiss Jazz.
 
 PopkaStudio бесплатная и с открытым кодом. Если хотите сказать спасибо и помочь ей расти — каждая новая плата в ней
 начинается с покупки этой платы, — поддержать можно через [GitHub Sponsors](https://github.com/sponsors/PopaSpinka)
-(раз в месяц или один раз, любая сумма) или на [Boosty](https://boosty.to/popaspinka). Туда же ведёт кнопка
-**Sponsor** вверху страницы проекта на GitHub.
+(раз в месяц или один раз, любая сумма), на [Buy Me a Coffee](https://buymeacoffee.com/popaspinka) (картой, без
+регистрации) или на [Boosty](https://boosty.to/popaspinka). Туда же ведёт кнопка **Sponsor** вверху страницы проекта
+на GitHub.
 
 ## Лицензия
 
