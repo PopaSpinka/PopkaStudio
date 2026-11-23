@@ -2,7 +2,8 @@
 
 **Экраны часов для плат ESP32 — рисуешь в браузере, на настоящих часах — одной кнопкой.**
 
-[English](README.md) · [Видео: с чего всё началось (YouTube)](https://www.youtube.com/watch?v=NHNoKUa2cDg)
+[English](README.md) · [Видео: с чего всё началось (YouTube)](https://www.youtube.com/watch?v=NHNoKUa2cDg) ·
+[Поддержать проект](#поддержать-проект)
 
 ![PopkaStudio](docs/screenshots/editor.png)
 
@@ -192,6 +193,12 @@ Swiss Jazz.
 кадрах? Пишите: **lastmail.sk@gmail.com**.
 
 **Хотите помочь?** Пул-реквесты приветствуются, новые платы тоже — см. [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Поддержать проект
+
+PopkaStudio бесплатная и с открытым кодом. Если хотите сказать спасибо и помочь ей расти — каждая новая плата в ней
+начинается с покупки этой платы, — поддержать можно на [Boosty](https://boosty.to/popaspinka). Туда же ведёт кнопка
+**Sponsor** вверху страницы проекта на GitHub.
 
 ## Лицензия
 

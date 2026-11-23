@@ -2,7 +2,8 @@
 
 **Design watch screens for ESP32 boards in your browser — and see them on the real watch in one click.**
 
-[Русская версия](README.ru.md) · [Video: how it started (YouTube)](https://www.youtube.com/watch?v=NHNoKUa2cDg)
+[Русская версия](README.ru.md) · [Video: how it started (YouTube)](https://www.youtube.com/watch?v=NHNoKUa2cDg) ·
+[Support the project](#support-the-project)
 
 ![PopkaStudio](docs/screenshots/editor.png)
 
@@ -196,6 +197,12 @@ free and helps a lot — there's a button for it in the heart's window too.
 **lastmail.sk@gmail.com**.
 
 **Want to help?** Pull requests are welcome, a new board too — see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Support the project
+
+PopkaStudio is free and open source. If you'd like to say thanks and help it grow — every new board in it starts with
+buying that board — you can support it on [Boosty](https://boosty.to/popaspinka). The **Sponsor** button at the top
+of this page on GitHub leads there too.
 
 ## License
 
