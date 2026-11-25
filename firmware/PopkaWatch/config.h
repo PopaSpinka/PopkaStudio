@@ -10,3 +10,5 @@
 #define FN_SCLOCK 0x0000
 // The weather widgets (wxwidgets.h): a bit a widget the project has, from wxdigits (none — not in the firmware)
 #define FN_WXW 0x00
+// The agent's moods (agent.h): a bit a look the project has — 1 the dot face, 2 the dot orb (none — not in the firmware)
+#define FN_AGENT 0

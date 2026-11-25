@@ -2,8 +2,9 @@
 // the board. No × and no Close: Esc or a click beside the window closes it. Tabs About · Credits (the track of the
 // start window slides). About: a small watch with the name, who made PopkaStudio and with whom, the links, the version's
 // row — the update's state (update.js) with its button: Check / What's new / Try again, a bar while an update runs —
-// the contact, and a support card: subscribe on YouTube (?sub_confirmation=1 — YouTube asks "Subscribe?" at once).
-// A newer version out: the heart opens "What's new" instead (About is a link there).
+// the contact, and support in two cards (variant 2 of web/mockups/support.html, 23 Nov 2026): subscribe on YouTube
+// (?sub_confirmation=1 — YouTube asks "Subscribe?" at once) and "Runs on tokens" — Chip in opens a menu of GitHub
+// Sponsors, Buy Me a Coffee and Boosty. A newer version out: the heart opens "What's new" instead (About is a link there).
 import { updatesPending, openUpdates, updateInfo, checkNow, onUpdates } from './update.js';
 
 const $ = (id) => document.getElementById(id);
@@ -64,15 +65,23 @@ export function initAbout() {
     phase = phase === 'checking' ? phase : '', row(), follow();
     win.focus({ preventScroll: true });
   };
-  const close = () => { clearTimeout(timer), box.classList.remove('on'), box.setAttribute('aria-hidden', 'true'); };
+  // Chip in: the menu of the three services over the gold card; a click anywhere else, a pick or Esc closes it
+  const chip = $('about-chip'), menu = $('about-menu');
+  const pop = (on) => { menu.hidden = !on, chip.setAttribute('aria-expanded', String(on)); };
+  const close = () => { clearTimeout(timer), pop(false), box.classList.remove('on'), box.setAttribute('aria-hidden', 'true'); };
   openIt = open;
   win.tabIndex = -1;
   $('about-btn').addEventListener('click', () => (updatesPending() ? openUpdates() : open()));
   $('about-tab1').addEventListener('click', () => tab(1));
   $('about-tab2').addEventListener('click', () => tab(2));
-  box.addEventListener('pointerdown', (e) => { if (e.target === box) close(); });  // (a click beside the window)
+  chip.addEventListener('click', () => pop(menu.hidden));
+  menu.addEventListener('click', (e) => { if (e.target.closest('a')) pop(false); });
+  box.addEventListener('pointerdown', (e) => {
+    if (e.target === box) close();  // (a click beside the window)
+    else if (!menu.hidden && !e.target.closest('.ab-chip-w')) pop(false);
+  });
   addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && shown()) e.stopPropagation(), close();
+    if (e.key === 'Escape' && shown()) e.stopPropagation(), (menu.hidden ? close() : pop(false));
   }, true);
   fetch('/api/about').then((r) => r.json()).then((a) => { version = a.version, $('about-ver').textContent = 'v' + a.version, row(); }).catch(() => {});
 }

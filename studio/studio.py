@@ -74,7 +74,7 @@ def bring_old_data():
             os.rmdir(src)
 
 
-VERSION = "2.6"  # PopkaStudio's version (the About window; the release notes)
+VERSION = "2.7"  # PopkaStudio's version (the About window; the release notes)
 
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 import halo_assets as ha  # noqa: E402 — the board's font and image code
@@ -118,7 +118,7 @@ KINDS = {"date": 0, "clock": 1, "weather": 2,                                   
          "rtime": 45, "rname": 46, "rsong": 47, "rbtn": 48, "rline": 49, "rrays": 50, "rplay": 51,
          "rbrowse": 52, "rfolder": 53, "rvolume": 54,
          "wxdigits": 55, "wxcurve": 56, "wxbaro": 57, "wxwear": 58, "wxbuddy": 59, "wxpixel": 60, "wxweek": 61,
-         "pomodoro": 62}
+         "pomodoro": 62, "agent": 63}
 # The weather widgets (wxwidgets.h; web/mockups/weather-widgets.html, the variants the user kept on 14 Nov 2026): the
 # round board's; only those a project has go into its firmware (FN_WXW: a bit a widget, from wxdigits)
 WXW = ("wxdigits", "wxcurve", "wxbaro", "wxwear", "wxbuddy", "wxpixel", "wxweek")
@@ -189,6 +189,12 @@ LOOKS = {"shade": SHADE_LOOKS, "sclock": SC_NAMES}  # what a layer's look may be
 WXLOOKS = {"wxdigits": ("side", "band"), "wxcurve": ("band", "side"), "wxbaro": ("side", "band"), "wxwear": ("side", "band"),
            "wxbuddy": ("side", "peek"), "wxpixel": ("whole", "band"), "wxweek": ("band", "side")}
 LOOKS.update(WXLOOKS)
+# The agent's looks and moods (agent.h AG_FACE, AG_ORB; AG_NAMES — the same order; the pages "Лица голосового агента",
+# "Эмоции агента", 25 Nov 2026): a mood — p3, its index; "all" — 12, all of them in turn
+AGENT_LOOKS = ("face", "orb")
+AGENT_MOODS = {"face": ("idle", "happy", "laugh", "angry", "sad", "surprised", "love", "confused", "wink", "bored", "scared", "done"),
+               "orb": ("idle", "listen", "think", "search", "speak", "happy", "angry", "sad", "surprised", "done", "error", "sleep")}
+LOOKS["agent"] = AGENT_LOOKS
 
 
 def sc_font(layer, i, rect=False):
@@ -350,6 +356,8 @@ DEFAULTS = {
     # A clock in one of sixteen looks (sclock.h; Layers → Clock): its look, size and three colors (what each is — the look's)
     "sclock": {"name": "Clock", "look": "hairline", "scale": 1, "color": "#FFF8EE", "color2": "#FF8A80",
                "color3": "#5E5F64"},
+    # The agent's moods (agent.h; Layers → Agent): its look (a dot face or a dot orb), a mood of the look or "all", size, dots
+    "agent": {"name": "Agent", "look": "face", "mood": "happy", "scale": 1, "color": "#FFA630"},
     # The weather widgets (wxwidgets.h): the main font (size …) and a second one for the small words (size2); scale —
     # the icons' size (Curve, Week), the picture's (Wear, Buddy, Pixels)
     "wxdigits": {"look": "side", "name": "Weather digits", "size": 214, "weight": 760, "width": 100, "spacing": -6, "size2": 16,
@@ -671,6 +679,8 @@ def clean_layer(raw):
         layer["what"] = DEFAULTS[kind]["what"]
     if "look" in layer and layer["look"] not in LOOKS.get(kind, ()):
         layer["look"] = DEFAULTS[kind]["look"]
+    if kind == "agent" and layer["mood"] not in (*AGENT_MOODS[layer["look"]], "all"):
+        layer["mood"] = "idle"
     if "sides" in layer and layer["sides"] not in RADIO_SIDES:
         layer["sides"] = DEFAULTS[kind]["sides"]
     if "format" in layer and layer["format"] not in INFOS:
@@ -1519,6 +1529,9 @@ def layer_numbers(layer):
         p2 = SHADE_LOOKS.index(layer["look"])
     elif kind == "sclock":  # a clock of sclock.h: its look
         p2 = SC_NAMES.index(layer["look"])
+    elif kind == "agent":  # the agent (agent.h): its look, its mood (12 — all in turn)
+        p2 = AGENT_LOOKS.index(layer["look"])
+        p3 = 12 if layer["mood"] == "all" else AGENT_MOODS[layer["look"]].index(layer["mood"])
     elif kind == "rname":  # the station's top line: its width (a word that doesn't fit there goes down)
         p2 = layer["span2"]
     elif kind == "rbtn":  # what the Radio's button opens
@@ -1582,7 +1595,7 @@ def write_sketch(project, folder, meta=None):
                      "pixelart.h", "parrot.h", "bt.h", "wxfetch.h", "settings.h", "stepscreen.h", "widgets.h", "widgets_rect.h", "wxwidgets.h",
                      "music.h", "music_sd.h", "player.h", "pomodoro.h", "pomodoro_rect.h", "sound.h", "volume.h", "recorder.h", "radio.h", "radio_net.h", "radio_rect.h", "video.h", "video_hw.h", "video_net.h", "snake.h", "games.h", "game_dots.h",
                      "game_space.h", "game_iso.h", "live.h", "device.h", "hello.h", "wifiscan.h", "shade_rect.h", "shade_round.h",
-                     "sclock.h"):
+                     "sclock.h", "agent.h"):
             shutil.copy(os.path.join(FIRMWARE, name), os.path.join(folder, name))
     fonts, icons = {}, {}  # spec -> name, (set, scale) -> name
     all_layers = [layer for scr in screens for layer in scr["layers"]]
@@ -1705,7 +1718,9 @@ def write_sketch(project, folder, meta=None):
            "// The clocks of sixteen looks (sclock.h): a bit a look the project has (none — not in the firmware)",
            f"#define FN_SCLOCK 0x{sum(1 << SC_NAMES.index(look) for look in {layer['look'] for layer in all_layers if layer['type'] == 'sclock'}):04X}",
            "// The weather widgets (wxwidgets.h): a bit a widget the project has, from wxdigits (none — not in the firmware)",
-           f"#define FN_WXW 0x{sum(1 << WXW.index(k) for k in {layer['type'] for layer in all_layers} if k in WXW):02X}"]
+           f"#define FN_WXW 0x{sum(1 << WXW.index(k) for k in {layer['type'] for layer in all_layers} if k in WXW):02X}",
+           "// The agent's moods (agent.h): a bit a look the project has — 1 the dot face, 2 the dot orb (none — not in the firmware)",
+           f"#define FN_AGENT {sum(1 << AGENT_LOOKS.index(look) for look in {layer['look'] for layer in all_layers if layer['type'] == 'agent'})}"]
     if meta is not None:  # (a Load: who this firmware is — the board's answer to hello, hello.h)
         pid = str(meta.get("pid") or "")
         cfg += ["// Who this firmware is: the board's answer to hello (hello.h) — the editor tells its own boards",

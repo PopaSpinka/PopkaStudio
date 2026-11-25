@@ -10,7 +10,7 @@
 // on a layer with a link, HaloWatch's transition, back with a swipe up from the bottom edge; the gallery (a swipe up on
 // the face), its cards, the Android 16 transition, back with a swipe from the left edge.
 import { BOARD, TW, TH, ROUND, lacks } from './screen.js';
-import { state, KIND_INDEX, FX, KINDS, ICONS, TAPS, RADIO_LINKED, fnOf, timeOf, zoneShift, citiesOf, weatherOf, CLOCK_LOOKS, clockLook, WXLOOKS, swipeSide } from './state.js';
+import { state, KIND_INDEX, FX, KINDS, ICONS, TAPS, RADIO_LINKED, fnOf, timeOf, zoneShift, citiesOf, weatherOf, CLOCK_LOOKS, clockLook, WXLOOKS, swipeSide, AGENT_MOODS } from './state.js';
 
 const PERIOD = 1000 / 60;
 // Pictures put on the page since it opened (all copies): the overlay draws again only after one (a layer's box may have
@@ -54,8 +54,10 @@ const P2 = { curve: (l) => CURVE_I.indexOf(l.what), stepring: (l) => l.radius, i
   sclock: (l) => Math.max(0, CLOCK_LOOKS.findIndex(([k]) => k === l.look)),  // (sclock.h: its look)
   rname: (l) => l.span2 ?? l.span ?? 0,  // (the station's top line: its width)
   rbtn: (l) => (l.what === 'volume' ? 1 : 0), rrays: (l) => Math.max(0, ['both', 'left', 'right'].indexOf(l.sides)),  // (radio.h)
-  wxdigits: (l) => (l.lines === false ? 1 : 0), wxpixel: (l) => (l.clock === false ? 0 : 1) };  // (wxwidgets.h)
-const P3 = { curve: (l) => l.angle, weekarc: (l) => l.angle ?? 0, forecast: (l) => l.angle ?? 0 };
+  wxdigits: (l) => (l.lines === false ? 1 : 0), wxpixel: (l) => (l.clock === false ? 0 : 1),  // (wxwidgets.h)
+  agent: (l) => (l.look === 'orb' ? 1 : 0) };  // (agent.h: its look)
+const P3 = { curve: (l) => l.angle, weekarc: (l) => l.angle ?? 0, forecast: (l) => l.angle ?? 0,
+  agent: (l) => (l.mood === 'all' ? 12 : Math.max(0, (AGENT_MOODS[l.look] || []).findIndex(([m]) => m === l.mood))) };  // (agent.h: its mood, 12 — all in turn)
 for (const k of Object.keys(WXLOOKS)) P3[k] = (l) => Math.max(0, WXLOOKS[k].findIndex(([v]) => v === l.look));  // (wxwidgets.h: the layout)
 
 // The network the board's Wi-Fi joins (studio.py: the one picked in the Wi-Fi window) — for the quick settings panel's

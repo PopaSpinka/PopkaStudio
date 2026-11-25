@@ -101,7 +101,8 @@ enum : uint8_t {
   // The weather widgets (wxwidgets.h, 14 Nov 2026), the round board's: the sky inside the digits, the next 12 hours'
   // line, a barometer, what to wear, a buddy, pixel weather, the next five days
   FL_WXDIGITS, FL_WXCURVE, FL_WXBARO, FL_WXWEAR, FL_WXBUDDY, FL_WXPIXEL, FL_WXWEEK,
-  FL_POMODORO  // Pomodoro: focus intervals and breaks, a screen of its own (settings.h, pomodoro.h)
+  FL_POMODORO,  // Pomodoro: focus intervals and breaks, a screen of its own (settings.h, pomodoro.h)
+  FL_AGENT      // the voice agent's moods: a dot face or a dot orb, round on every board (agent.h)
 };
 static inline bool fl_wxw(uint8_t k) {  // a weather widget (wxwidgets.h)
   return k >= FL_WXDIGITS && k <= FL_WXWEEK;
@@ -118,6 +119,13 @@ static inline bool fl_rpart(uint8_t k) {  // a part of the Radio's main screen
 #define HAS_SCLOCK 1
 #else
 #define HAS_SCLOCK 0
+#endif
+// The agent's moods (agent.h): in a firmware with one of its looks (FN_AGENT, config.h: a bit a look), always in the
+// editor's page
+#if defined(__EMSCRIPTEN__) || (defined(FN_AGENT) && FN_AGENT)
+#define HAS_AGENT 1
+#else
+#define HAS_AGENT 0
 #endif
 static inline bool fl_pixels(uint8_t k) {  // pixel art drawn cell by cell (pixelart.h)
   return k == FL_PARROT
@@ -198,6 +206,9 @@ struct FaceRun {
 #endif
 #if HAS_WXW
   struct WwRun *ww;        // a weather widget: its items, lines, what it draws itself (wxwidgets.h)
+#endif
+#if HAS_AGENT
+  struct AgRun *ag;        // the agent: its mood, the face's heat or the orb's dots, its masks (agent.h; in PSRAM)
 #endif
 };
 struct GalRun;  // gallery.h
@@ -385,6 +396,10 @@ static inline void rd_part_free(FaceRun &) {}
 #if HAS_SCLOCK
 #include "sclock.h"      // the clocks of sixteen looks
 #endif
+#if HAS_AGENT
+static bool face_over_others(const FaceScreen &S, int i);  // (below: does a layer sit over others)
+#include "agent.h"       // the agent's moods
+#endif
 #include "stars.h"     // the starry background
 #include "pixelart.h"  // pixel art
 #if HAS_SHADE  // (shade_rect.h or shade_round.h, at the end of this file)
@@ -483,6 +498,9 @@ static void face_layer_build(const FaceScreen &S, int i) {
 #if HAS_WXW
   ww_free(R);
 #endif
+#if HAS_AGENT
+  ag_layer_free(R);
+#endif
   // Afresh in its own place: no copy on the stack (it is ~4.8 KB; Live rebuilds a layer in the frame task — 6 KB)
   R.~FaceRun();
   new (&R) FaceRun();
@@ -510,6 +528,9 @@ static void face_layer_build(const FaceScreen &S, int i) {
 #endif
 #if HAS_WXW
   if (fl_wxw(L.kind)) return ww_layer_build(S, i);
+#endif
+#if HAS_AGENT
+  if (L.kind == FL_AGENT) return ag_layer_build(S, i);
 #endif
 #if HAS_STARS
   if (L.kind == FL_STARS) return stars_layer_build(S, i);
@@ -553,6 +574,9 @@ static bool face_layer_rebuild(const FaceLayer &was, const FaceLayer &L) {
 #if HAS_SCLOCK
   if (L.kind == FL_SCLOCK && (was.p2 != L.p2 || was.font3 != L.font3 || was.font4 != L.font4)) return true;
 #endif
+#if HAS_AGENT
+  if (L.kind == FL_AGENT && (was.p2 != L.p2 || was.p3 != L.p3)) return true;  // (another look or mood: from its start)
+#endif
   return was.kind != L.kind || was.font != L.font || was.font2 != L.font2 || was.spacing != L.spacing ||
          was.k != L.k || was.p != L.p || (L.kind == FL_CURVE && was.p3 != L.p3);
 }
@@ -572,6 +596,9 @@ static void face_build() {
   gal_build();
 #if HAS_STARS
   stars_commands();
+#endif
+#if HAS_AGENT
+  halo_command("agent", ag_command);  // agent next | all | <0..11> | <name> — every agent's mood (agent.h)
 #endif
   halo_command("wx", [](const char *a) { fc_cmd_wx = *a ? atoi(a) : -2; });  // wx N — a demo day; wx — the real weather
   halo_command("demo", [](const char *) { fc_cmd_demo = true; });
@@ -714,6 +741,12 @@ static void screen_layout(int s, const HaloView &v) {
 #if HAS_WXW
     if (fl_wxw(L.kind)) {
       ww_layout(S, i, L.hidden ? 0 : 1, v);
+      continue;
+    }
+#endif
+#if HAS_AGENT
+    if (L.kind == FL_AGENT) {
+      ag_layout(S, i, L.hidden ? 0 : 1, v);
       continue;
     }
 #endif
@@ -871,6 +904,10 @@ static void screen_draw(int s) {
     } else if (fl_wxw(L.kind)) {
       ww_draw(S, i);
 #endif
+#if HAS_AGENT
+    } else if (L.kind == FL_AGENT) {
+      ag_draw(S, i);
+#endif
     } else if (fl_paged(L.kind)) {
       if (paged) continue;
       paged = true;
@@ -947,6 +984,9 @@ static void screen_update(int s, float dt, int depth) {
 #ifndef HALO_ROUND
   dv_rect_update(S, dt);
 #endif
+#if HAS_AGENT
+  ag_tap(S);  // (an agent without a link: its next mood)
+#endif
 }
 
 // The screen open right over the face (a layer of the face with a link)
@@ -1009,6 +1049,9 @@ static void face_update(float) {
       return;
     }
   }
+#if HAS_AGENT
+  ag_tap(S);  // (an agent without a link: its next mood)
+#endif
 }
 
 static const HaloScreen FACE = {nullptr, face_update, face_layout, face_draw};

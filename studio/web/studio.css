@@ -763,8 +763,8 @@ body.sorting .layer:hover:not(.lifted):not(.sel) { background: none; }
 
 /* ---------- About (about.js; variant 4 of web/mockups/about2.html, 6 Nov 2026): the heart at the top right; a window
    as the start window's — no × and no Close (Esc or a click beside closes it), tabs About · Credits at the top right, a
-   small watch and the name, the rows (the version's row tells the update's state, its button acts), a support card:
-   subscribe on YouTube (the red toned down — the user's word) ---------- */
+   small watch and the name, the rows (the version's row tells the update's state, its button acts), support: subscribe
+   on YouTube (the red toned down — the user's word) and, since 23 Nov 2026, "Runs on tokens" — the donations ---------- */
 .heart-btn:hover:not(:disabled) { color: #ff5f86; }
 .heart-btn:hover:not(:disabled) svg { fill: #ff5f86; stroke: #ff5f86; }
 .about { z-index: 110; }
@@ -839,6 +839,36 @@ body.sorting .layer:hover:not(.lifted):not(.sel) { background: none; }
   background: #c4384f; color: #fff; font-weight: 600; text-decoration: none; transition: background 0.15s; }
 .ab-sub:hover { background: #d4445c; }
 .ab-sub svg { width: 16px; height: 12px; }
+/* support in two halves (variant 2 of web/mockups/support.html, 23 Nov 2026): subscribe — free; "Runs on tokens" — gold,
+   Chip in opens a menu of the three services over it (GitHub Sponsors, Buy Me a Coffee, Boosty) */
+.ab-two { display: flex; gap: 10px; margin-top: 14px; }
+.ab-two .ab-support { flex: 1; min-width: 0; margin-top: 0; gap: 10px; padding: 10px 10px 10px 12px; }
+.ab-two .ab-support .tx span { font-size: 11.5px; }
+.ab-support.gold { background: linear-gradient(90deg, rgba(245, 197, 66, 0.11), rgba(245, 197, 66, 0.03)); border-color: rgba(245, 197, 66, 0.24); }
+.ab-support > .ab-coin { width: 20px; height: 20px; }
+.ab-chip-w { position: relative; flex: none; }
+.ab-chip, .ab-chip:hover:not(:disabled) { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 13px; border: 0;
+  border-radius: 8px; background: rgba(245, 197, 66, 0.15); color: #f5c542; font-weight: 600; }
+.ab-chip:hover:not(:disabled), .ab-chip[aria-expanded="true"] { background: rgba(245, 197, 66, 0.24); }
+.ab-chip svg { width: 14px; height: 14px; }
+.ab-menu { position: absolute; right: 0; bottom: calc(100% + 10px); z-index: 5; width: 300px; padding: 6px; border-radius: 12px;
+  background: var(--panel-2); border: 1px solid var(--line-2); box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55); }
+.ab-menu[hidden] { display: none; }
+.ab-menu .hd { padding: 6px 8px 8px; color: var(--dim); font-size: 12px; }
+.ab-menu .hd b { color: var(--text); font-weight: 650; }
+.ab-it { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 8px; color: var(--text); text-decoration: none; }
+.ab-it:hover { background: var(--panel-3); }
+.ab-it .tx { flex: 1; min-width: 0; }
+.ab-it .tx b { display: block; font-weight: 650; }
+.ab-it .tx span { color: var(--dim); font-size: 11.5px; }
+.ab-it .go { flex: none; width: 12px; height: 12px; fill: none; stroke: var(--faint); stroke-width: 1.6; }
+.ab-it .ic { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; }
+.ab-it .ic svg { width: 16px; height: 16px; }
+.ab-it .ic.gh { background: rgba(219, 97, 162, 0.16); }
+.ab-it .ic.gh svg { fill: #db61a2; }
+.ab-it .ic.cf { background: rgba(255, 221, 0, 0.14); }
+.ab-it .ic.cf svg { fill: none; stroke: #ffdd00; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.ab-it .ic.bo { background: rgba(241, 95, 44, 0.16); color: #ff7a45; font-weight: 800; font-size: 14px; }
 .ab-esc { margin-top: auto; padding-top: 6px; text-align: right; color: #4c4d54; font-size: 10.5px; }
 /* Credits */
 .about-cred { padding-top: 70px !important; }

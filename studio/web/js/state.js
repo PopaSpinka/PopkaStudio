@@ -108,6 +108,18 @@ export const KINDS = {
     color: ROUND ? '#CE97FD' : '#A8C7FA' },
   // PopkaStudio's clocks of sixteen looks (sclock.h; web/mockups/clocks.html): the look (CLOCK_LOOKS), its size and colors
   sclock: { group: 'clock', name: 'Clock', sub: 'A clock in one of sixteen looks', look: 'hairline', scale: 1, color: '#FFF8EE', color2: '#FF8A80', color3: '#5E5F64' },
+  // The voice agent's moods (agent.h; the pages "Лица голосового агента", "Эмоции агента", 25 Nov 2026): a dot face or a
+  // dot orb, round on every board (a rectangle: a circle in the middle); a mood of its look (AGENT_MOODS) or all in turn;
+  // on the board a tap shows the next mood, the command "agent <mood>" sets it
+  agent: { group: 'agent', name: 'Agent', sub: 'A voice agent\'s moods: a dot face or a dot orb', look: 'face', mood: 'happy', scale: 1, color: '#FFA630' },
+};
+// The agent's looks and moods (studio.py AGENT_MOODS, agent.h AG_NAMES — the same order); 'all' — all of them in turn
+export const AGENT_LOOKS = [['face', 'Dot face'], ['orb', 'Dot orb']];
+export const AGENT_MOODS = {
+  face: [['idle', 'Idle'], ['happy', 'Happy'], ['laugh', 'Laughing'], ['angry', 'Angry'], ['sad', 'Sad'], ['surprised', 'Surprised'],
+    ['love', 'In love'], ['confused', 'Confused'], ['wink', 'Winking'], ['bored', 'Bored'], ['scared', 'Scared'], ['done', 'Done']],
+  orb: [['idle', 'Idle'], ['listen', 'Listening'], ['think', 'Thinking'], ['search', 'Searching'], ['speak', 'Speaking'], ['happy', 'Happy'],
+    ['angry', 'Angry'], ['sad', 'Sad'], ['surprised', 'Surprised'], ['done', 'Done'], ['error', 'Error'], ['sleep', 'Sleeping']],
 };
 // The panel's looks (studio.py SHADE_LOOKS — the same names): a rectangle's — shade_rect.h SH_*, rect-quick.html's
 // variants 1, 3, 7, 8; the round board's — one, Wear OS 6 (shade_round.h)
@@ -140,7 +152,7 @@ export const clockLook = (l) => CLOCK_LOOKS.find(([k]) => k === l.look) || CLOCK
 export const DEVS = [['cpu', 'Processor'], ['mem', 'Memory'], ['bat', 'Battery'], ['temp', 'Temperature'], ['snd', 'Sound'], ['mot', 'Motion']];
 export const KIND_INDEX = { date: 0, clock: 1, weather: 2, arc: 3, city: 4, wxicon: 5, wxtemp: 6, wxhilo: 7, hourly: 8, dots: 9, title: 10, card: 11, edge: 12, scroll: 13, steps: 14, stars: 15, feels: 17, display: 18, battery: 19, stnum: 20, stcap: 21, stfoot: 22, stchart: 23, curve: 24, stepring: 25, weekarc: 26, infoline: 27, forecast: 28, dateframe: 29, dotclock: 30, music: 31, recorder: 32, snkdots: 33, snkspace: 34, snkiso: 35, batring: 36, parrot: 37, devcard: 38, device: 39, charge: 40, video: 41, shade: 42, sclock: 43, radio: 44,
   rtime: 45, rname: 46, rsong: 47, rbtn: 48, rline: 49, rrays: 50, rplay: 51, rbrowse: 52, rfolder: 53, rvolume: 54,
-  wxdigits: 55, wxcurve: 56, wxbaro: 57, wxwear: 58, wxbuddy: 59, wxpixel: 60, wxweek: 61, pomodoro: 62 };
+  wxdigits: 55, wxcurve: 56, wxbaro: 57, wxwear: 58, wxbuddy: 59, wxpixel: 60, wxweek: 61, pomodoro: 62, agent: 63 };
 export const WXW = ['wxdigits', 'wxcurve', 'wxbaro', 'wxwear', 'wxbuddy', 'wxpixel', 'wxweek'];  // the weather widgets
 // Their layouts on the 7-inch board (studio.py WXLOOKS — the same names, in the same order: wxwidgets.h p3;
 // web/mockups/weather-widgets-rect.html 1A; 2A, 2B; 3A, 3B; 4A, 4B; 5A, 5B; 6A, 6B; 7A, 7B). A third element true — a
@@ -187,6 +199,9 @@ export const FACE_PRESETS = {
   pDotClock: { name: 'Dot clock', icon: 'dotclock', parts: [['dotclock', {}]] },
   pInfoIcons: { name: 'Weather & steps, icons', icon: 'infoline', parts: [['infoline', { name: 'Weather & steps, icons', format: 'icons', size: 20, weight: 700, color: '#FFF8EE', dy: -32 }]] },
 };
+// The agent: a piece a look (Layers → Agent)
+FACE_PRESETS.pAgentFace = { name: 'Dot face', icon: 'agent', parts: [['agent', { name: 'Dot face', look: 'face', mood: 'happy' }]] };
+FACE_PRESETS.pAgentOrb = { name: 'Dot orb', icon: 'agent', parts: [['agent', { name: 'Dot orb', look: 'orb', mood: 'think' }]] };
 // The clocks of sixteen looks: a piece each (Layers → Clock)
 for (const [look, name, [color, color2, color3]] of CLOCK_LOOKS)
   FACE_PRESETS['pc' + look[0].toUpperCase() + look.slice(1)] = { name, icon: 'clock', parts: [['sclock', { name, look, color, color2, color3 }]] };

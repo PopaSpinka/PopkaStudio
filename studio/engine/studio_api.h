@@ -27,7 +27,7 @@ static std::vector<const HaloFont *> st_fonts;
 static std::vector<const HaloImage *const *> st_icons;
 static char st_text[ST_SCREENS][ST_LAYERS][3][40];  // the gallery's text: the title, the line under it, the icon
 static char st_name[ST_SCREENS][40];                // the screens' names (an empty one shows its name)
-static float st_boxes[ST_LAYERS * 4], st_places[ST_LAYERS * 2], st_bases[FL_POMODORO * 2 + 2], st_radii[ST_LAYERS * 2];
+static float st_boxes[ST_LAYERS * 4], st_places[ST_LAYERS * 2], st_bases[FL_AGENT * 2 + 2], st_radii[ST_LAYERS * 2];
 static int st_pin = -1, st_page = 0;
 
 void web_loop(HaloUpdate update, HaloDraw draw);  // halo_web.cpp
@@ -338,6 +338,7 @@ EMSCRIPTEN_KEEPALIVE float *studio_bases() {
   st_bases[FL_MUSIC * 2] = st_bases[FL_MUSIC * 2 + 1] = CX;
   st_bases[FL_RECORDER * 2] = st_bases[FL_RECORDER * 2 + 1] = CX;
   st_bases[FL_POMODORO * 2] = st_bases[FL_POMODORO * 2 + 1] = CX;
+  st_bases[FL_AGENT * 2] = CX, st_bases[FL_AGENT * 2 + 1] = CY;  // (the agent, agent.h: by the screen's middle)
   st_bases[FL_VIDEO * 2] = st_bases[FL_VIDEO * 2 + 1] = CX;
   st_bases[FL_SHADE * 2] = CX, st_bases[FL_SHADE * 2 + 1] = CY;
   st_bases[FL_SCLOCK * 2] = CX, st_bases[FL_SCLOCK * 2 + 1] = CY;  // (a clock of sclock.h: by the screen's middle)

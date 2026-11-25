@@ -11,7 +11,7 @@ import {
   setWeather, WX_MAX, moveCity, isGallery, galleryFor, SECTIONS, sectionParts, sectionPart, addSection, addAbout, DEVS, SECTION_PATH, titleOf, subGallery, keepHead, gamesGallery, newList, stepsSet, STEP_FAMILY,
   savedFaces, saveFace, removeFace, faceLayers, SWIPES, swipeOf, setSwipe, swipeWords,
   roomFor, relayClock, relaySizes, WXW, wxLooksOf, FACE_PRESETS, FOUR_SIDES, CURVES, INFOS, PIXEL_ART, SHADE_LOOKS, CLOCK_LOOKS, clockLook,
-  RADIO_PARTS, isRadio, allowedOn, RADIO_LINKED, radioTarget,
+  RADIO_PARTS, isRadio, allowedOn, RADIO_LINKED, radioTarget, AGENT_LOOKS, AGENT_MOODS,
 } from './state.js';
 import { thumb } from './previews.js';
 import { openWifi, needWifi } from './wifi.js';
@@ -67,6 +67,7 @@ const ICON = {
   forecast: '<svg viewBox="0 0 16 16"><path d="M3 11a2 2 0 0 1 .4-4 3 3 0 0 1 5.8.9A1.6 1.6 0 1 1 9.6 11z"/><path d="M11.5 3.5v1M14 6h-1M13.3 4.2l-.7.7"/></svg>',
   dateframe: '<svg viewBox="0 0 16 16"><path d="M4 4.5h8M4 11.5h8M6 2.5h4M6 13.5h4"/></svg>',
   dotclock: '<svg viewBox="0 0 16 16"><path d="M3 5h.01M3 8h.01M3 11h.01M6 5h.01M6 11h.01M8 6.5h.01M8 9.5h.01M10 5h.01M10 8h.01M10 11h.01M13 5h.01M13 8h.01M13 11h.01"/></svg>',
+  agent: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M5.8 7h.01M10.2 7h.01M5.9 10c1.2 1 3 1 4.2 0"/></svg>',
   wxdigits: '<svg viewBox="0 0 16 16"><path d="M1.5 6a2 2 0 1 1 3.4 1.4L1.5 12h4M10 12V4L7.5 9.5H12"/><circle cx="14" cy="4.5" r="1.2"/></svg>',
   wxcurve: '<svg viewBox="0 0 16 16"><path d="M1.5 11c2-4 3.5-6 5.5-6s2.5 3 4.5 3 2.5-1.5 3-2.5M1.5 14h13"/></svg>',
   wxbaro: '<svg viewBox="0 0 16 16"><path d="M2.5 11a5.5 5.5 0 1 1 11 0M8 11l3-4"/><circle cx="8" cy="11" r="1"/></svg>',
@@ -199,6 +200,7 @@ const SHELVES = {
     { name: 'Battery', icon: 'battery', items: ['pBatRing', 'pBatArc'] },
     { name: 'Combined', icon: 'infoline', items: ['pDateSteps', 'pInfoWords', 'pInfoShort', 'pInfoIcons'] },  // (several at once)
     { name: 'Backgrounds', icon: 'stars', items: ['stars', 'parrot'] },
+    { name: 'Agent', icon: 'agent', items: ['pAgentFace', 'pAgentOrb'] },  // (agent.h: a look each, its moods in the panel)
     // the Radio's main screen's parts: onto its screen only (state.js allowedOn)
     { name: 'Radio', icon: 'radio', items: ['rtime', 'rname', 'rsong', 'rbtn', 'rline', 'rrays', 'rplay'] },
   ],
@@ -232,7 +234,7 @@ const SHADES = Object.fromEntries(SHADE_LOOKS.map(([look, name]) => ['sh' + look
 // the layers of its kind; a ready piece (Curved date…) — the layers of its kind with its "what" / "format"; an app —
 // the screens with its own layer (Weather — a city, Steps — the number…); a watch face — when the home is that one
 // (Empty — only while the home has nothing on it)
-const sig = (l) => `${l.type}|${l.what ?? ''}|${l.format ?? ''}|${l.type === 'sclock' ? l.look : ''}`;
+const sig = (l) => `${l.type}|${l.what ?? ''}|${l.format ?? ''}|${l.type === 'sclock' || l.type === 'agent' ? l.look : ''}`;
 const presetSigs = new Map();
 const presetSig = (key) => presetSigs.get(key) ?? presetSigs.set(key, sig(apart([FACE_PRESETS[key].parts[0]])()[0])).get(key);
 function placesOf(key) {
@@ -1453,6 +1455,15 @@ function layerProps(stage, l) {
     const [, , , names] = clockLook(l), keys = ['color', 'color2', 'color3'];
     groups.push(h('div', { class: 'group' }, h('h3', {}, 'Clock'), scale('Size'),
       ...names.map((name, j) => (name ? color(name, () => l[keys[j]], upd(keys[j]), keys[j]) : null))));
+  } else if (l.type === 'agent') {  // (its look: Dot face or Dot orb; a mood of that look, or all of them in turn)
+    groups.push(h('div', { class: 'group' }, h('h3', {}, 'Agent'),
+      segmented('Look', () => l.look, AGENT_LOOKS, (v) => change(() => {
+        if (l.mood !== 'all' && !AGENT_MOODS[v].some(([m]) => m === l.mood)) l.mood = 'idle';  // (a mood the other look hasn't)
+        l.look = v;
+      }, { structure: true })),
+      choice('Mood', l.mood, [...AGENT_MOODS[l.look], ['all', 'All in turn']], (v) => change(() => { l.mood = v; }, { structure: true })),
+      scale('Size'),
+      color('Dots', () => l.color, upd('color'), 'color')));
   } else if (l.type === 'dotclock') {
     groups.push(h('div', { class: 'group' }, h('h3', {}, 'Dots'), scale('Size'),
       color('Lit', () => l.color, upd('color'), 'color'),

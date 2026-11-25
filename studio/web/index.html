@@ -153,7 +153,9 @@
 
   <!-- About (about.js): over the editor, blurred behind it, as the start window; two steps — who, then Credits -->
   <!-- About (about.js; variant 4 of web/mockups/about2.html): no × and no Close — Esc or a click beside; tabs About ·
-       Credits; the version's row — the update's state and its button (update.js); support — subscribe on YouTube -->
+       Credits; the version's row — the update's state and its button (update.js); support — variant 2 of
+       web/mockups/support.html (23 Nov 2026): two cards, subscribe on YouTube (free) and "Runs on tokens" — Chip in opens
+       a menu of GitHub Sponsors, Buy Me a Coffee and Boosty (the same three as the Sponsor button on GitHub) -->
   <div class="start about" id="about" aria-hidden="true">
     <section class="start-win about-win" id="about-win" data-step="1" role="dialog" aria-label="About PopkaStudio">
       <div class="ab-tabs" role="tablist"><button class="on" id="about-tab1" role="tab">About</button><button id="about-tab2" role="tab">Credits</button></div>
@@ -174,9 +176,20 @@
               <a class="ab-link" href="https://www.youtube.com/@PopaSpinka" target="_blank" rel="noopener"><svg class="mark yt" viewBox="0 0 18 13" aria-hidden="true"><rect width="18" height="13" rx="3.6" fill="#ff0033"/><path d="M7.2 3.6v5.8L12 6.5z" fill="#fff"/></svg>YouTube</a></div>
           <div class="ab-line"><span class="k">Version</span><span class="ab-st" id="about-st"></span><button class="ab-act" id="about-act" hidden></button></div>
           <div class="ab-line"><span class="k">Contact</span><a class="v ab-mail" href="mailto:lastmail.sk@gmail.com">lastmail.sk@gmail.com</a></div>
-          <div class="ab-support"><svg viewBox="0 0 18 13" aria-hidden="true"><rect width="18" height="13" rx="3.6" fill="#c4384f"/><path d="M7.2 3.6v5.8L12 6.5z" fill="#fff"/></svg>
-            <span class="tx"><b>Like PopkaStudio?</b><span>Subscribe on YouTube — it's free and helps a lot</span></span>
-            <a class="ab-sub" href="https://www.youtube.com/@PopaSpinka?sub_confirmation=1" target="_blank" rel="noopener"><svg viewBox="0 0 18 13" aria-hidden="true"><rect width="18" height="13" rx="3.6" fill="#fff"/><path d="M7.2 3.6v5.8L12 6.5z" fill="#c4384f"/></svg>Subscribe</a></div>
+          <div class="ab-two">
+            <div class="ab-support"><svg viewBox="0 0 18 13" aria-hidden="true"><rect width="18" height="13" rx="3.6" fill="#c4384f"/><path d="M7.2 3.6v5.8L12 6.5z" fill="#fff"/></svg>
+              <span class="tx"><b>Subscribe</b><span>Free, and helps a lot</span></span>
+              <a class="ab-sub" href="https://www.youtube.com/@PopaSpinka?sub_confirmation=1" target="_blank" rel="noopener"><svg viewBox="0 0 18 13" aria-hidden="true"><rect width="18" height="13" rx="3.6" fill="#fff"/><path d="M7.2 3.6v5.8L12 6.5z" fill="#c4384f"/></svg>Subscribe</a></div>
+            <div class="ab-support gold"><svg class="ab-coin" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#f5c542"/><circle cx="10" cy="10" r="6.4" fill="none" stroke="#c9952a" stroke-width="1.4"/><path d="M7.4 7.6h5.2M10 7.6v5.2" stroke="#9a6d14" stroke-width="1.7" stroke-linecap="round"/></svg>
+              <span class="tx"><b>Runs on tokens</b><span>Chip in for the next board</span></span>
+              <div class="ab-chip-w"><button class="ab-chip" id="about-chip" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#f5c542"/><circle cx="10" cy="10" r="6.4" fill="none" stroke="#c9952a" stroke-width="1.4"/><path d="M7.4 7.6h5.2M10 7.6v5.2" stroke="#9a6d14" stroke-width="1.7" stroke-linecap="round"/></svg>Chip in</button>
+                <div class="ab-menu" id="about-menu" role="menu" hidden>
+                  <div class="hd"><b>PopkaStudio runs on tokens.</b> Chip in for the next board</div>
+                  <a class="ab-it" role="menuitem" href="https://github.com/sponsors/PopaSpinka" target="_blank" rel="noopener"><span class="ic gh"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 13.6S2.4 10.3 2.4 6.3A2.9 2.9 0 0 1 8 4.9a2.9 2.9 0 0 1 5.6 1.4c0 4-5.6 7.3-5.6 7.3z"/></svg></span><span class="tx"><b>GitHub Sponsors</b><span>Monthly or once, any amount</span></span><svg class="go" viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2.5h5.5V8M9.3 2.7 3 9"/></svg></a>
+                  <a class="ab-it" role="menuitem" href="https://buymeacoffee.com/popaspinka" target="_blank" rel="noopener"><span class="ic cf"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 6h8v4.2A3.2 3.2 0 0 1 7.8 13.4h-1.6A3.2 3.2 0 0 1 3 10.2z"/><path d="M11 7.2h1.1a1.7 1.7 0 0 1 0 3.4H11M5.4 2.4v1.6M8.4 2.4v1.6"/></svg></span><span class="tx"><b>Buy Me a Coffee</b><span>By card, no account needed</span></span><svg class="go" viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2.5h5.5V8M9.3 2.7 3 9"/></svg></a>
+                  <a class="ab-it" role="menuitem" href="https://boosty.to/popaspinka" target="_blank" rel="noopener"><span class="ic bo">B</span><span class="tx"><b>Boosty</b><span>Cards from Russia</span></span><svg class="go" viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2.5h5.5V8M9.3 2.7 3 9"/></svg></a>
+                </div></div></div>
+          </div>
           <div class="ab-esc">Esc — close</div>
         </div>
         <div class="start-pane about-cred">

@@ -27,6 +27,11 @@ what the watch shows, pixel for pixel — the same fonts, the same animations, t
   intervals and breaks, a long break after every four, Skip, Reset and Auto-start, three beeps when one ends, its own
   settings on the watch. On the round watch the time left runs along a ring at the edge; on a rectangle — along the
   screen's frame.
+- **Agent** (new in 2.7) — a face for a voice assistant, on every board: a **dot face** (the dot snake's board of
+  29 × 29 dots: happy, laughing, angry, sad, in love, confused, scared, done…) or a **dot orb** (340 dots on a ball:
+  listening, thinking, searching, speaking, happy, angry, error, sleeping…), twelve moods each, or all of them in
+  turn. A tap shows the next mood; the `agent` command over USB sets it, so an assistant of your own can drive it.
+  Round on every board — a circle in the middle of a rectangle.
 - **Weather widgets** (new in 2.2) — the temperature huge with the sky moving inside its digits, the next 12 hours
   as a curve, an old barometer, what to wear, a little weather buddy, pixel weather, the week ahead. The big clock
   makes room for them by itself; on the rectangular boards each has two layouts.
@@ -51,6 +56,10 @@ what the watch shows, pixel for pixel — the same fonts, the same animations, t
   wrist or a button, Wi-Fi (exact time and fresh weather), Bluetooth: one tile, a menu with how each is set, the
   switches and settings in the right card.
 - **Only what you add gets in.** A layer you don't use isn't in the firmware at all — no code, no fonts, sensors off.
+
+![The Agent's dot face, twelve moods](docs/screenshots/agent-faces.png)
+
+![The Agent's dot orb, twelve moods](docs/screenshots/agent-orbs.png)
 
 ![The map of screens](docs/screenshots/map.png)
 
@@ -246,6 +255,7 @@ decompiled, and no code was taken from GPL projects:
 | [wear-os-samples](https://github.com/android/wear-os-samples) | Apache 2.0 | how a screen is put together from components |
 | [PebbleOS](https://github.com/coredevices/PebbleOS) | Apache 2.0 | screen transitions on a microcontroller |
 | [Material Components for Android](https://github.com/material-components/material-components-android) | Apache 2.0 | the 7″ board's transitions: the shared axis — its time, distance and easing |
+| [Thinking Orbs](https://github.com/yogesharc/thinking-orbs) by [Yogesh](https://github.com/yogesharc) | MIT | the idea and look of the Agent's dot orb: a ball of dots tilted 20°, the far ones dimmer and smaller, a blink and a lighthouse beam among its moods (the code is our own) |
 
 Third-party parts:
 
