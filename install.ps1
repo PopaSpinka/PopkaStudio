@@ -8,7 +8,7 @@
 # and upload the firmware), the fonts, the command popkastudio (bin\popkastudio.cmd) and a Start menu shortcut.
 # Needs git (winget install --id Git.Git -e). The board's USB (ESP32-S3/P4 native USB) needs no driver on Windows 10+.
 #
-# -Setup: for a classic installer (an .exe that unpacks PopkaStudio and runs this in its folder; not out yet) -
+# -Setup: for the classic installer (installer\PopkaStudio.iss clones, then runs this; the studio's Update too) -
 # no git, no shortcut and no PATH (the installer makes its own), the log in install.log next to it.
 # POPKASTUDIO_SKIP_CORE=1: everything but the ESP32 core (a test run: the editor works, Load doesn't).
 # (This file is plain ASCII: Windows PowerShell 5.1 reads a script without a BOM in the system's code page.)

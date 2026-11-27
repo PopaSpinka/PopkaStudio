@@ -2055,6 +2055,8 @@ def update_job():
         # 3. what the new version needs: its install.sh (its "▸" steps → 62–98 %; install.ps1's — "> ")
         install = (["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", os.path.join(ROOT, "install.ps1")]
                    if WINDOWS else ["bash", os.path.join(ROOT, "install.sh")])
+        if WINDOWS and os.path.isfile(os.path.join(ROOT, ".tools", "setup", "unins000.exe")):
+            install.append("-Setup")  # (a copy from PopkaStudio-Setup.exe: its shortcuts are the installer's, no PATH)
         p = subprocess.Popen(install, cwd=ROOT, stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT, env=env, text=True, errors="replace", bufsize=1)
         out, n = [], 0
