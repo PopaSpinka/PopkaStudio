@@ -24,7 +24,8 @@ $Log = Join-Path $Dir 'setup.log'  # (install.log is install.ps1's)
 function Say($t) { Write-Host "> $t" }
 function Die($t) { Write-Host "x $t"; Add-Content -LiteralPath $Log -Value "x $t" -ErrorAction SilentlyContinue; exit 1 }
 function RunGit {  # (git, its exit code checked; its output into the installer's detail line and install.log)
-  & git.exe @args 2>&1 | ForEach-Object { "$_" } | Tee-Object -FilePath $Log -Append | Out-Host
+  & git.exe @args 2>&1 | ForEach-Object { "$_" } | ForEach-Object {  # (not Tee-Object: in 5.1 it appends UTF-16)
+    Add-Content -LiteralPath $Log -Value $_ -ErrorAction SilentlyContinue; $_ } | Out-Host
   if ($LASTEXITCODE -ne 0) { Die "git $($args -join ' ') failed (exit $LASTEXITCODE)" }
 }
 
