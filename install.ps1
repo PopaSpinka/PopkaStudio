@@ -53,7 +53,7 @@ function Get-Zip($url) {  # (a tool's zip into .tools\bin. Not via %TEMP%: for a
 }
 function Run {  # (a native tool; its exit code checked. A plain function: its -flags go through untouched)
   $exe, $rest = $args
-  & $exe @rest | Out-Host  # (through the host: install.log keeps it too)
+  & $exe @rest 2>&1 | ForEach-Object { "$_" } | Out-Host  # (through the host, its errors too: install.log keeps them)
   if ($LASTEXITCODE -ne 0) { Die "$exe $($rest -join ' ') failed (exit $LASTEXITCODE)" }
 }
 
