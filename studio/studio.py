@@ -2015,7 +2015,8 @@ def update_job():
                 upd["log"].append(detail[-2000:])
 
     env = dict(os.environ)
-    extra = [os.path.join(ROOT, ".tools", "bin")] + ([] if WINDOWS else [os.path.expanduser("~/.local/bin"), "/opt/homebrew/bin", "/usr/local/bin"])
+    extra = [os.path.join(ROOT, ".tools", "bin")] + ([os.path.join(ROOT, ".tools", "git", "cmd")] if WINDOWS else  # (the installer's git)
+             []) + ([] if WINDOWS else [os.path.expanduser("~/.local/bin"), "/opt/homebrew/bin", "/usr/local/bin"])
     env["PATH"] = os.pathsep.join(extra + [env.get("PATH", "/usr/bin:/bin")])  # (the Mac app starts with a short PATH)
     git = ["git", "-C", ROOT]
     try:
