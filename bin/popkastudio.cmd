@@ -17,6 +17,8 @@ if not exist "%PY%" (
   exit /b 1
 )
 set "PATH=%DIR%\.tools\bin;%PATH%"
+rem (the installer's own git, when there was none: the studio's Update uses it)
+if exist "%DIR%\.tools\git\cmd\git.exe" set "PATH=%DIR%\.tools\git\cmd;%PATH%"
 rem UTF-8 everywhere: the log's dashes and the tools' output (arduino-cli, esptool) - not the console's code page
 set "PYTHONUTF8=1"
 set "URL=http://localhost:8466"

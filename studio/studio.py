@@ -1939,7 +1939,10 @@ def installed_copy():
     """A clone of PopkaStudio's own repository (as install.sh makes it): it checks for updates by itself and updates."""
     if PRETEND or not os.path.isdir(os.path.join(ROOT, ".git")) or not os.path.isfile(os.path.join(ROOT, "install.ps1" if WINDOWS else "install.sh")):
         return False
-    r = subprocess.run(["git", "-C", ROOT, "remote", "get-url", "origin"], capture_output=True, text=True)
+    try:  # (no git on the PATH: a copy that can't update itself - never a crash at start)
+        r = subprocess.run(["git", "-C", ROOT, "remote", "get-url", "origin"], capture_output=True, text=True)
+    except OSError:
+        return False
     return r.returncode == 0 and UPDATE_REPO.lower() in r.stdout.strip().lower()
 
 
@@ -2015,7 +2018,8 @@ def update_job():
                 upd["log"].append(detail[-2000:])
 
     env = dict(os.environ)
-    extra = [os.path.join(ROOT, ".tools", "bin")] + ([] if WINDOWS else [os.path.expanduser("~/.local/bin"), "/opt/homebrew/bin", "/usr/local/bin"])
+    extra = [os.path.join(ROOT, ".tools", "bin")] + ([os.path.join(ROOT, ".tools", "git", "cmd")] if WINDOWS else  # (the installer's git)
+             []) + ([] if WINDOWS else [os.path.expanduser("~/.local/bin"), "/opt/homebrew/bin", "/usr/local/bin"])
     env["PATH"] = os.pathsep.join(extra + [env.get("PATH", "/usr/bin:/bin")])  # (the Mac app starts with a short PATH)
     git = ["git", "-C", ROOT]
     try:
@@ -2054,6 +2058,8 @@ def update_job():
         # 3. what the new version needs: its install.sh (its "▸" steps → 62–98 %; install.ps1's — "> ")
         install = (["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", os.path.join(ROOT, "install.ps1")]
                    if WINDOWS else ["bash", os.path.join(ROOT, "install.sh")])
+        if WINDOWS and os.path.isfile(os.path.join(ROOT, ".tools", "setup", "unins000.exe")):
+            install.append("-Setup")  # (a copy from PopkaStudio-Setup.exe: its shortcuts are the installer's, no PATH)
         p = subprocess.Popen(install, cwd=ROOT, stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT, env=env, text=True, errors="replace", bufsize=1)
         out, n = [], 0
@@ -2577,6 +2583,15 @@ def arduino_cli():
 
 
 def chip_fqbn(port, board):
+    """chip_fqbn_of with what the core offers on this system: UploadSpeed=460800 is in the ESP32-S3's menu on macOS and
+    Linux only (boards.txt: 460800.linux/.macosx) - on Windows arduino-cli refuses the fqbn; 512000 is Windows' own."""
+    fqbn, tail = chip_fqbn_of(port, board)
+    if WINDOWS:
+        fqbn = fqbn.replace("UploadSpeed=460800", "UploadSpeed=512000")
+    return fqbn, tail
+
+
+def chip_fqbn_of(port, board):
     """The board's fqbn and its build folder's ending. A chip whose libraries depend on its revision (the passport's chip_v3:
     what changes in the fqbn from revision 3 on) is asked first: the board restarts, a few seconds; no answer — the passport's."""
     p = passport(board)

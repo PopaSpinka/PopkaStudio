@@ -26,3 +26,4 @@ PopkaStudio/app/
 # The Windows installer: its build, and install.ps1 -Setup's log
 installer/Output/
 install.log
+setup.log

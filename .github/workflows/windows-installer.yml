@@ -1,0 +1,138 @@
+# PopkaStudio-Setup-<version>.exe: built on Windows and installed there once as a test - without git on the PATH (so the
+# installer's own MinGit is used), into a folder with a space, without the ESP32 core (1.5-3 GB: the editor starts and
+# answers; Load needs a real board). The test installs this very branch (POPKASTUDIO_REPO/BRANCH), checks the copy is
+# a clean git clone (what the studio's Update needs), that the editor answers, and the silent uninstall.
+# A tag v* puts the .exe into that tag's release.
+name: Windows installer
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write  # (the release on a tag)
+
+jobs:
+  installer:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version (studio.py's VERSION)
+        id: v
+        shell: pwsh
+        run: |
+          $v = (Select-String -Path studio/studio.py -Pattern '^VERSION = "([^"]+)"').Matches[0].Groups[1].Value
+          "version=$v" >> $env:GITHUB_OUTPUT
+
+      - name: Build the installer (Inno Setup)
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          }
+          & $iscc /Qp "/DAppVersion=${{ steps.v.outputs.version }}" installer\PopkaStudio.iss
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          Get-ChildItem installer\Output
+
+      - name: Test - install silently, no git on the PATH, into "AI LAB\PopkaStudio", no ESP32 core
+        shell: pwsh
+        env:
+          POPKASTUDIO_SKIP_CORE: "1"
+          UV_PYTHON_PREFERENCE: only-managed  # (uv's own Python in .tools\python, as on a PC without Python - not the runner's)
+          POPKASTUDIO_REPO: ${{ github.server_url }}/${{ github.event.pull_request.head.repo.full_name || github.repository }}.git
+          POPKASTUDIO_BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          $exe = (Get-ChildItem installer\Output\PopkaStudio-Setup-*.exe).FullName
+          $app = Join-Path $env:RUNNER_TEMP 'AI LAB\PopkaStudio'
+          $env:TEMP = $env:TMP = (New-Item -ItemType Directory -Force (Join-Path $env:RUNNER_TEMP 'AI LAB\Temp')).FullName
+          $env:PATH = ($env:PATH -split ';' | Where-Object { $_ -and $_ -notmatch '\\Git\\' }) -join ';'
+          if (Get-Command git -ErrorAction SilentlyContinue) { throw 'git is still on the PATH: the MinGit path is not tested' }
+          $p = Start-Process $exe -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=`"$app`"", "/LOG=$env:RUNNER_TEMP\setup-inno.log" -Wait -PassThru
+          foreach ($l in "$app\setup.log", "$app\install.log") { if (Test-Path $l) { "----- $l"; Get-Content $l } }
+          if ($p.ExitCode) { Get-Content "$env:RUNNER_TEMP\setup-inno.log"; throw "setup exited $($p.ExitCode)" }
+          Get-Content "$app\setup.log" -TotalCount 3
+          if (-not (([Environment]::GetEnvironmentVariable('PATH', 'User') -split ';') -contains "$app\.tools\git\cmd")) { throw 'MinGit not on the user PATH' }
+          Get-ChildItem "$app\.tools\python" -Name
+          if (-not (Get-ChildItem "$app\.tools\python" -Name | Where-Object { $_ -like '*x86_64*' })) { throw 'not a 64-bit Python' }
+          foreach ($f in '.git', '.tools\git\cmd\git.exe', '.venv\Scripts\python.exe', '.tools\bin\arduino-cli.exe', 'tools\fonts\GoogleSansFlex.ttf', 'bin\popkastudio.cmd', '.tools\setup\unins000.exe') {
+            if (-not (Test-Path "$app\$f")) { throw "missing after install: $f" }
+          }
+          $git = "$app\.tools\git\cmd\git.exe"
+          & $git -C $app status --short --branch
+          $changed = & $git -C $app status --porcelain --untracked-files=no
+          if ($changed) { throw "the clone has changes the studio's Update would refuse: $changed" }
+          "origin: $(& $git -C $app remote get-url origin)"
+          "APP=$app" >> $env:GITHUB_ENV
+
+      - name: Test - the editor starts and answers, and sees the installer's git
+        shell: pwsh
+        run: |
+          $env:PYTHONUTF8 = '1'
+          $env:PATH = "$env:APP\.tools\bin;$env:APP\.tools\git\cmd;$env:PATH"
+          $log = Join-Path $env:RUNNER_TEMP 'studio.log'
+          $p = Start-Process "$env:APP\.venv\Scripts\python.exe" -ArgumentList "`"$env:APP\studio\studio.py`"" `
+               -RedirectStandardOutput $log -RedirectStandardError "$log.err" -PassThru
+          $ok = $false
+          foreach ($i in 1..60) {
+            try {
+              $about = Invoke-RestMethod http://127.0.0.1:8466/api/about
+              $page = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8466/
+              $ok = $true; break
+            } catch { Start-Sleep 1 }
+          }
+          Get-Content $log, "$log.err" -ErrorAction SilentlyContinue
+          Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+          if (-not $ok) { throw 'the editor did not answer on :8466' }
+          "version: $($about.version)"
+          if ($page.StatusCode -ne 200) { throw "the page: $($page.StatusCode)" }
+
+      - name: Test - run the installer again (it updates the clone)
+        shell: pwsh
+        env:
+          POPKASTUDIO_SKIP_CORE: "1"
+          UV_PYTHON_PREFERENCE: only-managed  # (uv's own Python in .tools\python, as on a PC without Python - not the runner's)
+        run: |
+          $exe = (Get-ChildItem installer\Output\PopkaStudio-Setup-*.exe).FullName
+          $p = Start-Process $exe -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=`"$env:APP`"" -Wait -PassThru
+          Get-Content "$env:APP\setup.log"
+          if (-not (Select-String -Path "$env:APP\setup.log" -Pattern 'Already up to date|Fast-forward' -Quiet)) { throw 'no git pull on the second run' }
+
+      - name: Test - the uninstaller (silent - the user's projects stay)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "$env:APP\projects" | Out-Null
+          Set-Content "$env:APP\projects\test.json" '{}'
+          # (as the studio's Update leaves it: install.ps1 without -Setup puts bin on the user's PATH)
+          $userPath = [Environment]::GetEnvironmentVariable('PATH', 'User')
+          [Environment]::SetEnvironmentVariable('PATH', (@($userPath, "$env:APP\bin") | Where-Object { $_ }) -join ';', 'User')
+          $p = Start-Process "$env:APP\.tools\setup\unins000.exe" -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait -PassThru
+          Start-Sleep 3  # (the uninstaller finishes in a copy of itself)
+          foreach ($gone in '.git', '.venv', '.tools', 'studio\studio.py', 'bin', 'install.ps1') {
+            if (Test-Path "$env:APP\$gone") { throw "left after uninstall: $gone" }
+          }
+          if (-not (Test-Path "$env:APP\projects\test.json")) { throw 'the projects went with the uninstall' }
+          if (([Environment]::GetEnvironmentVariable('PATH', 'User') -split ';') -contains "$env:APP\bin") { throw 'bin left on the user PATH' }
+          if (([Environment]::GetEnvironmentVariable('PATH', 'User') -split ';') -contains "$env:APP\.tools\git\cmd") { throw 'git left on the user PATH' }
+          Get-ChildItem -Recurse -Force $env:APP | Select-Object -ExpandProperty FullName
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PopkaStudio-Setup-${{ steps.v.outputs.version }}
+          path: installer/Output/*.exe
+
+      - name: Into the release (a tag v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = '${{ github.ref_name }}'
+          gh release view $tag 2>$null
+          if ($LASTEXITCODE) { gh release create $tag --title "PopkaStudio $tag" --notes "Windows: PopkaStudio-Setup-${{ steps.v.outputs.version }}.exe" }
+          gh release upload $tag (Get-ChildItem installer\Output\*.exe).FullName --clobber
