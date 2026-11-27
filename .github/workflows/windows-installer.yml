@@ -55,6 +55,9 @@ jobs:
           $p = Start-Process $exe -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=`"$app`"", "/LOG=$env:RUNNER_TEMP\setup-inno.log" -Wait -PassThru
           foreach ($l in "$app\setup.log", "$app\install.log") { if (Test-Path $l) { "----- $l"; Get-Content $l } }
           if ($p.ExitCode) { Get-Content "$env:RUNNER_TEMP\setup-inno.log"; throw "setup exited $($p.ExitCode)" }
+          Get-Content "$app\setup.log" -TotalCount 3
+          Get-ChildItem "$app\.tools\python" -Name
+          if (-not (Get-ChildItem "$app\.tools\python" -Name | Where-Object { $_ -like '*x86_64*' })) { throw 'not a 64-bit Python' }
           foreach ($f in '.git', '.tools\git\cmd\git.exe', '.venv\Scripts\python.exe', '.tools\bin\arduino-cli.exe', 'tools\fonts\GoogleSansFlex.ttf', 'bin\popkastudio.cmd', '.tools\setup\unins000.exe') {
             if (-not (Test-Path "$app\$f")) { throw "missing after install: $f" }
           }
