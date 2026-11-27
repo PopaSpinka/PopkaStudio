@@ -2583,6 +2583,15 @@ def arduino_cli():
 
 
 def chip_fqbn(port, board):
+    """chip_fqbn_of with what the core offers on this system: UploadSpeed=460800 is in the ESP32-S3's menu on macOS and
+    Linux only (boards.txt: 460800.linux/.macosx) - on Windows arduino-cli refuses the fqbn; 512000 is Windows' own."""
+    fqbn, tail = chip_fqbn_of(port, board)
+    if WINDOWS:
+        fqbn = fqbn.replace("UploadSpeed=460800", "UploadSpeed=512000")
+    return fqbn, tail
+
+
+def chip_fqbn_of(port, board):
     """The board's fqbn and its build folder's ending. A chip whose libraries depend on its revision (the passport's chip_v3:
     what changes in the fqbn from revision 3 on) is asked first: the board restarts, a few seconds; no answer — the passport's."""
     p = passport(board)
