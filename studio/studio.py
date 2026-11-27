@@ -1939,7 +1939,10 @@ def installed_copy():
     """A clone of PopkaStudio's own repository (as install.sh makes it): it checks for updates by itself and updates."""
     if PRETEND or not os.path.isdir(os.path.join(ROOT, ".git")) or not os.path.isfile(os.path.join(ROOT, "install.ps1" if WINDOWS else "install.sh")):
         return False
-    r = subprocess.run(["git", "-C", ROOT, "remote", "get-url", "origin"], capture_output=True, text=True)
+    try:  # (no git on the PATH: a copy that can't update itself - never a crash at start)
+        r = subprocess.run(["git", "-C", ROOT, "remote", "get-url", "origin"], capture_output=True, text=True)
+    except OSError:
+        return False
     return r.returncode == 0 and UPDATE_REPO.lower() in r.stdout.strip().lower()
 
 

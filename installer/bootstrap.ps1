@@ -62,6 +62,16 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
   if (-not (Get-Command git -ErrorAction SilentlyContinue)) { Die 'git did not install' }
 }
 
+# The installer's own git, when it was needed: on the user's PATH too (only the user's, no administrator) - the studio
+# runs git by name (its check for updates, Update itself); the uninstaller takes it off again
+if (Test-Path "$MinGit\cmd\git.exe") {
+  $gitCmd = "$MinGit\cmd"
+  $userPath = [Environment]::GetEnvironmentVariable('PATH', 'User')
+  if (-not (($userPath -split ';') -contains $gitCmd)) {
+    [Environment]::SetEnvironmentVariable('PATH', (@($userPath, $gitCmd) | Where-Object { $_ }) -join ';', 'User')
+  }
+}
+
 # ---------- 2. PopkaStudio: a clone (as install.ps1 makes it), or the one already here brought up to date ----------
 Write-Host '@@ code'
 Set-Location -LiteralPath $Dir

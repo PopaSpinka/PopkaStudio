@@ -251,6 +251,7 @@ begin
     Exit;
   App := ExpandConstant('{app}');
   RemoveFromUserPath(App + '\bin');
+  RemoveFromUserPath(App + '\.tools\git\cmd');
   Arduino := ExpandConstant('{localappdata}\Arduino15');
   if DirExists(Arduino) and
      (SuppressibleMsgBox(FmtMessage(CustomMessage('DelTools'), [Arduino]), mbConfirmation, MB_YESNO or MB_DEFBUTTON2, IDNO) = IDYES) then begin
