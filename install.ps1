@@ -103,6 +103,15 @@ $env:UV_CACHE_DIR = Join-Path $Dir '.tools\uv-cache'
 $Py = Join-Path $Dir '.venv\Scripts\python.exe'
 # (made once: an update runs this while PopkaStudio itself runs on .venv's python.exe, and Windows can't write over a
 # program that is running - uv venv --allow-existing would fail there; the libraries below are checked every time)
+# (a .venv whose Python is gone - "uv trampoline failed to spawn Python child process": its base Python moved or was
+# replaced by uv - is made again; the libraries come back from uv's cache)
+if (Test-Path $Py) {
+  & $Py -c "import sys" 2>$null | Out-Null
+  if ($LASTEXITCODE -ne 0) {
+    Say 'The Python in .venv does not start - making it again'
+    [IO.Directory]::Delete((Join-Path $Dir '.venv'), $true)
+  }
+}
 if (-not (Test-Path $Py)) { Run uv venv --quiet --python 3.12 --allow-existing .venv }
 Run uv pip install --quiet --python $Py numpy pillow pyserial
 
