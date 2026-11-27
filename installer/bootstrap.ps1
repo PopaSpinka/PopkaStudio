@@ -32,17 +32,6 @@ function RunGit {  # (git, its exit code checked; its output into the installer'
 New-Item -ItemType Directory -Force -Path $Dir | Out-Null
 Set-Content -LiteralPath $Log -Value "PopkaStudio setup $(Get-Date -Format s)" -ErrorAction SilentlyContinue
 
-# The installer (a 32-bit program) hands its 64-bit PowerShell a 32-bit view of the machine (PROCESSOR_ARCHITECTURE=x86,
-# ProgramFiles = Program Files (x86)): uv then looks for, and fetches, 32-bit Python - and can't use the 64-bit one a
-# PopkaStudio started from the Start menu set up. Back to the machine's own values for everything started from here.
-Add-Content -LiteralPath $Log -Value "arch: $env:PROCESSOR_ARCHITECTURE / $env:PROCESSOR_ARCHITEW6432" -ErrorAction SilentlyContinue
-if ($env:PROCESSOR_ARCHITEW6432) {
-  $env:PROCESSOR_ARCHITECTURE = $env:PROCESSOR_ARCHITEW6432
-  Remove-Item Env:PROCESSOR_ARCHITEW6432
-  if ($env:ProgramW6432) { $env:ProgramFiles = $env:ProgramW6432 }
-  if ($env:CommonProgramW6432) { $env:CommonProgramFiles = $env:CommonProgramW6432 }
-}
-
 # ---------- 0. A PopkaStudio that is running (this copy's Python, its window): stopped - Windows can't write over it ----------
 Get-NetTCPConnection -LocalPort 8466 -State Listen -ErrorAction SilentlyContinue |
   ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }

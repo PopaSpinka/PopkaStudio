@@ -44,6 +44,7 @@ jobs:
         shell: pwsh
         env:
           POPKASTUDIO_SKIP_CORE: "1"
+          UV_PYTHON_PREFERENCE: only-managed  # (uv's own Python in .tools\python, as on a PC without Python - not the runner's)
           POPKASTUDIO_REPO: ${{ github.server_url }}/${{ github.event.pull_request.head.repo.full_name || github.repository }}.git
           POPKASTUDIO_BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
@@ -94,6 +95,7 @@ jobs:
         shell: pwsh
         env:
           POPKASTUDIO_SKIP_CORE: "1"
+          UV_PYTHON_PREFERENCE: only-managed  # (uv's own Python in .tools\python, as on a PC without Python - not the runner's)
         run: |
           $exe = (Get-ChildItem installer\Output\PopkaStudio-Setup-*.exe).FullName
           $p = Start-Process $exe -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=`"$env:APP`"" -Wait -PassThru
