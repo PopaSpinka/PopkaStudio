@@ -102,12 +102,16 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force "$env:APP\projects" | Out-Null
           Set-Content "$env:APP\projects\test.json" '{}'
+          # (as the studio's Update leaves it: install.ps1 without -Setup puts bin on the user's PATH)
+          $userPath = [Environment]::GetEnvironmentVariable('PATH', 'User')
+          [Environment]::SetEnvironmentVariable('PATH', (@($userPath, "$env:APP\bin") | Where-Object { $_ }) -join ';', 'User')
           $p = Start-Process "$env:APP\.tools\setup\unins000.exe" -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait -PassThru
           Start-Sleep 3  # (the uninstaller finishes in a copy of itself)
           foreach ($gone in '.git', '.venv', '.tools', 'studio\studio.py', 'bin', 'install.ps1') {
             if (Test-Path "$env:APP\$gone") { throw "left after uninstall: $gone" }
           }
           if (-not (Test-Path "$env:APP\projects\test.json")) { throw 'the projects went with the uninstall' }
+          if (([Environment]::GetEnvironmentVariable('PATH', 'User') -split ';') -contains "$env:APP\bin") { throw 'bin left on the user PATH' }
           Get-ChildItem -Recurse -Force $env:APP | Select-Object -ExpandProperty FullName
 
       - uses: actions/upload-artifact@v4

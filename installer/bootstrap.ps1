@@ -57,14 +57,20 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
 # ---------- 2. PopkaStudio: a clone (as install.ps1 makes it), or the one already here brought up to date ----------
 Write-Host '@@ code'
 Set-Location -LiteralPath $Dir
-if (Test-Path (Join-Path $Dir '.git')) {
+# (a clone counts once it has a commit: a first run cut off in its download left a .git without one - start that over)
+& git.exe -C $Dir rev-parse -q --verify HEAD 2>$null | Out-Null
+if ((Test-Path (Join-Path $Dir '.git')) -and $LASTEXITCODE -eq 0) {
   Say 'Updating PopkaStudio'
-  RunGit -C $Dir pull --ff-only
+  & git.exe -C $Dir pull --ff-only 2>&1 | ForEach-Object { "$_" } | ForEach-Object {
+    Add-Content -LiteralPath $Log -Value $_ -ErrorAction SilentlyContinue; $_ } | Out-Host
+  # (no update - offline, or the code changed by hand - is no reason to stop: the tools still get set up)
+  if ($LASTEXITCODE -ne 0) { Say "Couldn't update PopkaStudio (git pull: exit $LASTEXITCODE) - going on with this version" }
 } else {
   # (git clone wants an empty folder; this one already holds .tools and the uninstaller - and, over a copy from the
   # first installer, PopkaStudio's files without git: checkout -f puts the repository's over them, projects\ stays)
   Say "Downloading PopkaStudio ($Repo)"
-  RunGit -C $Dir init -q -b $Branch
+  RunGit -C $Dir init -q  # (no -b: git before 2.28 lacks it; checkout -B names the branch)
+  & git.exe -C $Dir remote remove origin 2>$null | Out-Null
   RunGit -C $Dir remote add origin $Repo
   RunGit -C $Dir fetch --depth 1 origin "+refs/heads/${Branch}:refs/remotes/origin/$Branch"
   RunGit -C $Dir checkout -q -f -B $Branch "origin/$Branch"

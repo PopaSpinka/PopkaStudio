@@ -219,6 +219,30 @@ begin
     end;
 end;
 
+// The studio's own Update runs install.ps1 without -Setup, which puts {app}\bin on the user's PATH: take it off again.
+procedure RemoveFromUserPath(Dir: String);
+var
+  Path, Rest, Part, Kept: String;
+  I: Integer;
+begin
+  if not RegQueryStringValue(HKCU, 'Environment', 'Path', Path) then
+    Exit;
+  Rest := Path + ';';
+  Kept := '';
+  repeat
+    I := Pos(';', Rest);
+    Part := Copy(Rest, 1, I - 1);
+    Rest := Copy(Rest, I + 1, Length(Rest));
+    if (Part <> '') and (CompareText(RemoveBackslashUnlessRoot(Part), RemoveBackslashUnlessRoot(Dir)) <> 0) then begin
+      if Kept <> '' then
+        Kept := Kept + ';';
+      Kept := Kept + Part;
+    end;
+  until Rest = '';
+  if Kept <> Path then
+    RegWriteExpandStringValue(HKCU, 'Environment', 'Path', Kept);
+end;
+
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   App, Arduino: String;
@@ -226,6 +250,7 @@ begin
   if CurUninstallStep <> usPostUninstall then
     Exit;
   App := ExpandConstant('{app}');
+  RemoveFromUserPath(App + '\bin');
   Arduino := ExpandConstant('{localappdata}\Arduino15');
   if DirExists(Arduino) and
      (SuppressibleMsgBox(FmtMessage(CustomMessage('DelTools'), [Arduino]), mbConfirmation, MB_YESNO or MB_DEFBUTTON2, IDNO) = IDYES) then begin
