@@ -15,7 +15,7 @@
 extern const HaloFont gl_r_title, gl_r_t28, gl_r_t32;
 #ifdef HALO_COMPACT
 extern const HaloFont gl_c_t14, gl_c_pm_ic24, gl_c_pm_ic22, gl_c_pm_n24;
-#ifdef HALO_SQUARE
+#if defined(HALO_SQUARE) || defined(HALO_WATCH)  // (the watch: the square's time and rows — WATCH_APP_FONTS)
 extern const HaloFont gl_q_pm_n104;
 #define PMR_F_TIME gl_q_pm_n104
 #define PMR_F_ROW gl_r_t28
@@ -70,6 +70,31 @@ extern const HaloFont gl_r_pm_n190, gl_r_pm_ic44, gl_r_pm_ic30, gl_r_pm_n40, gl_
 #define PMS_TWO 0
 #define PMS_BS 54.0f
 #define PMS_SP 66.0f
+#elif defined(HALO_WATCH)  // the 2.06 watch, 410 x 502: the square's sizes; the frame along the glass — its corners as
+                          // round as the glass's (~64 px: the line's middle 9.5 px in), the gear on the corner's diagonal
+#define PMR_FW 9.0f
+#define PMR_INS 9.5f
+#define PMR_RAD 54.5f
+#define PMR_ICON_Y 120.0f
+#define PMR_TIME_Y 226.0f
+#define PMR_TICK_Y 308.0f
+#define PMR_TICK_H 14.0f
+#define PMR_TICK_GAP 11.0f
+#define PMR_NAME_Y 338.0f
+#define PMR_BTN_Y 416.0f
+#define PMR_PILL_W 156.0f
+#define PMR_PILL_H 70.0f
+#define PMR_BR 34.0f
+#define PMR_GR 26.0f
+#define PMR_GEAR_X (HALO_W - PMR_INS - PMR_RAD + 10.0f)
+#define PMR_GEAR_Y (PMR_INS + PMR_RAD - 10.0f)
+#define PMS_PAD 24.0f
+#define PMS_HY 50.0f
+#define PMS_TOP 82.0f
+#define PMS_RH 63.0f
+#define PMS_TWO 0
+#define PMS_BS 54.0f
+#define PMS_SP 62.0f
 #elif defined(HALO_COMPACT) && HALO_W > HALO_H  // the WT32 held wide, 480 x 320
 #define PMR_FW 9.0f
 #define PMR_INS 9.5f
@@ -171,8 +196,10 @@ extern const HaloFont gl_r_pm_n190, gl_r_pm_ic44, gl_r_pm_ic30, gl_r_pm_n40, gl_
 #endif
 #define PMR_CX (HALO_W / 2.0f)
 #define PMR_GAP (PMR_PILL_W / 2 + PMR_BR + (PMR_IN > 10 ? 26.0f : 14.0f))  // the pill's middle → a side button's
+#ifndef PMR_GEAR_X  // (in the frame's corner, clear of it)
 #define PMR_GEAR_X (HALO_W - PMR_INS - PMR_FW / 2 - PMR_GR - PMR_IN)
 #define PMR_GEAR_Y (PMR_INS + PMR_FW / 2 + PMR_GR + PMR_IN)
+#endif
 #if PMS_TWO  // side by side: Duration takes 62 % of the width
 #define PMS_COL_D ((HALO_W - 2 * PMS_PAD - PMS_GAP) * 0.62f)
 #define PMS_COL_N (HALO_W - 2 * PMS_PAD - PMS_GAP - PMS_COL_D)

@@ -172,9 +172,14 @@ struct FaceLayer {
 #endif
 };
 // A layer of the Weather screen on one page of its pager (the dots: on the first one)
+#ifdef HALO_WATCH
+#define WX_RUN_ITEMS 16  // (a rectangular watch's hourly pill: the pill and four columns of three — wxscreen_rect.h)
+#else
+#define WX_RUN_ITEMS (WX_MAX + 2)
+#endif
 struct WxRun {
   HaloRoll *roll;  // the temperature
-  HaloItem it[WX_MAX + 2];  // the city, the icon: [0]; the high/low: [0], [1]; the hourly pill: [0], icons [1..3], times
+  HaloItem it[WX_RUN_ITEMS];  // the city, the icon: [0]; the high/low: [0], [1]; the hourly pill: [0], icons [1..3], times
                            // [4..6]; the page dots: one a city, the worm, the pulled one
 #ifndef HALO_ROUND
   HaloMask chart;           // the hourly layer on a rectangle: the temperature line, baked (wxscreen_rect.h)
@@ -308,7 +313,12 @@ static float face_base_y(const FaceLayer &L) {
 #else
 // A rectangle's place of each kind (variant S2 of web/mockups/rect-screens.html): a status line along the top — the date
 // from the left edge, the weather up to the right one — and the clock in the middle
-#if defined(HALO_SQUARE)  // a square (480 × 480, variant 1A of web/mockups/square-screens.html): the clock — 150 px, the
+#if defined(HALO_WATCH)  // a rectangular watch (410 × 502, variant C of web/mockups/watch206-look.html): the status line
+                        // clear of the glass's round corners, the clock (the passport's 132 px) a little above the middle
+#define RH_MARGIN 24.0f
+#define RH_LINE_Y 36.0f
+#define RH_CLOCK_Y 226.0f
+#elif defined(HALO_SQUARE)  // a square (480 × 480, variant 1A of web/mockups/square-screens.html): the clock — 150 px, the
                           // passport's — in the middle of the screen
 #define RH_MARGIN 16.0f
 #define RH_LINE_Y 28.0f
@@ -1120,8 +1130,9 @@ static void gallery_tick() {
 }
 
 #if HAS_SHADE
-#ifdef HALO_ROUND
-#include "shade_round.h"  // the quick settings panel of the round board's home (App → Shade: Wear OS 6)
+#if defined(HALO_ROUND) || defined(HALO_WATCH)
+#include "shade_round.h"  // the quick settings panel of the round board's home (App → Shade: Wear OS 6; the rectangular
+                          // watch's too — variant 3A of web/mockups/watch206-screens.html, its own sizes)
 #else
 #include "shade_rect.h"  // the quick settings panel of a rectangle's home (App → Shade)
 #endif

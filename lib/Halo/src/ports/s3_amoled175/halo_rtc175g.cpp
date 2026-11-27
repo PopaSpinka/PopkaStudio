@@ -1,13 +1,13 @@
-// The clock chip of the ESP32-S3-Touch-AMOLED-1.75 / -G: PCF85063 (I2C 0x51, powered with the RTC rail of the AXP2101,
+// The clock chip of the ESP32-S3-Touch-AMOLED-1.75 / -G and of the 2.06: PCF85063 (I2C 0x51, powered with the RTC rail of the AXP2101,
 // so it keeps time on the battery while the board is off). The round 1.75C has no such chip: its time is lost with the
-// power (boards/amoled175/hardware.md). Only this board builds this file.
+// power (boards/amoled175/hardware.md). Only these boards build this file.
 //
 // At the start the system clock takes the chip's time (UTC), when the chip's oscillator never stopped since it was set.
 // Afterwards the chip follows the system clock: whenever that jumps — the computer's "time" after a Load, Wi-Fi's NTP —
 // the chip is written in the middle of the next second (STOP, the seven registers, STOP off: its divider starts the
 // second from there). The command rtc prints both.
 #include <sdkconfig.h>
-#if CONFIG_IDF_TARGET_ESP32S3 && defined(HALO_BOARD_AMOLED175G)
+#if CONFIG_IDF_TARGET_ESP32S3 && (defined(HALO_BOARD_AMOLED175G) || defined(HALO_BOARD_AMOLED206))
 #include "halo_s3.h"
 
 #include <sys/time.h>
@@ -119,4 +119,4 @@ void hr_tick() {
   }
 }
 
-#endif  // CONFIG_IDF_TARGET_ESP32S3 && HALO_BOARD_AMOLED175G
+#endif  // CONFIG_IDF_TARGET_ESP32S3 && (HALO_BOARD_AMOLED175G || HALO_BOARD_AMOLED206)

@@ -1,5 +1,10 @@
 // Свой драйвер тача CST9217 (I2C 0x5A) для Halo.
 //
+// The 2.06 (-DHALO_BOARD_AMOLED206) has a FocalTech FT3168 instead (I2C 0x38, INT GPIO38, reset GPIO9): a report is the
+// registers 0x02..0x06 — [fingers] [event << 6 | x >> 8] [x] [id << 4 | y >> 8] [y], event 0 down, 1 up, 2 contact; axes
+// as the panel's (no mirroring). Its INT is switched to "trigger" (0xA4 = 1): a pulse per report, as the CST9217's;
+// while a finger is down and no pulse came for 25 ms the registers are read anyway — a lift is never missed.
+//
 // Пока палец на экране, чип ~60 раз в секунду опускает линию INT (GPIO11) — новый отчёт. Прерывание запоминает
 // время и будит задачу чтения (ядро 0). Отчёт: записать 0xD0 0x00, прочитать 15 байт, подтвердить 0xD0 0x00 0xAB.
 //   байт 6 — 0xAB (отчёт настоящий); байт 5 & 0x7F — сколько пальцев;
@@ -134,6 +139,24 @@ static void touch_task(void *) {
     pmu_poll();
     battery_poll();
     ht_bus_unlock();
+#ifdef HALO_BOARD_AMOLED206
+    const bool pulse = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(hist_n ? 25 : 60));
+    if (!pulse && !hist_n) continue;
+    const uint32_t t = pulse ? irq_us : (uint32_t)esp_timer_get_time();
+    static const uint8_t reg = 0x02;
+    uint8_t b[5] = {};
+    ht_bus_lock();
+    const bool ok = i2c_master_transmit_receive(dev, &reg, 1, b, sizeof(b), 20) == ESP_OK;
+    ht_bus_unlock();
+    if (!ok) continue;
+    if (!(b[0] & 0x0F) || (b[1] >> 6) == 1) {
+      release(pulse ? "lift" : "lift, read");
+      continue;
+    }
+    if (!pulse && hist_n && (int16_t)((b[1] & 0x0F) << 8 | b[2]) == last_x && (int16_t)((b[3] & 0x0F) << 8 | b[4]) == last_y)
+      continue;  // (a read between pulses: the same report again)
+    const int x = (b[1] & 0x0F) << 8 | b[2], y = (b[3] & 0x0F) << 8 | b[4];
+#else
     if (!ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(60))) {  // 60 мс без отчётов — палец убрали
       if (hist_n) release("timeout");
       continue;
@@ -153,6 +176,7 @@ static void touch_task(void *) {
       continue;
     }
     const int x = HALO_W - ((b[1] << 4) | (b[3] >> 4)), y = HALO_H - ((b[2] << 4) | (b[3] & 0x0F));
+#endif
     const HaloTouchSample s = {(int16_t)constrain(x, 0, HALO_W - 1), (int16_t)constrain(y, 0, HALO_H - 1), t};
     portENTER_CRITICAL(&hist_mux);
     hist_head = (hist_head + 1) % HIST;
@@ -210,7 +234,7 @@ bool ht_begin() {
   if (i2c_new_master_bus(&bc, &bus) != ESP_OK) return false;
   i2c_device_config_t dc = {};
   dc.dev_addr_length = I2C_ADDR_BIT_LEN_7;
-  dc.device_address = 0x5A;
+  dc.device_address = HALO_TOUCH_ADDR;
   dc.scl_speed_hz = 400000;
   if (i2c_master_bus_add_device(bus, &dc, &dev) != ESP_OK) return false;
 
@@ -218,8 +242,20 @@ bool ht_begin() {
   gpio_set_level((gpio_num_t)HALO_PIN_TP_RST, 0);
   delay(10);
   gpio_set_level((gpio_num_t)HALO_PIN_TP_RST, 1);
+#ifdef HALO_BOARD_AMOLED206
+  delay(200);  // (FocalTech: ~200 ms after the reset before it answers)
+  const bool found = i2c_master_probe(bus, HALO_TOUCH_ADDR, 50) == ESP_OK;
+  uint8_t tp_id = 0, tp_mode = 0;
+  if (found) {
+    const uint8_t r_id = 0xA0, r_mode = 0xA4, w_mode[2] = {0xA4, 0x01};  // id; INT: a pulse per report
+    i2c_master_transmit_receive(dev, &r_id, 1, &tp_id, 1, 20);
+    i2c_master_transmit(dev, w_mode, 2, 20);
+    i2c_master_transmit_receive(dev, &r_mode, 1, &tp_mode, 1, 20);
+  }
+#else
   delay(50);
   const bool found = i2c_master_probe(bus, 0x5A, 50) == ESP_OK;
+#endif
   // Чип питания: прерывания короткого и долгого нажатия PWR (регистр 0x41, биты 3 и 2), старые флаги — сбросить
   dc.device_address = 0x34;
   if (i2c_master_probe(bus, 0x34, 50) == ESP_OK && i2c_master_bus_add_device(bus, &dc, &pmu) == ESP_OK) {
@@ -252,7 +288,25 @@ bool ht_begin() {
   gpio_config(&io);
   gpio_install_isr_service(ESP_INTR_FLAG_IRAM);
   gpio_isr_handler_add((gpio_num_t)HALO_PIN_TP_INT, tp_isr, nullptr);
+#ifdef HALO_BOARD_AMOLED206
+  LOG("touch: FT3168 %s (id 0x%02X, INT mode %d), PWR button (AXP2101) %s\n", found ? "ok" : "NOT FOUND", tp_id, tp_mode,
+      pmu ? "ok" : "NOT FOUND");
+  if (pmu) {  // Why the power chip turned the board on, and why off the last time (registers 0x20, 0x21: XPowersLib's
+              // getPowerOnSource / getPowerOffSource) — the 2.06 lost its power while plugged in (hardware.md)
+    static const char *const ON[6] = {"PWR key", "IRQ pin", "USB", "battery charged", "battery in", "EN pin"};
+    static const char *const OFF[8] = {"PWR key held", "software", "PWR held low (EN)", "Vsys too low", "USB over voltage",
+                                       "DCDC under voltage", "DCDC over voltage", "too hot"};
+    const uint8_t on = pmu_reg(0x20), off = pmu_reg(0x21);
+    char a[96] = "", b[160] = "";
+    for (int i = 0; i < 6; i++)
+      if (on >> i & 1) strlcat(a, a[0] ? ", " : "", sizeof a), strlcat(a, ON[i], sizeof a);
+    for (int i = 0; i < 8; i++)
+      if (off >> i & 1) strlcat(b, b[0] ? ", " : "", sizeof b), strlcat(b, OFF[i], sizeof b);
+    LOG("power: on by %s (0x%02X), last off by %s (0x%02X)\n", a[0] ? a : "?", on, b[0] ? b : "nothing", off);
+  }
+#else
   LOG("touch: CST9217 %s, PWR button (AXP2101) %s\n", found ? "ok" : "NOT FOUND", pmu ? "ok" : "NOT FOUND");
+#endif
   return found;
 }
 

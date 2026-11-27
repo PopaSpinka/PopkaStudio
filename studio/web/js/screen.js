@@ -23,6 +23,8 @@ export const WAY = BOARD.way || null;  // which way up (null — a board with on
 export const TW = BOARD.w, TH = BOARD.h;  // the screen on the map and in the engine, board pixels
 export const CX = TW / 2, CY = TH / 2;
 export const ROUND = BOARD.shape === 'round';
+// A rectangular watch (the passport's "watch": the 2.06): a rectangle with some of the round's ways — its hourly pill
+export const WATCH = !ROUND && !!BOARD.watch;
 // A new layer on a screen taller than the round one: HaloWatch's places are for 466 rows, this keeps them in the middle
 // What this board has not got (the passport's "without": the motion sensor "raise", the burn-in shift, the PWR button;
 // the round one — the Video app, made for the P4's JPEG decoder and microSD card)

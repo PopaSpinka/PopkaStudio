@@ -3,7 +3,138 @@
 // bar is a slider. The second row opens About when the project has it (the layer's link; none — no row).
 // Included from settings.h in place of its round layout.
 
-#if defined(HALO_SQUARE)
+#if defined(HALO_WATCH)
+// A rectangular watch, 410 × 502 (direction B of web/mockups/watch206-look.html): "Display" at the top left, under it
+// "Brightness" and its percent, then a pill the whole width — "−" and "+" in circles at its ends, the bar between them
+// (a tap on "−"/"+" — a step, held — a step every 60 ms after half a second; a drag or a tap along the bar — that
+// step); under it a pill to About when the project links one, and the hint what BOOT does
+#define DW_X 26.0f            // the words' left (and right) margin
+#define DW_TITLE_Y 84.0f
+#define DW_LABEL_Y 140.0f
+#define DW_PILL_X 14.0f
+#define DW_PILL_W (HALO_W - 28.0f)
+#define DW_PILL_Y 220.0f      // its middle
+#define DW_PILL_H 104.0f
+#define DW_BTN 96.0f          // "−" and "+": a zone at each end
+#define DW_BTN_R 36.0f
+#define DW_BAR_X0 (DW_PILL_X + 98.0f)
+#define DW_BAR_W (DW_PILL_W - 196.0f)
+#define DW_BAR_H 16.0f
+#define DW_KNOB_R 14.0f
+#define DW_ROW_Y 296.0f       // About's pill: its top
+#define DW_ROW_H 94.0f
+#define DW_HINT_Y 420.0f
+#define DW_HINT_Y0 318.0f     // (no About: right under the slider)
+#define DW_BTN_BG 0x3A3E44
+#define DW_TRACK 0x4A4F57
+#define DW_FILL 0xA8C7FA
+#define DW_PILL 0x26292D
+#define DW_LABEL 0xC9CACF
+#define DR_ICON_CHIP "\xEF\x8B\x9B"
+extern const HaloFont gl_w_t28, gl_w_ic30;
+
+static HaloItem dr_title, dr_label, dr_pct, dw_pill, dw_btn[2], dw_sign[3], dw_track, dw_fill, dw_knob, dw_row, dw_row_c,
+    dw_row_ic, dw_row_t, dw_row_s, dr_hint;
+static Press dr_press;
+static char dr_pct_s[8];
+static float dr_mid_title, dr_mid_label, dr_mid_hint, dw_mid_ic;
+
+static const char *dp_hint_text() {  // what BOOT does (the editor's Buttons): 1 — screen off, 2 — lock, 3 — Always On
+  switch (pw_boot_fn()) {
+    case 1: return "BOOT turns the screen off";
+    case 2: return "BOOT locks the screen";
+    case 3: return "BOOT turns on Always On";
+  }
+  return "";
+}
+
+static void display_build() {
+  dr_mid_title = halo_text_mid(gl_title, "Display"), dr_mid_label = halo_text_mid(gl_t24, "Brightness 0123456789%");
+  dr_mid_hint = halo_text_mid(gl_t20, "BOOT turns the screen off"), dw_mid_ic = halo_text_mid(gl_w_ic30, DR_ICON_CHIP);
+  halo_ease_make(EASE_SHARP, 0, 0, 0, 1);
+}
+
+static bool dr_has_about() {
+  return dp_link && dp_link->tap > 0;
+}
+
+static void display_update(float dt) {
+  HaloFinger &f = halo_finger;
+  const float x0 = DW_PILL_X, x1 = DW_PILL_X + DW_PILL_W;
+  const bool on_pill = fabsf(f.y0 - DW_PILL_Y) < DW_PILL_H / 2 + 8 && f.x0 > x0 - 8 && f.x0 < x1 + 8;
+  const bool on_about = dr_has_about() && f.x0 > DW_PILL_X && f.x0 < x1 && f.y0 > DW_ROW_Y && f.y0 < DW_ROW_Y + DW_ROW_H;
+  if (f.pressed) {
+    dp_armed = f.owner ? 0 : on_pill ? (f.x0 < x0 + DW_BTN ? -1 : f.x0 > x1 - DW_BTN ? 1 : 2) : on_about ? 3 : 0;
+    dp_hold_at = halo_ms() + 500;
+  }
+  if (dp_armed == 2 && f.down && (!f.dragging || f.horiz) && halo_finger_claim(&dp_armed))  // the bar: by position
+    dp_set((int)lroundf(halo_clamp01((f.x - DW_BAR_X0) / DW_BAR_W) * DP_STEPS));
+  if ((dp_armed == -1 || dp_armed == 1) && f.dragging) dp_armed = 0;  // moved — a swipe, not a press
+  if ((dp_armed == -1 || dp_armed == 1) && f.tap) dp_set(dp_value + dp_armed);
+  if ((dp_armed == -1 || dp_armed == 1) && f.down && (int32_t)(halo_ms() - dp_hold_at) >= 0)  // held: a repeat
+    dp_set(dp_value + dp_armed), dp_hold_at = halo_ms() + 60;
+  if (dp_armed == 3 && f.dragging) dp_armed = 0;
+  if (dp_armed == 3 && f.tap) gl_req = dp_link, gl_req_depth = halo_nav_depth();
+  press_update(dp_press[0], dp_armed == -1 && f.down, dt);
+  press_update(dp_press[1], dp_armed == 1 && f.down, dt);
+  press_update(dr_press, dp_armed == 3 && f.down, dt);
+  if (!f.down) dp_armed = 0;
+}
+
+static void dr_text(HaloItem &it, const HaloFont &f, const char *s, float mid, int align, float x, float y, uint32_t c, const HaloView &v, const HaloItem *on, float a = 1) {
+  rg_text(it, f, s, mid, align, x, y, c, a, on);
+  it.on_black = on == &halo_black;
+  halo_view_commit(it, v);
+}
+
+// A rounded bar or (w = h = 0) a circle of radius r
+static void dw_shape(HaloItem &it, int kind, float x, float y, float w, float h, float r, uint32_t c, bool on_black, const HaloView &v,
+                     float a = 1) {
+  it.kind = kind, it.x = x, it.y = y, it.w = w, it.h = h, it.r = r, it.scale = 1, it.color = c, it.alpha = a;
+  it.on_black = on_black, it.on = nullptr;
+  halo_view_commit(it, v);
+}
+
+static void display_layout(const HaloView &v) {
+  dr_text(dr_title, gl_title, "Display", dr_mid_title, 0, DW_X, DW_TITLE_Y, GL_TEXT, v, &halo_black);
+  dr_text(dr_label, gl_t24, "Brightness", dr_mid_label, 0, DW_X, DW_LABEL_Y, DW_LABEL, v, &halo_black);
+  snprintf(dr_pct_s, sizeof dr_pct_s, "%d%%", (int)lroundf(halo_clamp01(dp_shown / DP_STEPS) * 100));
+  dr_text(dr_pct, gl_t24, dr_pct_s, dr_mid_label, 2, W - DW_X, DW_LABEL_Y, DW_LABEL, v, &halo_black);
+  dw_shape(dw_pill, HI_RRECT, DW_PILL_X + DW_PILL_W / 2, DW_PILL_Y, DW_PILL_W, DW_PILL_H, DW_PILL_H / 2, DW_PILL, true, v);
+  for (int i = 0; i < 2; i++) {  // "−" and "+" in their circles; pressed — the circle shrinks a little and lightens
+    const float pr = halo_clamp01(dp_press[i].s.x), cx = i ? DW_PILL_X + DW_PILL_W - DW_BTN / 2 : DW_PILL_X + DW_BTN / 2;
+    dw_shape(dw_btn[i], HI_CIRCLE, cx, DW_PILL_Y, 0, 0, DW_BTN_R * (1 - 0.08f * pr), pr > 0.01f ? DP_TRACK : DW_BTN_BG, false, v);
+  }
+  const float mx = DW_PILL_X + DW_BTN / 2, px = DW_PILL_X + DW_PILL_W - DW_BTN / 2;
+  dw_shape(dw_sign[0], HI_RRECT, mx, DW_PILL_Y, 22, 4, 2, GL_TEXT, false, v);
+  dw_shape(dw_sign[1], HI_RRECT, px, DW_PILL_Y, 22, 4, 2, GL_TEXT, false, v);
+  dw_shape(dw_sign[2], HI_RRECT, px, DW_PILL_Y, 4, 22, 2, GL_TEXT, false, v);
+  const float k = halo_clamp01(dp_shown / DP_STEPS), fw = fmaxf(DW_BAR_H, DW_BAR_W * k), kx = DW_BAR_X0 + DW_BAR_W * k;
+  dw_shape(dw_track, HI_RRECT, DW_BAR_X0 + DW_BAR_W / 2, DW_PILL_Y, DW_BAR_W, DW_BAR_H, DW_BAR_H / 2, DW_TRACK, false, v);
+  dw_shape(dw_fill, HI_RRECT, DW_BAR_X0 + fw / 2, DW_PILL_Y, fw, DW_BAR_H, DW_BAR_H / 2, DW_FILL, false, v);
+  dw_shape(dw_knob, HI_CIRCLE, fmaxf(DW_BAR_X0 + DW_KNOB_R / 2, kx), DW_PILL_Y, 0, 0, DW_KNOB_R, DW_FILL, false, v);
+  const float ra = dr_has_about() ? 1 : 0, p = halo_clamp01(dr_press.s.x), ry = DW_ROW_Y + DW_ROW_H / 2;
+  dw_shape(dw_row, HI_RRECT, DW_PILL_X + DW_PILL_W / 2, ry, DW_PILL_W, DW_ROW_H, DW_ROW_H / 2 - 16 * p, DW_PILL, true, v, ra);
+  dw_shape(dw_row_c, HI_CIRCLE, DW_PILL_X + 48, ry, 0, 0, 30, 0xC9CDD2, false, v, ra);
+  gl_text_mid(dw_row_ic, gl_w_ic30, DR_ICON_CHIP, dw_mid_ic, DW_PILL_X + 48, ry, 1, 0x1B1B1F, ra, &dw_row_c);
+  halo_view_commit(dw_row_ic, v);
+  gl_text_base(dw_row_t, gl_w_t28, "About", DW_PILL_X + 94, DW_ROW_Y + 44, 1, GL_TEXT, ra, &dw_row);
+  gl_text_base(dw_row_s, gl_t20, "this board, live", DW_PILL_X + 94, DW_ROW_Y + 72, 1, GL_DIM, ra, &dw_row);
+  halo_view_commit(dw_row_t, v), halo_view_commit(dw_row_s, v);
+  const char *hint = dp_hint_text();
+  dr_text(dr_hint, gl_t20, hint, dr_mid_hint, 1, CX, dr_has_about() ? DW_HINT_Y : DW_HINT_Y0, GL_DIM, v, &halo_black, *hint ? 1 : 0);
+}
+
+static void display_draw() {
+  halo_item_draw(dr_title), halo_item_draw(dr_label), halo_item_draw(dr_pct);
+  halo_item_draw(dw_pill);
+  for (auto &b : dw_btn) halo_item_draw(b);
+  for (auto &d : dw_sign) halo_item_draw(d);
+  halo_item_draw(dw_track), halo_item_draw(dw_fill), halo_item_draw(dw_knob);
+  halo_item_draw(dw_row), halo_item_draw(dw_row_c), halo_item_draw(dw_row_ic), halo_item_draw(dw_row_t), halo_item_draw(dw_row_s);
+  halo_item_draw(dr_hint);
+}
+#elif defined(HALO_SQUARE)
 // The square, 480 × 480 (variant 5C of web/mockups/square-screens.html): the two rows side by side at the top, the percent
 // and "Brightness" in the middle, then the round board's control — big "−" and "+" at the ends of a pill and the eight
 // steps between them as segments (settings.h: DP_STEPS 8 here). A tap on "−"/"+" — a step (held — a step every 60 ms

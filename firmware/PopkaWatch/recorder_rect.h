@@ -9,15 +9,40 @@
 
 extern const HaloFont gl_r_n190, gl_r_t28, gl_r_ic36, gl_r_title;
 
-#ifdef HALO_SQUARE  // (the square's titles: as its other screens')
+#if defined(HALO_WATCH)  // (the rectangular watch: no title — the timer is at the top left, the time in the middle)
+#define RR_TITLE_X 26.0f
+#define RR_TITLE_Y 84.0f
+#define RR_TITLE_S ""
+#elif defined(HALO_SQUARE)  // (the square's titles: as its other screens')
 #define RR_TITLE_X 16.0f
 #define RR_TITLE_Y 30.0f
 #else
 #define RR_TITLE_X 32.0f
 #define RR_TITLE_Y 45.0f
 #endif
-#if defined(HALO_P4_TALL) || defined(HALO_SQUARE)
-#ifdef HALO_SQUARE  // the square (variant 2B of web/mockups/square-media.html), as on the round board: the timer smaller at
+#ifndef RR_TITLE_S
+#define RR_TITLE_S "Recorder"
+#endif
+#if defined(HALO_P4_TALL) || defined(HALO_SQUARE) || defined(HALO_WATCH)
+#if defined(HALO_WATCH)  // the rectangular watch (variant 2B of web/mockups/watch206-media.html): the square's, by its size
+#define RR_TIME_X 26.0f
+#define RR_TIME_Y 98.0f
+#define RR_STATE_R (HALO_W - 26.0f)
+#define RR_STATE_Y 98.0f
+#define RR_WAVE_Y 256.0f
+#define RR_CARD_Y 256.0f
+#define RR_CARD_W (HALO_W - 28.0f)
+#define RR_CARD_H 220.0f
+#define RR_BTN_Y 434.0f
+#define RR_SIDE_W 110.0f
+#define RR_SIDE_H 76.0f
+#define RR_BIG_R 48.0f
+#define RR_N 24
+#define RR_ROWS 7
+#define RR_TIME_FONT gl_q_n64
+static const float RR_BX[3] = {72, CX, HALO_W - 72};
+extern const HaloFont gl_q_n64;  // (studio.py: WATCH_APP_FONTS)
+#elif defined(HALO_SQUARE)  // the square (variant 2B of web/mockups/square-media.html), as on the round board: the timer smaller at
                     // the top left with what is going on at the right, the dots filling a dark card in the middle (28
                     // columns, 13 rows), the three buttons under it
 #define RR_TIME_X 16.0f     // the timer: from its left end
@@ -164,7 +189,7 @@ static void recorder_layout(const HaloView &view) {
   HaloView v = view;
   v.a *= rc_fa;
   rc_v = v;
-  rr_text(rc_title, gl_r_title, "Recorder", rc_mid_title, 0, RR_TITLE_X, RR_TITLE_Y, RC_TEXT, v);
+  rr_text(rc_title, gl_r_title, RR_TITLE_S, rc_mid_title, 0, RR_TITLE_X, RR_TITLE_Y, RC_TEXT, v);
   const float m = halo_clamp01(rc_recm.x), has = halo_clamp01(rc_hasm.x), pp = halo_clamp01(rc_ppm.x);
 #ifdef RR_TIME_X
   rr_text(rc_time, RR_TIME_FONT, rc_time_s, rr_mid_time, 0, RR_TIME_X, RR_TIME_Y, rc_mix(0x9E9E9E, RC_TEXT, fmaxf(has, m)), v);
@@ -195,7 +220,7 @@ static void recorder_layout(const HaloView &view) {
   // The columns (drawn in rr_wave_draw)
   const float played = rc_len ? (float)rc_pos / rc_len : 0;
   const bool prog = (rc_state == RC_PLAY || rc_state == RC_DONE) && rc_pos > 0;
-#if defined(HALO_P4_TALL) || defined(HALO_SQUARE)
+#if defined(HALO_P4_TALL) || defined(HALO_SQUARE) || defined(HALO_WATCH)
   rr_columns();
 #endif
   uint32_t h = 2166136261u;
@@ -257,7 +282,7 @@ static inline void rr_dot(int x, int y, const uint16_t *pal, int a) {
 static void rr_wave_draw() {
   const HaloView &v = rc_v;
   if (v.a <= 0.004f) return;
-#ifdef HALO_SQUARE  // (a transition here only moves and fades the screen: the dots stay dots from palettes dimmed to it,
+#if defined(HALO_SQUARE) || defined(HALO_WATCH)  // (a transition here only moves and fades the screen: the dots stay dots from palettes dimmed to it,
                     // on whole pixels — 377 dots drawn one by one as rounded squares were 25 ms a frame on the S3)
   const bool fast = v.s == 1;
   static uint16_t pal_dim[RR_C_N][17];

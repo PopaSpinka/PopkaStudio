@@ -69,6 +69,9 @@
 extern const HaloFont gl_ra_n52, gl_ra_n32, gl_ra_t24, gl_ra_t20, gl_ra_t14, gl_ra_ic24;  // ROUND_APP_FONTS in studio.py
 #else
 extern const HaloFont gl_rr_n48, gl_rr_t24, gl_rr_t18, gl_rr_t15, gl_rr_t12, gl_rr_ic48, gl_r_n24;  // RECT_APP_FONTS
+#ifdef HALO_WATCH  // (the rectangular watch's poster: the round board's fonts — radio_rect.h)
+extern const HaloFont gl_ra_n52, gl_ra_n32, gl_ra_t24, gl_ra_t20, gl_ra_t14, gl_ra_ic24;
+#endif
 #endif
 static const char RD_PLAY[] = "\xEF\x81\x8B", RD_STOP[] = "\xEF\x81\x8D", RD_BARS[] = "\xEF\x83\x89", RD_HEART[] = "\xEF\x80\x84",
                   RD_VOL[] = "\xEF\x80\xA8";

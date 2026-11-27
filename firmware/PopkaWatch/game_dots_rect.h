@@ -31,7 +31,10 @@ static void dot_make(DotGame &g, int cols, int rows, float pitch, float w, float
 }
 
 static void dots_build() {
-#ifdef HALO_COMPACT  // a small rectangle: dots 24 px apart over the whole screen; in a card — 10 px
+#if defined(HALO_WATCH)  // a rectangular watch: the small rectangle's whole screen; in a pill's round window — 9 px apart
+  dot_make(dt_full, HALO_W / 24, HALO_H / 24, 24, HALO_W, HALO_H, 0.12f, 40, 11, 18, 21);
+  dot_make(dt_mini, (int)(RG_WIN / 9), (int)(RG_WIN / 9), 9, RG_WIN, RG_WIN, 0.1f, 18, 7, 7, 9);
+#elif defined(HALO_COMPACT)  // a small rectangle: dots 24 px apart over the whole screen; in a card — 10 px
   dot_make(dt_full, HALO_W / 24, HALO_H / 24, 24, HALO_W, HALO_H, 0.12f, 40, 11, 18, 21);
   dot_make(dt_mini, (int)(RG_GAME_W / 10), (int)(RG_SCENE_H / 10), 10, RG_GAME_W, RG_SCENE_H, 0.1f, 24, 7, 8, 10);
 #elif defined(HALO_P4_TALL)  // the 7″ board held tall: the same 36-px dots, the board turned — 16 across, 28 down; in the

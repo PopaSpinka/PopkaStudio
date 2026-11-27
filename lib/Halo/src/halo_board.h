@@ -11,6 +11,8 @@
 #include "ports/s3_lcd4b/board.h"
 #elif defined(HALO_BOARD_AMOLED175G)  // Waveshare ESP32-S3-Touch-AMOLED-1.75 / -G: the round 1.75C's port, its own pins
 #include "ports/s3_amoled175/board.h"
+#elif defined(HALO_BOARD_AMOLED206)  // Waveshare ESP32-S3-Touch-AMOLED-2.06: the 1.75C's chips, 410 × 502, its own pins
+#include "ports/s3_amoled175/board.h"
 #elif defined(HALO_WEB_BOARD_P4) || CONFIG_IDF_TARGET_ESP32P4  // (HALO_WEB_BOARD_P4: the browser engine of this board)
 #include "ports/p4_lcd7/board.h"
 #elif defined(__EMSCRIPTEN__) || CONFIG_IDF_TARGET_ESP32S3

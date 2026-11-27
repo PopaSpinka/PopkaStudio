@@ -7,6 +7,39 @@
 // Пины платы (схема Waveshare ESP32-S3-Touch-AMOLED-1.75C)
 // ESP32-S3-Touch-AMOLED-1.75 и -G (с GPS, -DHALO_BOARD_AMOLED175G) — те же чипы, свои сбросы экрана и тача, MCLK,
 // и у датчика движения на GPIO21 вывод INT2 (INT1 — на расширителе TCA9554): boards/amoled175g/hardware.md
+// ESP32-S3-Touch-AMOLED-2.06 (-DHALO_BOARD_AMOLED206): the same chips but the touch (FT3168 at 0x38), its own pins
+// for nearly everything — the block below; boards/amoled206/hardware.md
+#if defined(HALO_BOARD_AMOLED206)
+#define HALO_PIN_SD0 4
+#define HALO_PIN_SD1 5
+#define HALO_PIN_SD2 6
+#define HALO_PIN_SD3 7
+#define HALO_PIN_SCLK 11
+#define HALO_PIN_CS 12
+#define HALO_PIN_TE 13
+#define HALO_PIN_SDA 15
+#define HALO_PIN_SCL 14
+#define HALO_PIN_TP_INT 38
+#define HALO_PIN_BOOT 0
+#define HALO_PIN_PWR 10       // SYS_OUT: high while PWR is held (the AXP2101 reports the presses too)
+#define HALO_PIN_IMU_INT1 21  // QMI8658 INT1
+#define HALO_PIN_RTC_INT 39   // PCF85063 INT
+#define HALO_PIN_MOTOR 18     // the vibration motor (through a transistor): high — it runs
+#define HALO_PIN_BCLK 41
+#define HALO_PIN_LRCK 45
+#define HALO_PIN_DOUT 40
+#define HALO_PIN_DIN 42
+#define HALO_PIN_PA 46
+#define HALO_PIN_RST 8
+#define HALO_PIN_TP_RST 9
+#define HALO_PIN_MCLK 16
+#define HALO_IMU_WOM_PIN 0x80  // CAL1_H[7:6]: INT1, starting high
+#define HALO_IMU_INT_OUT 0x08  // CTRL1: INT1 output on
+#define HALO_IMU_INT_NAME "INT1"
+#define HALO_TOUCH_ADDR 0x38
+#define HALO_PANEL_X 22  // the panel's first column
+#define HALO_RTC_PCF85063 1
+#else
 #define HALO_PIN_SD0 4
 #define HALO_PIN_SD1 5
 #define HALO_PIN_SD2 6
@@ -40,6 +73,12 @@
 #define HALO_IMU_INT_OUT 0x08  // CTRL1: INT1 output on
 #define HALO_IMU_INT_NAME "INT1"
 #endif
+#define HALO_TOUCH_ADDR 0x5A
+#define HALO_PANEL_X 6
+#if defined(HALO_BOARD_AMOLED175G)
+#define HALO_RTC_PCF85063 1
+#endif
+#endif  // HALO_BOARD_AMOLED206
 
 // ---------- Дисплей (halo_display.cpp) ----------
 bool hd_begin(uint32_t hz, int buffers, uint8_t brightness);
@@ -71,8 +110,8 @@ void ht_kick();  // прочитать отчёт тача сейчас (его 
 void hp_frame_end();  // движок, когда кадр уже на экране: уснуть, если просили; «притворяясь» — ждать пробуждения
 void hf_swallow_boot();   // нажатие BOOT, которое разбудило: не нажатие (halo_frame.cpp)
 
-#ifdef HALO_BOARD_AMOLED175G
-// ---------- Clock chip PCF85063 of the 1.75 (halo_rtc175g.cpp) ----------
+#ifdef HALO_RTC_PCF85063
+// ---------- Clock chip PCF85063 of the 1.75 and the 2.06 (halo_rtc175g.cpp) ----------
 void hr_begin();  // the system clock from the chip, when it has a time
 void hr_tick();   // halo_loop: the chip follows the system clock's jumps
 #endif

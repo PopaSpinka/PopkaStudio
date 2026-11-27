@@ -16,6 +16,8 @@
 #define POPKA_BOARD "lcd4b"
 #elif defined(HALO_BOARD_AMOLED175G)
 #define POPKA_BOARD "amoled175g"
+#elif defined(HALO_BOARD_AMOLED206)
+#define POPKA_BOARD "amoled206"
 #elif CONFIG_IDF_TARGET_ESP32P4
 #define POPKA_BOARD "p4lcd7"
 #else

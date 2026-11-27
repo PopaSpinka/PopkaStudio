@@ -2,7 +2,7 @@
 // functions: Always On, the buttons, Wi-Fi, Bluetooth — a fourth tile, its menu to the right; each one's switch is in its
 // Properties), Screens and Layers (of the active screen, a line between them to drag) and Properties (of a layer, a
 // screen, a link, the way to the gallery or a function: what can be set, no more).
-import { BOARD, ROUND, TW, TH, allowed, lacks } from './screen.js';
+import { BOARD, ROUND, WATCH, TW, TH, allowed, lacks } from './screen.js';
 import {
   state, screens, home, screenById, activeScreen, layers, selected, select, change, KINDS, layerById, screenOf,
   linkedScreens, links, newScreen, emit, PAGED, sync as saved, mainScreen, canLink, targetsFor, ICONS, TAPS, PAGES, paged,
@@ -1520,7 +1520,7 @@ function layerProps(stage, l) {
       l.pill !== false ? color('Pill', () => l.color, upd('color'), 'color') : null,
       color('Text', () => l.color2, upd('color2'), 'color2'),
       color('Accent', () => l.color3, stepsSet('accent'), 'color3')));
-  } else if (l.type === 'hourly' && !ROUND) {  // (a rectangle: the temperature's line, wxscreen_rect.h)
+  } else if (l.type === 'hourly' && !ROUND && !WATCH) {  // (a rectangle: the temperature's line, wxscreen_rect.h; a watch's — a pill)
     groups.push(h('div', { class: 'group' }, h('h3', {}, 'Chart'), scale('Captions'),
       color('Line', () => l.color, upd('color'), 'color'),
       color('Captions', () => l.color2, upd('color2'), 'color2')));

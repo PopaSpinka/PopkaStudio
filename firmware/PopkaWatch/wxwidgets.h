@@ -103,8 +103,9 @@ struct WwRun {
   float bar[7][3], bw;
   uint32_t bcol[7][2];
   int nbar;
-#ifdef HALO_P4_TALL
-  bool vert, hbar;  // the 7″ board held tall: the curve upright (12.2B), the week in rows — its bars across (12.7A)
+#if defined(HALO_P4_TALL) || defined(HALO_WATCH)
+  bool vert, hbar;  // the 7″ board held tall: the curve upright (12.2B), the week in rows — its bars across (12.7A; the
+                    // watch's 11B)
 #endif
   // Pixels: the scene, the time, the degrees — two frames each (the one shown and the next); their size in cells
   HaloPixels px[3];
@@ -374,7 +375,9 @@ static const int WW_PXW[3] = {50, 25, 22}, WW_PXH[3] = {46, 7, 7};  // (room for
 #else
 #ifdef HALO_COMPACT  // the WT32-SC01 Plus held wide, 480 x 320 (web/mockups/wt32-widgets.html): the same layouts re-laid
                      // for it — its anchors and inner places under #ifdef HALO_COMPACT below (Tall has no widgets)
-#ifdef HALO_SQUARE  // the square, 480 x 480 (web/mockups/square-widgets.html): a layout a widget, under #ifdef HALO_SQUARE
+#ifdef HALO_WATCH  // the watch, 410 x 502 (web/mockups/watch206-widgets.html): a layout a widget, under #ifdef HALO_WATCH
+static const int WW_PXW[3] = {46, 25, 22}, WW_PXH[3] = {28, 7, 7};  // (room for its scene: 46 x 28 cells)
+#elif defined(HALO_SQUARE)  // the square, 480 x 480 (web/mockups/square-widgets.html): a layout a widget, under #ifdef HALO_SQUARE
 static const int WW_PXW[3] = {60, 25, 22}, WW_PXH[3] = {30, 7, 7};  // (room for its scene: 54 x 30 cells)
 #else
 static const int WW_PXW[3] = {60, 25, 22}, WW_PXH[3] = {20, 7, 7};  // (room for the widest scene: its band)
@@ -709,8 +712,8 @@ static void ww_draw_bars(const WwRun &c) {
     }
   }
 }
-#ifdef HALO_P4_TALL
-// The week in rows (the 7″ board held tall, 12.7A): each bar across — bar[j]: its y, left end, right end; colored from
+#if defined(HALO_P4_TALL) || defined(HALO_WATCH)
+// The week in rows (the 7″ board held tall, 12.7A; the watch, 11B): each bar across — bar[j]: its y, left end, right end; colored from
 // the low (left, bcol[j][0]) to the high (right, bcol[j][1]); half as thick as c.bw, round ends
 static void ww_draw_hbars(const WwRun &c) {
   const WwArea &A = c.area[0];
@@ -965,7 +968,14 @@ static void ww_base(uint8_t kind, int look, float &x, float &y) {
                                     {{300, 556}, {146, 652}}, {{300, 660}, {300, 1000}}, {{300, 384}, {300, 472}},
                                     {{300, 700}, {300, 660}}};
 #else
-#ifdef HALO_SQUARE
+#ifdef HALO_WATCH
+  // (watch206-widgets.html, the watch: one layout a widget — digits 5A, curve 6A, barometer 7B (the ruler), wear 8A,
+  // buddy 9A, pixels 10A, week 11B (five rows), all under the clock but the pixels; the clock moves where the mockup
+  // has it: the passport's moves)
+  static const float XY[7][2][2] = {{{205, 300}, {205, 300}}, {{205, 310}, {205, 310}}, {{205, 304}, {205, 304}},
+                                    {{205, 292}, {205, 292}}, {{195, 330}, {195, 330}}, {{205, 250}, {205, 250}},
+                                    {{205, 228}, {205, 228}}};
+#elif defined(HALO_SQUARE)
   // (square-widgets.html, the square: one layout a widget — digits 1A, curve 2A, barometer 3B, wear 4A, buddy 5A,
   // pixels 6A, week 7A, all under the clock but the pixels; the clock moves where the mockup has it: the passport's moves)
   static const float XY[7][2][2] = {{{240, 300}, {240, 300}}, {{248, 330}, {248, 330}}, {{240, 316}, {240, 316}},
@@ -999,7 +1009,9 @@ static void ww_layout(const FaceScreen &S, int i, float a, const HaloView &v) {
   FaceRun &R = S.run[i];
   R.box[0] = R.box[1] = 0, R.box[2] = R.box[3] = -1;
   float ax, ay;
-#ifdef HALO_SQUARE  // (the square has one layout a widget, whatever p3 says: the code's look 0 — but the ruler, look 1)
+#ifdef HALO_WATCH  // (the watch has one layout a widget, whatever p3 says: the code's look 0 — but the ruler and the rows, 1)
+  const int look = L.kind == FL_WXBARO || L.kind == FL_WXWEEK ? 1 : 0;
+#elif defined(HALO_SQUARE)  // (the square has one layout a widget, whatever p3 says: the code's look 0 — but the ruler, look 1)
   const int look = L.kind == FL_WXBARO ? 1 : 0;
 #else
   const int look = WW_RECT ? (int)L.p3 : 0;  // (the 7-inch board's layouts; the watch has one)
@@ -1078,7 +1090,10 @@ static void ww_layout(const FaceScreen &S, int i, float a, const HaloView &v) {
         ww_text(c, n++, L.font2, c.mid2, WW_WORD[w.sky], ax, ay + (look ? 218 : 212), 1, L.color, a, 4, v, c.ob);
         ww_text(c, n++, L.font2, c.mid2, c.txt[1], ax, ay + (look ? 264 : 258), 1, L.color2, a, 0, v, c.ob);
 #else
-#ifdef HALO_SQUARE  // (the square's 1A: under the digits, which are under the clock)
+#ifdef HALO_WATCH  // (the watch's 5A: under the digits, which are under the clock)
+        ww_text(c, n++, L.font2, c.mid2, WW_WORD[w.sky], ax, ay + 94, 1, L.color, a, 2, v, c.ob);
+        ww_text(c, n++, L.font2, c.mid2, c.txt[1], ax, ay + 122, 1, L.color2, a, 0, v, c.ob);
+#elif defined(HALO_SQUARE)  // (the square's 1A: under the digits, which are under the clock)
         ww_text(c, n++, L.font2, c.mid2, WW_WORD[w.sky], ax, ay + 98, 1, L.color, a, 2, v, c.ob);
         ww_text(c, n++, L.font2, c.mid2, c.txt[1], ax, ay + 124, 1, L.color2, a, 0, v, c.ob);
 #elif defined(HALO_COMPACT)  // (the WT32 wide: 1A — under the digits; 1B — beside them, from past their right edge)
@@ -1108,7 +1123,11 @@ static void ww_layout(const FaceScreen &S, int i, float a, const HaloView &v) {
                                        {219, 40, 160, -194, 102, 54, 3, -15, -340, 3, 1.35f},
                                        {264, -108, -216, -212, -330, -138, 2, -70, -362, 3, 1.35f}};
 #else
-#ifdef HALO_SQUARE  // (the square's 2A: the 12 hours 396 px wide under the clock — square-widgets.html)
+#ifdef HALO_WATCH  // (the watch's 6A: the 12 hours 330 px wide under the clock — watch206-widgets.html)
+      static const float GEO[3][11] = {{137, 44, 78, -70, 76, 58, 3, 0, 108, 2.25f, 1},
+                                       {165, 24, 54, -74, 66, 32, 3, 0, 110, 1.7f, 0.8f},
+                                       {165, 24, 54, -74, 66, 32, 3, 0, 110, 1.7f, 0.8f}};
+#elif defined(HALO_SQUARE)  // (the square's 2A: the 12 hours 396 px wide under the clock — square-widgets.html)
       static const float GEO[3][11] = {{137, 44, 78, -70, 76, 58, 3, 0, 108, 2.25f, 1},
                                        {198, 22, 52, -76, 68, 30, 2, 0, 102, 1.7f, 0.8f},
                                        {198, 22, 52, -76, 68, 30, 2, 0, 102, 1.7f, 0.8f}};
@@ -1378,7 +1397,12 @@ static void ww_layout(const FaceScreen &S, int i, float a, const HaloView &v) {
         ww_ring(c, n++, ax, ay, 7, 2, L.color, a, v);
         ww_circle(c, n++, ax, ay, 2.2f, 0xFFF8EE, a, v, false);
       } else {  // 960 … 1040 hPa over 400 px; the words over it, the numbers under it; now — a coral bar, in 3 hours — brass
-        auto X = [&](float p) { return ax - 200 + (fminf(1040, fmaxf(960, p)) - 960) * 5; };
+#ifdef HALO_WATCH
+        const float pp = 4;  // (the watch's 7B: 320 px, 4 px a hPa)
+#else
+        const float pp = 5;
+#endif
+        auto X = [&](float p) { return ax - 40 * pp + (fminf(1040, fmaxf(960, p)) - 960) * pp; };
         ww_cap(c, nc++, X(960), ay, X(1040), ay, 0.7f, 0.7f, ww_mix(L.color2, 0, 0.4f), a, v);
         for (int p = 960, j = 0; p <= 1040; p += 2, j++) {
           const bool major = j % 5 == 0;
@@ -1402,18 +1426,20 @@ static void ww_layout(const FaceScreen &S, int i, float a, const HaloView &v) {
       if (known) snprintf(c.txt[1], 40, "%d hPa", P);
       else snprintf(c.txt[1], 40, "-- hPa");
       const float w0 = L.font2 ? halo_text_width(*L.font2, c.txt[0]) : 0, w1 = L.font2 ? halo_text_width(*L.font2, c.txt[1]) : 0;
-#ifdef HALO_SQUARE  // (the square's 3B: the degrees, hPa and the trend lower under the ruler)
-      const float RY = 72;
+#ifdef HALO_WATCH  // (the watch's 7B: the degrees and hPa, then the trend, in two lines in the middle under the ruler)
+      const float RY = 76, IX = 0, TX = 0, TY = 108;
+#elif defined(HALO_SQUARE)  // (the square's 3B: the degrees, hPa and the trend lower under the ruler)
+      const float RY = 72, IX = -44, TX = 64, TY = 72;
 #else
-      const float RY = 56;
+      const float RY = 56, IX = -44, TX = 64, TY = 56;
 #endif
-      const float ix = ruler ? ax - 44 : ax - 226, iy = ruler ? ay + RY : ay + 16, x0 = ix - (w0 + 8 + w1) / 2;
+      const float ix = ruler ? ax + IX : ax - 226, iy = ruler ? ay + RY : ay + 16, x0 = ix - (w0 + 8 + w1) / 2;
       ww_text(c, n++, L.font2, c.mid2, c.txt[0], x0, iy, 0, 0xFFF8EE, a, 0, v, c.ob);
       ww_text(c, n++, L.font2, c.mid2, c.txt[1], x0 + w0 + 8, iy, 0, L.color2, a, 0, v, c.ob);
       const int dp = P3 - P, tr = !known ? 0 : dp >= 2 ? 1 : dp <= -2 ? -1 : 0;
       static const char *const TREND[3] = {"FALLING", "STEADY", "RISING"};
       const uint32_t tc = tr > 0 ? 0xA8C7FA : tr < 0 ? 0xFF8A80 : L.color2;
-      const float tcx = ruler ? ax + 64 : ax - 226, ty = ruler ? ay + RY : ay + 46;
+      const float tcx = ruler ? ax + TX : ax - 226, ty = ruler ? ay + TY : ay + 46;
       const float tw = L.font ? halo_text_width(*L.font, TREND[tr + 1], 2) : 0, tx = tcx - (tw + 18) / 2, xa = tx + 5;
       if (tr) {  // (the arrow 12 px long, its head 5 px each side)
         const float d = tr < 0 ? 1 : -1;  // (down — falling)
@@ -1580,7 +1606,9 @@ static void ww_layout(const FaceScreen &S, int i, float a, const HaloView &v) {
 #ifdef HALO_P4_TALL
       const float k = (L.k > 0 ? L.k : 1) * (look ? 3.0f : 2.1f);  // (tall: under the clock — 12.5A, peeking — 12.5B)
 #else
-#ifdef HALO_SQUARE
+#ifdef HALO_WATCH
+      const float k = L.k > 0 ? L.k : 1;  // (the watch: under the clock — 9A)
+#elif defined(HALO_SQUARE)
       const float k = (L.k > 0 ? L.k : 1) * 1.1f;  // (the square: under the clock — 5A)
 #elif defined(HALO_COMPACT)
       const float k = (L.k > 0 ? L.k : 1) * (look ? 1.0f : 0.84f);  // (the WT32 wide: beside — 5A, peeking — 5B)
@@ -1709,12 +1737,16 @@ static void ww_layout(const FaceScreen &S, int i, float a, const HaloView &v) {
       // The WT32 wide (wt32-widgets.html): 6A — 54 x 20 cells of 9 px from the anchor down, the pixel time (p2) and the
       // degrees over it; 6B — 60 x 19 cells of 8 px along the bottom, the degrees beside the clock
       const bool whole = !look;
-#ifdef HALO_SQUARE  // (the square's 6A: 54 x 30 cells of 9 px, from under the time to the bottom)
+#ifdef HALO_WATCH  // (the watch's 10A: 46 x 28 cells of 9 px, from under the degrees to the bottom; the time and the
+                   // degrees over it in the middle, one under the other)
+      const int cols = 46, rows = 28;
+      const float TY = 176, WY = 28, TX = 0, DX = 0, DY = 88, PT = 10, PD = 6;
+#elif defined(HALO_SQUARE)  // (the square's 6A: 54 x 30 cells of 9 px, from under the time to the bottom)
       const int cols = 54, rows = 30;
-      const float TY = 112, WY = 45;
+      const float TY = 112, WY = 45, TX = -116, DX = 132, DY = TY, PT = 8, PD = 7;
 #else
       const int cols = whole ? 54 : 60, rows = whole ? 20 : 19;
-      const float TY = whole ? 82 : 98, WY = whole ? 15 : 40;
+      const float TY = whole ? 82 : 98, WY = whole ? 15 : 40, TX = -116, DX = whole ? 132 : 160, DY = TY, PT = 8, PD = whole ? 7 : 6;
 #endif
       if (c.pxw[0] != cols || c.pxh[0] != rows) {
         HaloPixels &q = c.px[0];
@@ -1727,10 +1759,10 @@ static void ww_layout(const FaceScreen &S, int i, float a, const HaloView &v) {
         uint32_t cs = 2166136261u;
         for (const char *p = fc_time; *p; p++) cs = ww_hashu(cs, (uint8_t)*p);
         if (cs != c.px_sig[1]) c.px_sig[1] = cs, ww_px_text(c, 1, fc_time);
-        ww_pixels(c, n++, &c.px[1], c.pframe[1], ax - 116 * k, ay - TY * k, 8 * k, a, v);  // (under the date line)
+        ww_pixels(c, n++, &c.px[1], c.pframe[1], ax + TX * k, ay - TY * k, PT * k, a, v);  // (under the date line)
       }
-      const float tx = ax + (whole ? 132 : 160) * k;
-      ww_pixels(c, n++, &c.px[2], c.pframe[2], tx, ay - TY * k, (whole ? 7 : 6) * k, a, v);
+      const float tx = ax + DX * k;
+      ww_pixels(c, n++, &c.px[2], c.pframe[2], tx, ay - DY * k, PD * k, a, v);
       ww_text(c, n++, L.font, c.mid, WW_WORD[w.sky], tx, ay - WY * k, 1, L.color, a, L.spacing, v, c.ob);
 #elif WW_RECT
       // 6A: the whole screen — 64 x 22 cells of 16 px, the pixel time (p2) top left, the degrees top right; 6B: 86 x 23
@@ -1780,7 +1812,9 @@ static void ww_layout(const FaceScreen &S, int i, float a, const HaloView &v) {
       static const float GEO[3][7] = {{64, -90, -56, 72, 76, 19, 6}, {80, -280, -226, 80, 200, 26.4f, 8.25f},
                                       {80, -240, 0, 0, 0, 0, 6.5f}};
 #else
-#ifdef HALO_SQUARE  // (the square's 7A: seven tall columns under the clock — square-widgets.html)
+#ifdef HALO_WATCH  // (the watch's 11B: five rows under the clock, 52 px apart from the anchor — watch206-widgets.html)
+      static const float GEO[3][7] = {{64, -90, -56, 72, 76, 19, 6}, {54, -78, -48, 84, 84, 18, 6}, {52, 0, 0, 0, 0, 0, 4.5f}};
+#elif defined(HALO_SQUARE)  // (the square's 7A: seven tall columns under the clock — square-widgets.html)
       static const float GEO[3][7] = {{64, -90, -56, 72, 76, 19, 6}, {64, -78, -48, 84, 84, 18, 6}, {64, -78, -48, 84, 84, 18, 6}};
 #elif defined(HALO_COMPACT)  // (the WT32 wide's 7A and 7B: wt32-widgets.html)
       static const float GEO[3][7] = {{64, -90, -56, 72, 76, 19, 6}, {64, -50, -24, 61, 48, 17, 5.5f},
@@ -1808,25 +1842,32 @@ static void ww_layout(const FaceScreen &S, int i, float a, const HaloView &v) {
       float bb[4] = {1e9f, 1e9f, -1e9f, -1e9f};
       uint32_t h = 2166136261u;
       c.over = 0;  // (the bars only — no dark track under them: the user's word, 15 Nov 2026)
-#ifdef HALO_P4_TALL
+#if defined(HALO_P4_TALL) || defined(HALO_WATCH)
+      // (rows: the bars' width and their left end, the day's x, the sky's, where the low ends, where the high starts)
+#ifdef HALO_WATCH
+      static const float ROW[6] = {132, -21, -175, -93, -33, 123};
+#else
+      static const float ROW[6] = {194, -42, -252, -140, -60, 170};
+#endif
       c.hbar = look;
       if (look) {  // (12.7A: a row a day — the day, the sky, the low, a bar from the low to the high on a dark track, the high)
-        const float xk = 194 / fmaxf(1, mx - mn);  // (the bars between 42 px left of the anchor and 152 right)
-        for (int j = 0; j < nd; j++) ww_rrect(c, n++, ax + 55, ay + G[1] + j * G[0], 194 + 2 * G[6], 2 * G[6], G[6], 0x232428, a, v, c.ob);
+        const float xk = ROW[0] / fmaxf(1, mx - mn);  // (the bars between 42 px left of the anchor and 152 right)
+        for (int j = 0; j < nd; j++)
+          ww_rrect(c, n++, ax + ROW[1] + ROW[0] / 2, ay + G[1] + j * G[0], ROW[0] + 2 * G[6], 2 * G[6], G[6], 0x232428, a, v, c.ob);
         c.over = n;  // (the tracks under the bars)
         for (int j = 0; j < nd; j++) {
-          const float y = ay + G[1] + j * G[0], xl = ax - 42 + (lo[j] - mn) * xk, xr = ax - 42 + (hi[j] - mn) * xk;
+          const float y = ay + G[1] + j * G[0], xl = ax + ROW[1] + (lo[j] - mn) * xk, xr = ax + ROW[1] + (hi[j] - mn) * xk;
           snprintf(c.txt[j], 40, "%s", ok ? WEEKDAY[(tm.tm_wday + j) % 7] : "---");
-          ww_text(c, n++, L.font2, c.mid2, c.txt[j], ax - 252, y, 0, j ? L.color2 : L.color3, a, 2, v, c.ob);
-          ww_image(c, n++, L.icons ? L.icons[sk[j]] : nullptr, ax - 140, y, a, v);
+          ww_text(c, n++, L.font2, c.mid2, c.txt[j], ax + ROW[2], y, 0, j ? L.color2 : L.color3, a, 2, v, c.ob);
+          ww_image(c, n++, L.icons ? L.icons[sk[j]] : nullptr, ax + ROW[3], y, a, v);
           c.bar[j][0] = halo_view_y(v, y), c.bar[j][1] = halo_view_x(v, xl), c.bar[j][2] = halo_view_x(v, xr);
           c.bcol[j][0] = ww_tcol(lo[j]), c.bcol[j][1] = ww_tcol(hi[j]);
           h = ww_hash(ww_hash(ww_hash(h, c.bar[j][0]), c.bar[j][1]), c.bar[j][2]), h = ww_hashu(ww_hashu(h, c.bcol[j][0]), c.bcol[j][1]);
           const float e = (G[6] + 2) * v.s;
           ww_box_add(bb, c.bar[j][1] - e, c.bar[j][0] - e, c.bar[j][2] + e, c.bar[j][0] + e);
           wx_deg(c.txt[7 + j], 40, (int16_t)lroundf(hi[j])), wx_deg(c.txt[14 + j], 40, (int16_t)lroundf(lo[j]));
-          ww_text(c, n++, L.font, c.mid, c.txt[14 + j], ax - 60, y, 2, L.color2, a, 0, v, c.ob);
-          ww_text(c, n++, L.font, c.mid, c.txt[7 + j], ax + 170, y, 0, j ? L.color : L.color3, a, 0, v, c.ob);
+          ww_text(c, n++, L.font, c.mid, c.txt[14 + j], ax + ROW[4], y, 2, L.color2, a, 0, v, c.ob);
+          ww_text(c, n++, L.font, c.mid, c.txt[7 + j], ax + ROW[5], y, 0, j ? L.color : L.color3, a, 0, v, c.ob);
         }
       } else
 #endif
@@ -1857,7 +1898,9 @@ static void ww_layout(const FaceScreen &S, int i, float a, const HaloView &v) {
         ww_text(c, n++, L.font2, c.mid2, c.txt[22], x0 + w0 + w1 + 20, y0, 0, L.color2, a, 3, v, c.ob);
       }
 #else
-#ifdef HALO_COMPACT
+#ifdef HALO_WATCH
+      // (the watch's 11B: the rows alone — the weather now is in the status line)
+#elif defined(HALO_COMPACT)
       if (look && L.font && L.font2) {  // (the WT32 wide's 7B: the weather now under the clock)
         wx_deg(c.txt[21], 40, w.now);
         snprintf(c.txt[22], 40, "· %s", WW_WORD[w.sky]);
@@ -1904,6 +1947,8 @@ static void ww_draw(const FaceScreen &S, int i) {
   if (L.kind == FL_WXDIGITS) ww_draw_digits(c);
 #ifdef HALO_P4_TALL
   else if (L.kind == FL_WXCURVE && c.vert) ww_draw_curve_v(c);
+#endif
+#if defined(HALO_P4_TALL) || defined(HALO_WATCH)
   else if (L.kind == FL_WXWEEK && c.hbar) ww_draw_hbars(c);
 #endif
   else if (L.kind == FL_WXCURVE) ww_draw_curve(c);

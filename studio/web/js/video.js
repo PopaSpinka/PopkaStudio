@@ -93,7 +93,7 @@ function draw() {
 export function clipsGroup(h, icons) {
   h0 = h, icons0 = icons;
   const input = h('input', { type: 'file', accept: 'video/*', hidden: true, onchange: () => { if (input.files[0]) add(input.files[0]); input.value = ''; } });
-  const plus = h('button', { class: 'icon-btn', title: ffmpeg ? 'Add a video' : 'Needs ffmpeg: brew install ffmpeg', 'aria-label': 'Add a video', html: icons.plus, onclick: () => input.click() });
+  const plus = h('button', { class: 'icon-btn', title: ffmpeg ? 'Add a video' : `Needs ffmpeg: ${/Win/.test(navigator.platform) ? 'winget install ffmpeg' : 'brew install ffmpeg'}`, 'aria-label': 'Add a video', html: icons.plus, onclick: () => input.click() });
   target = h('ul', { class: 'layers clips' });
   draw();
   refresh();

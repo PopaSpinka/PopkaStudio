@@ -179,7 +179,10 @@ struct DvRun {
   uint32_t enter_ms, text_at, lab_at[2];
   uint8_t tone;  // Power: the state's color — 0 dim, 1 green, 2 red
   uint8_t used;  // items laid out last frame (the rest stay hidden: not committed again)
-#ifndef HALO_ROUND
+#if defined(HALO_WATCH)
+  char row[6][16];   // the values of the six tiles (device_rect.h)
+  uint32_t row_at;
+#elif !defined(HALO_ROUND)
   char row[4][16];   // the values in the list at the right (device_rect.h)
   uint32_t row_at;
 #endif
@@ -859,7 +862,58 @@ static void dv_detail_layout(const FaceLayer &L, DvRun &d, const HaloView &v) {
 #endif
 
 #if HAS_CHARGE
-#if defined(HALO_SQUARE)
+#if defined(HALO_WATCH)
+// A rectangular watch (variant 5B of web/mockups/watch206-screens.html): the title; what is going on in a pill (charging —
+// green, with a bolt; low — red) with the percent; then a pill a number — the battery's, USB's and the system's voltage,
+// the power chip's temperature: its icon in a circle, its name, the value at the right
+extern const HaloFont gl_w_n30, gl_w_ic30;
+static void ch_watch(DvRun &d, const HaloBattery &b, const HaloView &v) {
+  static bool ready;
+  static float mid_title, mid_name, mid_val, mid_ic, mid_st;
+  static char val[4][16], st[40];
+  if (!ready) {
+    ready = true;
+    mid_title = halo_text_mid(gl_title, "Power"), mid_name = halo_text_mid(gl_t20, "Battery");
+    mid_val = halo_text_mid(gl_w_n30, "0123456789"), mid_ic = halo_text_mid(gl_w_ic30, "\xEF\x89\x80");
+    mid_st = halo_text_mid(gl_t24, "Charging 0123456789%");
+  }
+  const bool has = b.ok && b.present && b.percent >= 0;
+  const uint32_t sc = d.tone == 1 ? DV_GREEN : d.tone == 2 ? DV_RED : DV_DIM;
+  has ? snprintf(st, sizeof st, "%s \xC2\xB7 %d%%", d.state, b.percent) : snprintf(st, sizeof st, "%s", d.state);
+  has ? snprintf(val[0], sizeof val[0], "%.2f V", b.mv / 1000.0f) : snprintf(val[0], sizeof val[0], "\xE2\x80\x94");
+  snprintf(val[1], sizeof val[1], "%s", d.lab_s[0]), snprintf(val[2], sizeof val[2], "%s", d.lab_s[1]);
+  snprintf(val[3], sizeof val[3], "%.1f\xC2\xB0", b.temp10 / 10.0f);
+  HaloItem *it = d.it;
+  int n = 0;
+  auto text = [&](const HaloFont &fo, const char *s, float mid, float x, float y, uint32_t c, int align, const HaloItem *on) {
+    dv_text(it[n++], fo, s, mid, x, y, 1, c, 1, align, on);
+  };
+  auto shape = [&](int kind, float cx, float cy, float w, float h, float r, uint32_t c, bool black) -> HaloItem & {
+    HaloItem &q = it[n++];
+    q.kind = kind, q.x = cx, q.y = cy, q.w = w, q.h = h, q.r = r, q.scale = 1, q.color = c, q.alpha = 1, q.on_black = black, q.on = nullptr;
+    return q;
+  };
+  const float px = 14, pw = W - 28;
+  text(gl_title, "Power", mid_title, 26, RG_TITLE_Y, DV_TEXT, 0, &halo_black);
+  const bool bolt = b.usb && b.charging;
+  HaloItem &sp = shape(HI_RRECT, px + pw / 2, 149, pw, 74, 37, dv_mix(0x26292D, sc, 0.14f), true);
+  text(gl_w_ic30, "\xEF\x83\xA7", mid_ic, px + 40, 149, sc, 1, &sp);
+  it[n - 1].alpha = bolt ? 1 : 0;
+  text(gl_t24, st, mid_st, px + (bolt ? 72 : 30), 149, sc, 0, &sp);
+  static const char *const NAME[4] = {"Battery", "USB", "System", "Power chip"};
+  static const char *const ICON[4] = {"\xEF\x89\x80", "\xEF\x83\xA7", "\xEF\x8B\x9B", "\xEF\x8B\x89"};
+  static const uint32_t COL[4] = {0x8FDCAE, 0xFFC979, 0x8AD6F0, 0xFFAB91};
+  for (int j = 0; j < 4; j++) {
+    const float y = 198 + j * 74 + 33;
+    HaloItem &p = shape(HI_RRECT, px + pw / 2, y, pw, 66, 33, 0x26292D, true);
+    HaloItem &c = shape(HI_CIRCLE, px + 38, y, 0, 0, 22, COL[j], false);
+    dv_text(it[n++], gl_w_ic30, ICON[j], mid_ic, px + 38, y, 0.8f, 0x1B1B1F, 1, 1, &c);
+    text(gl_t20, NAME[j], mid_name, px + 72, y, 0xC9CACF, 0, &p);
+    text(gl_w_n30, val[j], mid_val, px + pw - 28, y, DV_TEXT, 2, &p);
+  }
+  dv_commit(d, n, v, nullptr);
+}
+#elif defined(HALO_SQUARE)
 // The square (variant 2B of web/mockups/square-battery.html): the title; what is going on (charging — a bolt), the
 // percent big, the forecast at the right (two lines), the level as a bar the screen's width; the four numbers — the
 // battery's, USB's and the system's voltage, the power chip's temperature — as tiles two by two; the chip at the bottom.
@@ -951,7 +1005,9 @@ static void ch_layout(DvRun &d, const HaloView &v) {
     snprintf(d.lab_s[1], sizeof(d.lab_s[1]), "%.2f V", b.vsys_mv / 1000.0f);
     snprintf(d.sub, sizeof(d.sub), "%d\xC2\xB0", (int)lroundf(b.temp10 / 10.0f));
   }
-#if defined(HALO_SQUARE)
+#if defined(HALO_WATCH)
+  return ch_watch(d, b, v);
+#elif defined(HALO_SQUARE)
   return ch_square(d, b, v);
 #endif
   // The percent counts up as the screen opens, the line along the bezel grows along it (in pieces)

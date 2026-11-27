@@ -37,12 +37,18 @@
 #define WR_FC_DEG_DY -18.0f
 #define WR_FC_DOT_R 4.5f
 #define WR_FC_LINE 1.5f         // half the line's thickness
+#ifdef HALO_WATCH  // (the watch: round its clock — above the middle — web/mockups/watch206-widgets.html)
+#define WR_FRAME_CY RH_CLOCK_Y
+#define WR_FRAME_W 300.0f
+#define WR_DOT_CY RH_CLOCK_Y
+#else
 #define WR_FRAME_CY CY
 #define WR_FRAME_W (WR_WIDE ? 320.0f : 264.0f)
+#define WR_DOT_CY CY
+#endif
 #define WR_FRAME_TEXT 21.0f
 #define WR_FRAME_LINE 2.0f
 #define WR_FRAME_GAP 120.0f
-#define WR_DOT_CY CY
 #elif defined(HALO_P4_TALL)  // the 7″ board held tall (600 × 1024): the 7″ sizes, the rows along the bottom under the clock
 #define WR_WEEK_X0 48.0f
 #define WR_WEEK_STEP ((HALO_W - 2 * WR_WEEK_X0) / 6)
@@ -114,15 +120,22 @@
 #define WR_ICON_UP "\xEF\x83\x98"    // Font Awesome: caret-up, caret-down
 #define WR_ICON_DOWN "\xEF\x83\x97"
 
-#ifdef HALO_SQUARE
+#ifdef WG_EDGE
 // The battery's charge along the square's own edge (variant 3B of web/mockups/square-battery.html): from the top middle
 // clockwise round the screen — nine pieces: the straight sides (rounded bars) and the four corners (arcs); the track
-// (color2) the whole way, the charge (color) as far as its percent. Its thickness — 6 × the layer's scale
+// (color2) the whole way, the charge (color) as far as its percent. Its thickness — 6 × the layer's scale.
+// The watch (web/mockups/watch206-widgets.html 1A): the battery's and the steps' along the glass, its corners round —
+// the line as far in as the layer's radius says (the round's 224 — 5 px in; the steps ring's 215 — 14 px: inside the
+// battery's when both are on)
 #define WQ_PIECES 9
+#ifdef HALO_WATCH
+#define WQ_GLASS 64.0f  // the glass's corners' radius (not measured: the mockups' ~64 px)
+#else
 #define WQ_IN 5.0f    // the line's middle from the screen's edge
 #define WQ_R 26.0f    // the corners' radius (of the line's middle)
-static float wq_piece(int k, float &x0, float &y0, float &x1, float &y1, float &cx, float &cy, float &a0) {  // its length
-  const float L = WQ_IN, Rr = WQ_R, X1 = HALO_W - WQ_IN, Y1 = HALO_H - WQ_IN, q = HALO_PI / 2 * Rr;
+#endif
+static float wq_piece(int k, float in, float Rr, float &x0, float &y0, float &x1, float &y1, float &cx, float &cy, float &a0) {
+  const float L = in, X1 = HALO_W - in, Y1 = HALO_H - in, q = HALO_PI / 2 * Rr;  // (returns its length)
   switch (k) {
     case 0: x0 = CX, y0 = L, x1 = X1 - Rr, y1 = L; return x1 - x0;               // the top's right half
     case 1: cx = X1 - Rr, cy = L + Rr, a0 = 0; return q;                         // the top right corner
@@ -136,20 +149,31 @@ static float wq_piece(int k, float &x0, float &y0, float &x1, float &y1, float &
   }
 }
 static void wq_edge(const FaceLayer &L, FaceRun &R, float a, const HaloView &v) {
-  const HaloBattery b = wg_battery();
-  const float f = b.ok && b.present && b.percent > 0 ? fminf(1, b.percent / 100.0f) : 0, w = 6 * L.k;
+  float f;
+  if (L.kind == FL_BATRING) {
+    const HaloBattery b = wg_battery();
+    f = b.ok && b.present && b.percent > 0 ? fminf(1, b.percent / 100.0f) : 0;
+  } else {
+    f = fminf(1, wg_steps() / (L.p > 0 ? L.p : 10000));
+  }
+  const float w = 6 * L.k;
+#ifdef HALO_WATCH
+  const float rad = L.kind == FL_BATRING ? L.p : L.p2, in = fminf(56, fmaxf(3, 229 - (rad > 0 ? rad : 224))), rr = WQ_GLASS - in;
+#else
+  const float in = WQ_IN, rr = WQ_R;
+#endif
   float total = 0, x0 = 0, y0 = 0, x1 = 0, y1 = 0, cx = 0, cy = 0, a0 = 0;
-  for (int k = 0; k < WQ_PIECES; k++) total += wq_piece(k, x0, y0, x1, y1, cx, cy, a0);
+  for (int k = 0; k < WQ_PIECES; k++) total += wq_piece(k, in, rr, x0, y0, x1, y1, cx, cy, a0);
   float left = total * f;  // the charge's length still to lay
   for (int k = 0; k < WQ_PIECES; k++) {
-    const float len = wq_piece(k, x0, y0, x1, y1, cx, cy, a0);
+    const float len = wq_piece(k, in, rr, x0, y0, x1, y1, cx, cy, a0);
     for (int j = 0; j < 2; j++) {  // the track, then the charge
       HaloItem &it = R.g[j * WQ_PIECES + k];
       const float part = j ? fmaxf(0, fminf(len, left)) : len;
       it.scale = 1, it.color = j ? L.color : L.color2, it.on_black = !j, it.on = nullptr;
       it.alpha = part > 0.01f ? a : 0;
       if (k % 2) {  // a corner
-        it.kind = HI_ARC, it.x = cx, it.y = cy, it.r = WQ_R, it.w = w, it.a0 = a0, it.a1 = a0 + HALO_PI / 2 * part / len;
+        it.kind = HI_ARC, it.x = cx, it.y = cy, it.r = rr, it.w = w, it.a0 = a0, it.a1 = a0 + HALO_PI / 2 * part / len;
       } else {  // a side: a bar from its start as long as the part, round at its ends
         const float ex = x0 + (x1 - x0) * part / len, ey = y0 + (y1 - y0) * part / len;
         it.kind = HI_RRECT, it.x = (x0 + ex) / 2, it.y = (y0 + ey) / 2, it.w = fabsf(ex - x0) + w, it.h = fabsf(ey - y0) + w, it.r = w / 2;
@@ -158,7 +182,7 @@ static void wq_edge(const FaceLayer &L, FaceRun &R, float a, const HaloView &v) 
     }
     left -= len;
   }
-  R.ax = CX + L.dx, R.ay = WQ_IN + L.dy;
+  R.ax = CX + L.dx, R.ay = in + L.dy;
 }
 #endif
 
@@ -168,7 +192,8 @@ static int wgr_items(uint8_t kind) {
     case FL_INFOLINE: return 6;          // the icon, the degrees, up and its number, down and its number
     case FL_FORECAST: return 21;         // hours, icons, degrees, dots, the line
     case FL_DATEFRAME: return 4;
-#ifdef HALO_SQUARE
+#ifdef WG_EDGE
+    case FL_STEPRING:
     case FL_BATRING: return 2 * WQ_PIECES;  // the track's pieces, then the charge's
 #endif
     default: return WG_DOTS;
@@ -261,8 +286,8 @@ static uint32_t wgr_mix(uint32_t c, uint32_t to, float k) {
 static bool wgr_layout(const FaceScreen &S, int i, float a, const HaloView &v0) {
   const FaceLayer &L = S.layers[i];
   FaceRun &R = S.run[i];
-#ifdef HALO_SQUARE
-  if (L.kind == FL_BATRING) {
+#ifdef WG_EDGE
+  if (L.kind == FL_BATRING || L.kind == FL_STEPRING) {
     if (!R.g) return true;
     HaloView v = v0;
     v.x += L.dx * v0.s, v.y += L.dy * v0.s;
@@ -438,8 +463,8 @@ static bool wgr_layout(const FaceScreen &S, int i, float a, const HaloView &v0) 
 
 // The widgets of this board; false — not one of them
 static bool wgr_draw(const FaceLayer &L, const FaceRun &R) {
-#ifdef HALO_SQUARE
-  if (L.kind == FL_BATRING) {
+#ifdef WG_EDGE
+  if (L.kind == FL_BATRING || L.kind == FL_STEPRING) {
     if (R.g)
       for (int j = 0; j < 2 * WQ_PIECES; j++) halo_item_draw(R.g[j]);
     return true;

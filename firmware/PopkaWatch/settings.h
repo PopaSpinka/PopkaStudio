@@ -78,6 +78,11 @@ static const FaceLayer *dp_link;  // the Display layer laid out now: where its r
 // Panel brightness (command 0x51) for each step: roughly even steps for the eye (it sees brightness about as a
 // logarithm). The lowest must stay visible
 static const uint8_t DP_LEVEL[DP_STEPS + 1] = {24, 34, 48, 66, 90, 118, 150, 180, 255};
+#elif defined(HALO_WATCH)
+#define DP_STEPS 8     // a rectangular watch: the round watch's panel and steps (settings_rect.h: direction B)
+#define DP_DEFAULT 7
+static const uint8_t DP_LEVEL[DP_STEPS + 1] = {24, 34, 48, 66, 90, 118, 150, 180, 255};
+extern const HaloFont gl_r_n72, gl_r_t44, gl_r_t32, gl_r_ic36;
 #elif defined(HALO_SQUARE)
 #define DP_STEPS 8     // the square's "−", eight steps, "+" (settings_rect.h: variant 5C, the round board's control)
 #define DP_DEFAULT 6   // 75 %
@@ -462,13 +467,70 @@ static void bt_texts() {
 static void battery_tick() {
   static uint32_t at;
   if (halo_ms() - at >= 250 || !at) at = halo_ms() | 1, bt_texts();
-#ifndef HALO_SQUARE  // (the square writes its words straight: nothing to bake)
+#if !defined(HALO_SQUARE) && !defined(HALO_WATCH)  // (the square and the watch write their words straight: nothing to bake)
   if (strcmp(bt_top_on, bt_top)) bt_bake(bt_top_m, bt_top_on, bt_top, false, bt_top_x, bt_top_y);
   else if (strcmp(bt_bot_on, bt_bot)) bt_bake(bt_bot_m, bt_bot_on, bt_bot, true, bt_bot_x, bt_bot_y);
 #endif
 }
 
-#if defined(HALO_SQUARE)
+#if defined(HALO_WATCH)
+// A rectangular watch (variant 4C of web/mockups/watch206-screens.html): the title; a battery drawn the screen's width,
+// filled as far as the charge (green; 20 % and lower on battery — red), the percent inside it; under it how long it
+// lasts and what it cost; for how long at the bottom (spaced capitals). The percent counts up as the screen opens
+#define BW_X 26.0f
+#define BW_BODY_W (HALO_W - 2 * BW_X - 18)
+#define BW_BODY_Y 140.0f
+#define BW_BODY_H 150.0f
+#define BW_LINE 6.0f       // the outline's thickness
+#define BW_GAP 8.0f        // between the outline and the charge
+#define BW_OUTLINE 0xC9CACF
+static float bw_mid_title;
+static HaloItem bw_title, bw_out, bw_in, bw_nub, bw_fill, bw_bot;
+
+static void battery_layout(const HaloView &v) {
+  static bool ready;
+  if (!ready) ready = true, bw_mid_title = halo_text_mid(gl_title, "Battery");
+  const HaloBattery b = bt_battery();
+  const bool has = b.ok && b.present && b.percent >= 0;
+  const int pct = has ? b.percent : 0;
+  const uint32_t lvl = has && !b.usb && pct <= 20 ? BT_RED : BT_GREEN;
+  const float k = halo_ease(EASE_EMPH, (halo_ms() - bt_enter_ms) / 700.0f), shown = pct * k;
+  if (has) snprintf(bt_pct, sizeof(bt_pct), "%d%%", (int)lroundf(shown));
+  else snprintf(bt_pct, sizeof(bt_pct), "--");
+  bt_text(bw_title, gl_title, "Battery", bw_mid_title, BW_X, RG_TITLE_Y, GL_TEXT, 0, v);
+  auto box = [&](HaloItem &q, float x, float y, float w, float h, float r, uint32_t c, bool black, float a = 1) {
+    q.kind = HI_RRECT, q.x = x + w / 2, q.y = y + h / 2, q.w = w, q.h = h, q.r = r, q.scale = 1, q.color = c, q.alpha = a;
+    q.on_black = black, q.on = nullptr;
+    halo_view_commit(q, v);
+  };
+  box(bw_out, BW_X, BW_BODY_Y, BW_BODY_W, BW_BODY_H, 34, BW_OUTLINE, true);
+  box(bw_in, BW_X + BW_LINE, BW_BODY_Y + BW_LINE, BW_BODY_W - 2 * BW_LINE, BW_BODY_H - 2 * BW_LINE, 28, 0x000000, false);
+  box(bw_nub, BW_X + BW_BODY_W + 6, BW_BODY_Y + 48, 12, 54, 6, BW_OUTLINE, true);
+  const float in = BW_LINE + BW_GAP, fw_max = BW_BODY_W - 2 * in, fw = fmaxf(44, fw_max * shown / 100);
+  box(bw_fill, BW_X + in, BW_BODY_Y + in, fw, BW_BODY_H - 2 * in, 22, lvl, false, has && shown > 0.5f ? 1 : 0);
+  // The percent inside: dark on the charge when it is wide enough, else light on the black
+  const float tw = halo_text_width(gl_n92, bt_pct), tx = BW_X + in + 22;
+  const bool on_fill = has && fw >= tw + 44;
+  HaloItem &pt = bt_pct_t;
+  pt.kind = HI_TEXT, pt.font = &gl_n92, pt.text = bt_pct, pt.align = 0, pt.color = on_fill ? 0x10241A : has ? GL_TEXT : GL_DIM;
+  pt.on_black = !on_fill, pt.on = on_fill ? &bw_fill : &halo_black, pt.x = tx;
+  pt.y = BW_BODY_Y + BW_BODY_H / 2 + (gl_n92.line / 2.0f - bt_mid_pct), pt.scale = 1, pt.alpha = 1, pt.spacing = 0;
+  halo_view_commit(pt, v);
+  const float dy = bt_line2[0] ? 0 : 16;
+  bt_text(bt_line1_t, gl_t24, bt_line1, bt_mid_t24, CX, 338 + dy, bt_c1, 1, v);
+  bt_text(bt_line2_t, gl_t20, bt_line2, bt_mid_t20, CX, 374, GL_DIM, 1, v, bt_line2[0] ? 1 : 0);
+  HaloItem &bb = bw_bot;  // (spaced capitals: as bt_text, with letter spacing)
+  bb.kind = HI_TEXT, bb.font = &gl_t20, bb.text = bt_bot, bb.align = 1, bb.color = GL_DIM, bb.on_black = true, bb.on = &halo_black;
+  bb.x = CX, bb.y = 452 + (gl_t20.line / 2.0f - bt_mid_caps), bb.scale = 1, bb.alpha = 1, bb.spacing = 2;
+  halo_view_commit(bb, v);
+}
+
+static void battery_draw() {
+  halo_item_draw(bw_title);
+  halo_item_draw(bw_out), halo_item_draw(bw_in), halo_item_draw(bw_nub), halo_item_draw(bw_fill);
+  halo_item_draw(bt_pct_t), halo_item_draw(bt_line1_t), halo_item_draw(bt_line2_t), halo_item_draw(bw_bot);
+}
+#elif defined(HALO_SQUARE)
 // The square (variant 1B of web/mockups/square-battery.html): the title and the state; the percent with how long it
 // lasts and what it cost beside it; under them the last 24 hours — a bar every 30 min from the history the board keeps
 // (bh: the round watch kept it for its forecast only), dark green where it was on USB, bright since it was unplugged;

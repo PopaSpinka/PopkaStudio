@@ -5,7 +5,53 @@
 // stand in a row. A chart is a mask baked when its numbers change (a new hour, new weather), one page per tick.
 // Included from wxscreen.h in place of its layout when HALO_ROUND is not defined.
 
-#if defined(HALO_SQUARE)  // the square, 480 × 480 (variant 4A of web/mockups/square-screens.html): now on top — the sky,
+#if defined(HALO_WATCH)  // a rectangular watch, 410 × 502 (direction B of web/mockups/watch206-look.html): the city and
+// the sky in words along the top, the time over them in the middle; the sky and the temperature big; the high/low at
+// the left and "feels like" at the right under them; then a pill of four hours — now and the next three: the degrees,
+// the sky, the hour (as the round watch's pill, with the degrees); the page dots at the bottom
+#define RW_CITY_X 26.0f
+#define RW_CITY_Y 84.0f
+#define RW_ICON_X 76.0f
+#define RW_ICON_Y 184.0f
+#define RW_TEMP_X 136.0f
+#define RW_TEMP_Y 182.0f
+#define RW_TEXT_R (W - 26.0f)
+#define RW_WORD_Y 84.0f
+#define RW_HILO_X 26.0f        // the high/low: its left end
+#define RW_HILO_A 0
+#define RW_HILO_Y 270.0f
+#define RW_FEELS_Y 270.0f
+#define RW_TIME_R CX
+#define RW_TIME_A 1
+#define RW_TIME_Y 30.0f
+#define RW_PILL_X 14.0f        // the hours' pill
+#define RW_PILL_Y 300.0f
+#define RW_PILL_W (HALO_W - 28.0f)
+#define RW_PILL_H 142.0f
+#define RW_COLS 4
+#define RW_COL_X0 (RW_PILL_X + 50.0f)
+#define RW_COL_STEP ((RW_PILL_W - 100.0f) / (RW_COLS - 1))
+#define RW_HDEG_Y (RW_PILL_Y + 34.0f)
+#define RW_HICON_Y (RW_PILL_Y + 74.0f)
+#define RW_HTIME_Y (RW_PILL_Y + 114.0f)
+#define RW_DOTS_Y 474.0f
+#define RW_DOT_R 4.0f
+#define RW_DOT_STEP 14.0f
+#define RW_CHART_X 12  // (no chart here: the hourly layer is the pill)
+#define RW_CHART_Y 300
+#define RW_CHART_W 8
+#define RW_CHART_H 8
+#define RW_LINE_X0 0.0f
+#define RW_LINE_X1 7.0f
+#define RW_LINE_TOP 0.0f
+#define RW_LINE_BOTTOM 7.0f
+#define RW_LINE_HALF 1.5f
+#define RW_MIN_RANGE 6.0f
+#define RW_LABEL_X 0.0f
+#define RW_LABEL_STEP 0.0f
+#define RW_LABEL_Y 0.0f
+extern const HaloFont gl_w_n26;  // (studio.py: WATCH_FONTS)
+#elif defined(HALO_SQUARE)  // the square, 480 × 480 (variant 4A of web/mockups/square-screens.html): now on top — the sky,
 // a 96-px temperature (the passport's), the words at the right — then the next eight hours across the lower half, each
 // caption under its hour, the page dots at the bottom
 #define RW_CITY_X 16.0f
@@ -136,6 +182,51 @@
 #ifndef RW_LABEL_A
 #define RW_LABEL_A 0  // the chart's captions' x — their left end
 #endif
+#ifndef RW_HILO_X
+#define RW_HILO_X RW_TEXT_R  // the high/low under the sky in words
+#define RW_HILO_A RW_TEXT_A
+#endif
+#ifndef RW_TIME_A
+#define RW_TIME_A 2  // the time in the corner: its right end
+#endif
+
+#ifdef HALO_WATCH
+// The hours' pill (a page each): the degrees of now and the next three hours, their sky; the hours ("Now", "7PM" …)
+static char ww_deg[WX_MAX][RW_COLS][8], ww_hour[RW_COLS][8];
+static float ww_deg_mid;
+static uint8_t ww_kind(int page, int j) {
+  const WxDay d = wx_day(page);
+  if (!j) return d.kind;
+  if (wx_demo >= 0 || !wx_city[page].t0) return d.hour_kind[j < WX_HOURS ? j : WX_HOURS - 1];
+  const WxCity &c = wx_city[page];
+  int k = 0;
+  if (time(nullptr) > (time_t)c.t0) k = (int)((time(nullptr) - (time_t)c.t0) / 3600);
+  return c.hk[k + j < WX_AHEAD ? k + j : WX_AHEAD - 1];
+}
+static void ww_fill(int page) {
+  const WxCity &c = wx_city[page];
+  int k = 0;
+  if (c.t0 && time(nullptr) > (time_t)c.t0) k = (int)((time(nullptr) - (time_t)c.t0) / 3600);
+  snprintf(ww_deg[page][0], 8, "%s", wx_now_s[page]);
+  strcpy(ww_hour[0], "Now");
+  int h = 12;
+  if (halo_clock_valid()) {
+    const time_t now = time(nullptr);
+    struct tm t;
+    localtime_r(&now, &t);
+    h = t.tm_hour;
+  }
+  for (int j = 1; j < RW_COLS; j++) {
+    const int hh = (h + j) % 24;
+    if (fc_h24) snprintf(ww_hour[j], 8, "%02d:00", hh);
+    else snprintf(ww_hour[j], 8, "%d%s", hh % 12 ? hh % 12 : 12, hh < 12 ? "AM" : "PM");
+  }
+  for (int j = 1; j < RW_COLS; j++) {
+    const int16_t v = wx_demo >= 0 || !c.t0 ? WX_NONE : c.ht[k + j < WX_AHEAD ? k + j : WX_AHEAD - 1];
+    wx_deg(ww_deg[page][j], 8, v);
+  }
+}
+#endif
 
 // The next RW_POINTS hours of a page; 0 — no forecast
 static uint32_t rw_chart_numbers(int page, float *t) {
@@ -207,6 +298,9 @@ static bool rw_chart_bake(HaloMask &m, const float *t) {
 
 // Four times a second: at most one chart whose numbers changed (a new hour, new weather)
 static void rw_chart_tick() {
+#ifdef HALO_WATCH
+  return;  // (the hourly layer is a pill here: nothing to bake)
+#endif
   static uint32_t at;
   if (halo_ms() - at < 250) return;
   at = halo_ms();
@@ -258,7 +352,7 @@ static void wx_layout_page(const FaceScreen &S, int i, int page, const WxPageVie
     case FL_WXHILO:
       rw_text(w.it[0], *L.font, wx_word_s[page], R.mid, RW_TEXT_A, P.X(RW_TEXT_R + L.dx), P.Y(RW_WORD_Y + L.dy), s, L.color,
               k, &halo_black, L.spacing);
-      rw_text(w.it[1], *L.font, wx_hl_s[page], R.mid, RW_TEXT_A, P.X(RW_TEXT_R + L.dx), P.Y(RW_HILO_Y + L.dy), s, L.color2,
+      rw_text(w.it[1], *L.font, wx_hl_s[page], R.mid, RW_HILO_A, P.X(RW_HILO_X + L.dx), P.Y(RW_HILO_Y + L.dy), s, L.color2,
               k, &halo_black, L.spacing);
       halo_view_commit(w.it[0], v), halo_view_commit(w.it[1], v);
       break;
@@ -268,6 +362,27 @@ static void wx_layout_page(const FaceScreen &S, int i, int page, const WxPageVie
       halo_view_commit(w.it[0], v);
       break;
     case FL_HOURLY: {
+#ifdef HALO_WATCH
+      {  // the pill, and in it four columns: the degrees, the sky, the hour
+        HaloItem &pl = w.it[0];
+        const float px = RW_PILL_X + L.dx, py = RW_PILL_Y + L.dy;
+        pl.kind = HI_RRECT, pl.x = P.X(px + RW_PILL_W / 2), pl.y = P.Y(py + RW_PILL_H / 2), pl.w = RW_PILL_W, pl.h = RW_PILL_H;
+        pl.r = 46, pl.scale = s, pl.color = L.color, pl.alpha = k, pl.on_black = true, pl.on = nullptr;
+        halo_view_commit(pl, v);
+        if (!ww_deg_mid) ww_deg_mid = halo_text_mid(gl_w_n26, "0123456789");
+        ww_fill(page);
+        for (int j = 0; j < RW_COLS; j++) {
+          const float cx = RW_COL_X0 + j * RW_COL_STEP + L.dx;
+          rw_text(w.it[1 + j], gl_w_n26, ww_deg[page][j], ww_deg_mid, 1, P.X(cx), P.Y(RW_HDEG_Y + L.dy), s, GL_TEXT, k, &pl, 0);
+          if (L.icons) image_at(w.it[1 + RW_COLS + j], *L.icons[ww_kind(page, j)], P.X(cx), P.Y(RW_HICON_Y + L.dy), s, k);
+          else w.it[1 + RW_COLS + j].alpha = 0;
+          rw_text(w.it[1 + 2 * RW_COLS + j], *L.font, ww_hour[j], R.mid, 1,
+                  P.X(cx), P.Y(RW_HTIME_Y + L.dy), s, L.color2, k, &pl, L.spacing);
+          for (int q = 0; q < 3; q++) halo_view_commit(w.it[1 + q * RW_COLS + j], v);
+        }
+        break;
+      }
+#endif
       HaloItem &c = w.it[0];
       c.kind = HI_MASK, c.mask = &w.chart, c.color = L.color, c.on_black = true, c.on = &halo_black;
       c.x = P.X(RW_CHART_X + RW_CHART_W / 2.0f + L.dx), c.y = P.Y(RW_CHART_Y + RW_CHART_H / 2.0f + L.dy), c.scale = s;
@@ -298,7 +413,7 @@ static void wx_layout_static(const FaceScreen &S, int i, float a, const HaloView
     }
     // On a list it goes up and fades as the page scrolls (gallery_rect.h: tt_k)
     const float k = S.gal && S.gal->list.n ? S.gal->tt_k : 1, y = RW_TIME_Y - 24 * DP * (1 - k);
-    rw_text(c, *L.font, wx_time, R.mid, 2, RW_TIME_R, y, 1, L.color, k > 0.02f ? k * a : 0, &halo_black, L.spacing);
+    rw_text(c, *L.font, wx_time, R.mid, RW_TIME_A, RW_TIME_R, y, 1, L.color, k > 0.02f ? k * a : 0, &halo_black, L.spacing);
     R.ax = RW_TIME_R + L.dx, R.ay = RW_TIME_Y + L.dy;
     halo_view_commit(c, v);
     return;
@@ -342,7 +457,11 @@ static void wx_draw_page(const FaceScreen &S, int i, int page) {
       halo_item_draw(w.it[0]), halo_item_draw(w.it[1]);
       break;
     case FL_HOURLY:
+#ifdef HALO_WATCH
+      for (int j = 0; j <= 3 * RW_COLS; j++) halo_item_draw(w.it[j]);
+#else
       for (int j = 0; j <= RW_LABELS; j++) halo_item_draw(w.it[j]);
+#endif
       break;
     default:
       halo_item_draw(w.it[0]);

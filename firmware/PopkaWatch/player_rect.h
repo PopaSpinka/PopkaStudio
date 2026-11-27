@@ -5,7 +5,38 @@
 // The 7″ board held tall (HALO_P4_TALL, 600 x 1024: variant 8A of web/mockups/rect-tall.html) — the same parts stacked:
 // the cover on top, the title and the artist centred under it, the time line and the row of five buttons under them.
 
-#if defined(HALO_SQUARE)  // the square (variant 1C of web/mockups/square-media.html): as on the round board — a small cover
+#if defined(HALO_WATCH)  // the rectangular watch (variant 1A of web/mockups/watch206-media.html): the square's (below)
+// without the cover — the title and the artist centred at the top, the watch's wave button large in the middle between
+// tall previous / next, the time line under them, the volume and the heart at the bottom
+#define PR_NO_COVER 1
+#define PR_COVER_X CX
+#define PR_COVER_Y 60.0f
+#define PR_COVER_S 0.0f
+#define PR_COVER_R 0.0f
+#define PR_NOTE_D 8
+#define PR_TEXT_X (CX - PL_TITLE_W / 2)
+#define PR_TEXT_MID 1
+#define PR_TITLE_Y 82.0f
+#define PR_ARTIST_Y 118.0f
+#define PR_LINE_X 26.0f
+#define PR_LINE_W (HALO_W - 52.0f)
+#define PR_LINE_Y 372.0f
+#define PR_TIME_Y 398.0f
+#define PR_BTN_Y 250.0f
+#define PR_SMALL_Y 448.0f
+#define PR_VOL_X (CX - 62.0f)
+#define PR_PREV_X 56.0f
+#define PR_BIG_X CX
+#define PR_NEXT_X (HALO_W - 56.0f)
+#define PR_LIKE_X (CX + 62.0f)
+#define PR_BIG_HIT 92.0f
+#define PR_BIG_K 1.16f
+#define PR_SIDE_W 76.0f
+#define PR_SIDE_H 136.0f
+#define PR_SMALL_R 30.0f
+#define PR_ROW_HIT 70.0f
+#define PR_SMALL_HIT 34.0f
+#elif defined(HALO_SQUARE)  // the square (variant 1C of web/mockups/square-media.html): as on the round board — a small cover
 // with the title and the artist beside it on top, the watch's wave button large in the middle between tall previous /
 // next, the time line under them, the volume and the heart in a row of their own at the bottom
 #define PR_COVER_X 16.0f
@@ -222,7 +253,11 @@ static void player_layout(const HaloView &v) {
   pl_damage(pr_dmg_cover, ka > 0.004f ? hc | 1 : 1, PRC.x0, PRC.y0, PRC.x1, PRC.y1);
   HaloItem &n = pr_note_it;
   n.kind = HI_MASK, n.mask = pr_note.bits ? &pr_note : nullptr, n.x = PR_COVER_X + PR_COVER_S / 2, n.y = PR_COVER_Y + PR_COVER_S / 2, n.scale = 1;
+#ifdef PR_NO_COVER
+  n.color = 0, n.alpha = 0, n.on_black = false, n.on = nullptr;  // (no cover here)
+#else
   n.color = pl_mix_rgb(c0, 0xFFFFFF, 0.72f), n.alpha = pr_note.bits ? pa : 0, n.on_black = false, n.on = nullptr;
+#endif
   halo_view_commit(n, v);
   // The time line
   const float len = mu_n ? pl_len[pl_cur] : 0, frac = pr_seek >= 0 ? pr_seek : len > 0 ? halo_clamp01(pl_elapsed / len) : 0;

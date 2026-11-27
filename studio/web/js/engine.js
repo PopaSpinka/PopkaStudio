@@ -9,7 +9,7 @@
 // it when its transition is over) — and a screen with pages (the Weather screen's cities) one per page (studio_page). Try has one more, not pinned: it runs the sketch as the board does — the face, a tap
 // on a layer with a link, HaloWatch's transition, back with a swipe up from the bottom edge; the gallery (a swipe up on
 // the face), its cards, the Android 16 transition, back with a swipe from the left edge.
-import { BOARD, TW, TH, ROUND, lacks } from './screen.js';
+import { BOARD, TW, TH, ROUND, WATCH, lacks } from './screen.js';
 import { state, KIND_INDEX, FX, KINDS, ICONS, TAPS, RADIO_LINKED, fnOf, timeOf, zoneShift, citiesOf, weatherOf, CLOCK_LOOKS, clockLook, WXLOOKS, swipeSide, AGENT_MOODS } from './state.js';
 
 const PERIOD = 1000 / 60;
@@ -43,7 +43,7 @@ const font2Key = (l) => (l.type === 'sclock' ? scKey(l, 1) : l.type === 'steps' 
   : l.type === 'rname' ? `font2|rname|${l.size}|${l.weight}|${l.width}`  // (the Radio's long name: smaller, in three lines)
   : l.type === 'infoline' && l.format === 'icons' ? `font2|infoline|${l.size}`
   : !ROUND && (l.type === 'weekarc' || l.type === 'forecast') ? `font2|${l.type}|${l.size}` : null);
-const iconsKey = (l) => ((WX_ICONS.has(l.type) && (ROUND || l.type !== 'hourly')) || l.type === 'forecast' || ['wxcurve', 'wxweek'].includes(l.type) ? `icons|${l.type}|${l.scale}` : l.type === 'wxwear' ? `icons|wxwear|${l.scale}|${l.look}`
+const iconsKey = (l) => ((WX_ICONS.has(l.type) && (ROUND || WATCH || l.type !== 'hourly')) || l.type === 'forecast' || ['wxcurve', 'wxweek'].includes(l.type) ? `icons|${l.type}|${l.scale}` : l.type === 'wxwear' ? `icons|wxwear|${l.scale}|${l.look}`
   : l.type === 'infoline' && l.format === 'icons' ? `icons|infoline|${l.size}` : null);
 // What a layer's p2 and p3 are (studio.py writes the same into layers.h)
 const CURVE_I = ['weekday', 'shortdate', 'daymonth', 'weather', 'steps', 'datesteps', 'battery', 'city'], INFO_I = ['words', 'short', 'icons'];

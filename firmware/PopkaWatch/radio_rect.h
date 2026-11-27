@@ -28,7 +28,84 @@
 // scrolls), the station and its song, a tall tuning window to drag, then one row of big buttons — volume −, previous,
 // Stop / Play, next, volume + — and the volume as a line under them.
 
-#if defined(HALO_SQUARE)
+#if defined(HALO_WATCH)  // the rectangular watch (variant 3A of web/mockups/watch206-media.html): the poster is the main view
+// (below: rt_poster_*); STATIONS opens this — the square's tuner by the watch's size: one row of band keys clear of the
+// glass's round corners, the station and its song, the tuning window, volume − / previous / Stop / next / volume +, the
+// volume's line. A station picked here (or a tap on the station's name) — back to the poster
+#define RT_PILLS 1
+#define RT_KEY_X0 14.0f
+#define RT_KEY_P 74.0f
+#define RT_KEY_W 68.0f
+#define RT_KEY_H 46.0f
+#define RT_KEY_Y 52.0f
+#define RT_KEY_ROWS 1
+#define RT_KEY_PY 0.0f
+#define RT_KEY_COLS 1
+#define RT_KEY_WY 2.0f
+#define RT_KEYS_X1 396.0f
+#define RT_KEYS_PAD 4.0f
+#define RT_NAME_Y 132.0f
+#define RT_NAME_W 330.0f
+#define RT_SONG_Y 164.0f
+#define RT_SONG_W 362.0f
+#define RT_TIME_X 26.0f
+#define RT_TIME_AL 0
+#define RT_HEART_X 382.0f
+#define RT_HEART_R 22.0f
+#define RT_TOP_Y 98.0f
+#define RT_MID_Y0 80.0f
+#define RT_MID_Y1 180.0f
+#define RT_WIN_X0 14.0f
+#define RT_WIN_X1 396.0f
+#define RT_WIN_Y0 186.0f
+#define RT_WIN_Y1 344.0f
+#define RT_LOGO_Y 236.0f
+#define RT_STEP 130.0f
+#define RT_TICK 13.0f
+#define RT_TICK_Y 304.0f
+#define RT_LAB_Y 328.0f
+#define RT_FADE 54.0f
+#define RT_DANCE 16.0f
+#define RT_NEEDLE_Y0 270.0f
+#define RT_NEEDLE_Y1 318.0f
+#define RT_BTN_Y 402.0f
+#define RT_PREV_X 132.0f
+#define RT_PLAY_X 205.0f
+#define RT_NEXT_X 278.0f
+#define RT_SIDE_R 28.0f
+#define RT_PLAY_R 38.0f
+#define RT_VOLM_X 52.0f
+#define RT_VOLP_X 358.0f
+#define RT_VBTN_W 72.0f
+#define RT_VBTN_H 58.0f
+#define RT_VLINE_Y 458.0f
+#define RT_KEY_IN 3.0f
+#define RT_LOGO_R0 17.0f
+#define RT_LOGO_R1 7.0f
+#define RT_KNOB_Y RT_BTN_Y
+#define RT_KNOB_R 0.0f
+#define RT_VOLK_X 0.0f
+#define RT_TUNK_X 0.0f
+// The poster: the middles of its lines (the name: one line, or two)
+#define PT_TIME_Y 30.0f
+#define PT_NAME_Y 160.0f
+#define PT_NAME_W 340.0f
+#define PT_SONG_Y 248.0f
+#define PT_SONG_W 320.0f
+#define PT_IC_Y 298.0f
+#define PT_WORD_Y 326.0f
+#define PT_WORD_DX 64.0f
+#define PT_BTN_Y 424.0f
+#define PT_BTN_W 220.0f
+#define PT_BTN_H 84.0f
+#define PT_RAY_Y0 80.0f     // the rays: the top one's middle, the bottom one's (the low bands at the bottom)
+#define PT_RAY_Y1 396.0f
+#define PT_RAY_X 6.0f       // they start this far in from the side
+#define PT_RAY_L0 10.0f     // their length: quiet, and how much more at the loudest
+#define PT_RAY_L1 44.0f
+extern const HaloFont gl_ra_n52, gl_ra_n32, gl_ra_t24, gl_ra_t20, gl_ra_t14, gl_ra_ic24;  // (studio.py: the round's radio fonts)
+#elif defined(HALO_SQUARE)
+#define RT_PILLS 1
 #define RT_KEY_X0 12.0f
 #define RT_KEY_P 76.0f
 #define RT_KEY_W 70.0f
@@ -198,7 +275,8 @@
 #define RT_HEART_OFF 0x55555B
 static const char RT_PREV[] = "\xEF\x81\x88", RT_NEXT[] = "\xEF\x81\x91";  // Font Awesome: backward-step, forward-step
 
-enum : int8_t { RT_NONE = -1, RT_KEYS, RT_WINDOW, RT_HEART, RT_PREV_B, RT_PLAY_B, RT_NEXT_B, RT_VOLK, RT_TUNK, RT_VOLM, RT_VOLP };
+enum : int8_t { RT_NONE = -1, RT_KEYS, RT_WINDOW, RT_HEART, RT_PREV_B, RT_PLAY_B, RT_NEXT_B, RT_VOLK, RT_TUNK, RT_VOLM, RT_VOLP,
+                RT_BACK, RT_STATIONS, RT_VOLUME };  // (the last three: the watch's poster and its way back)
 struct RtDmg {  // what this file draws itself (the song, the needle's mark, the notches): where it was damaged last
   float r[4];
   uint32_t h;
@@ -234,9 +312,21 @@ struct RtUi {
   HaloItem arc_track, arc_lvl, body[2], inner[2], dot[2][RT_DOTS], klab[2];
   HaloItem prev_bg, prev, play, play_ic, next_bg, next;
   Press p_heart, p_prev, p_play, p_next;
-#ifdef HALO_SQUARE
+#ifdef RT_PILLS
   HaloItem vbtn[2], vsign[3], vline[2];  // the volume's pills (−, +), their signs (−, + across, + up), its line (track, level)
   Press p_vol[2];
+#endif
+#ifdef HALO_WATCH  // the poster
+  bool poster;
+  uint32_t back_at;             // a station picked in the tuner: back to the poster then
+  HaloItem pt_time, pt_name[2], pt_ic[2], pt_word[2], pt_div, pt_btn, pt_btn_ic, pt_btn_t;
+  Press p_st, p_vo, p_pb;
+  char pt_line[2][RD_NAME + 8];
+  const HaloFont *pt_f;
+  int pt_lines;
+  uint32_t pt_gen, pt_song_gen;
+  float pt_song_w;
+  RtDmg pt_song_dmg, pt_ray_dmg[2];
 #endif
 };
 static RtUi *rt_u;  // (PSRAM: rt_build)
@@ -329,6 +419,9 @@ static void rt_take_fetch() {  // the catalog answered: its stations into the ro
 static void rt_pick(int i, int dir) {
   RtUi &u = *rt_u;
   if (u.state != 1 || i < 0 || i >= u.n) return;
+#ifdef HALO_WATCH
+  if (!u.poster) u.back_at = halo_ms() + 700;  // (the watch: picked in the tuner — the poster shows it in a moment)
+#endif
   if (rd_has_cur && rd_on && !strcmp(rd_cur.url, u.rows[i].url)) return;
   rd_folder = u.view;
   if (RD_FOLDER[rd_folder].kind == RF_FAV) {
@@ -367,6 +460,12 @@ static void rt_build() {
   rt_mid_t18 = halo_text_mid(gl_rr_t18, "Radio"), rt_mid_t15 = halo_text_mid(gl_rr_t15, "VOLUME");
   rt_mid_t12 = halo_text_mid(gl_rr_t12, "JAZZ"), rt_mid_n24 = halo_text_mid(gl_r_n24, "0");
   rt_mid_ic = halo_text_mid(gl_rr_ic48, RD_PLAY);
+#ifdef HALO_WATCH
+  rd_mid_n52 = halo_text_mid(gl_ra_n52, "Radio"), rd_mid_n32 = halo_text_mid(gl_ra_n32, "Radio");
+  rd_mid_t24 = halo_text_mid(gl_ra_t24, "Radio"), rd_mid_t20 = halo_text_mid(gl_ra_t20, "Radio");
+  rd_mid_t14 = halo_text_mid(gl_ra_t14, "STATIONS"), rd_mid_ic24 = halo_text_mid(gl_ra_ic24, RD_BARS);
+  u.poster = true;
+#endif
   const int nf = min(RD_FOLDER_N, RD_FOLDER_MAX);
   for (int i = 0; i < nf; i++) {  // a key's word: the folder's first word in capitals, cut to the key
     char w[RD_NAME];
@@ -387,10 +486,19 @@ static void rt_build() {
 }
 
 // ---------- The finger (on top and still) ----------
+#ifdef HALO_WATCH
+static void rt_poster_update(float dt);
+static void rt_mode(bool poster) {  // the poster or the tuner: everything redrawn (the other's items are not laid out)
+  if (rt_u->poster != poster) rt_u->poster = poster, rt_u->back_at = 0, halo_damage_all();
+}
+#endif
 static void radio_enter() {
   if (!rt_u) return;
   RtUi &u = *rt_u;
   rt_armed = RT_NONE, u.sc_drag = u.win_drag = u.key_drag = u.turn_on = false, u.vol_f = -1;
+#ifdef HALO_WATCH
+  rt_mode(true), vol_enter();
+#endif
   if (RD_FOLDER[u.view].kind == RF_FAV && u.fav_seen != rt_fav_sig()) rt_rows_fav(), rt_rows_changed();
 }
 static bool rt_in(float x, float y, float cx, float cy, float r) {
@@ -413,6 +521,10 @@ static void radio_update(const FaceScreen &, float dt) {
   RtUi &u = *rt_u;
   HaloFinger &f = halo_finger;
   rt_take_fetch();
+#ifdef HALO_WATCH
+  if (u.back_at && (int32_t)(halo_ms() - u.back_at) >= 0) rt_mode(true);
+  if (u.poster) return rt_poster_update(dt);
+#endif
   if (RD_FOLDER[u.view].kind == RF_FAV && u.fav_seen != rt_fav_sig()) {  // (a heart changed: the favourites' rows)
     const float at = u.sc.x;
     rt_rows_fav();
@@ -424,11 +536,14 @@ static void radio_update(const FaceScreen &, float dt) {
     const float x = f.x0, y = f.y0;
     if (y < RT_KEYS_Y1 + RT_KEYS_PAD) rt_armed = RT_KEYS;
     else if (rt_in(x, y, RT_HEART_X, RT_TOP_Y, 46)) rt_armed = RT_HEART;
+#ifdef HALO_WATCH
+    else if (y >= RT_MID_Y0 && y <= RT_MID_Y1) rt_armed = RT_BACK;  // (the time, the station, its song: back to the poster)
+#endif
     else if (x >= RT_WIN_X0 && x <= RT_WIN_X1 && y >= RT_WIN_Y0 - 6 && y <= RT_WIN_Y1 + 6) rt_armed = RT_WINDOW;
     else if (rt_in(x, y, RT_PLAY_X, RT_BTN_Y, RT_PLAY_R + 8)) rt_armed = RT_PLAY_B;
     else if (rt_in(x, y, RT_PREV_X, RT_BTN_Y, RT_SIDE_R + 8)) rt_armed = RT_PREV_B;
     else if (rt_in(x, y, RT_NEXT_X, RT_BTN_Y, RT_SIDE_R + 8)) rt_armed = RT_NEXT_B;
-#ifdef HALO_SQUARE
+#ifdef RT_PILLS
     else if (fabsf(y - RT_BTN_Y) < RT_VBTN_H / 2 + 8 && fabsf(x - RT_VOLM_X) < RT_VBTN_W / 2 + 6) rt_armed = RT_VOLM;
     else if (fabsf(y - RT_BTN_Y) < RT_VBTN_H / 2 + 8 && fabsf(x - RT_VOLP_X) < RT_VBTN_W / 2 + 6) rt_armed = RT_VOLP;
 #else
@@ -515,6 +630,11 @@ static void radio_update(const FaceScreen &, float dt) {
       case RT_VOLP:
         vol_set(vol_level + (rt_armed == RT_VOLP ? 1 : -1));
         break;
+#ifdef HALO_WATCH
+      case RT_BACK:
+        rt_mode(true);
+        break;
+#endif
       default:
         break;
     }
@@ -523,7 +643,7 @@ static void radio_update(const FaceScreen &, float dt) {
   press_update(u.p_prev, rt_armed == RT_PREV_B && f.down, dt);
   press_update(u.p_next, rt_armed == RT_NEXT_B && f.down, dt);
   press_update(u.p_heart, rt_armed == RT_HEART && f.down, dt);
-#ifdef HALO_SQUARE
+#ifdef RT_PILLS
   press_update(u.p_vol[0], rt_armed == RT_VOLM && f.down, dt);
   press_update(u.p_vol[1], rt_armed == RT_VOLP && f.down, dt);
 #endif
@@ -599,10 +719,21 @@ static void rt_knob(int k, float cx, float ang, const char *word, const HaloView
 }
 
 
-static void radio_layout(const HaloView &v) {
+#ifdef HALO_WATCH
+static void rt_poster_layout(const HaloView &v);
+#endif
+static void radio_layout(const HaloView &v0) {
   if (!ru || !rt_u) return;
   RtUi &u = *rt_u;
+#ifdef HALO_WATCH
+  HaloView v = v0;
+  v.a *= vol_layout(v0);  // (the volume screen over the radio: it fades through)
   rt_v = v;
+  if (u.poster) return rt_poster_layout(v);
+#else
+  const HaloView &v = v0;
+  rt_v = v;
+#endif
   // The band keys: a lamp lit on the one looked at
   const int nf = min(RD_FOLDER_N, RD_FOLDER_MAX), cols = rt_key_cols();
   for (int i = 0; i < nf; i++) {
@@ -725,7 +856,7 @@ static void radio_layout(const HaloView &v) {
   halo_view_commit(u.msg, v);
   rt_rrect(u.needle, CX, (RT_NEEDLE_Y0 + RT_NEEDLE_Y1) / 2.0f, 3, RT_NEEDLE_Y1 - RT_NEEDLE_Y0, 1.5f, RD_ORANGE, 1, v);
   rt_damage(u.mark_dmg, 7, CX - 14, RT_WIN_Y0 + 2, CX + 14, RT_WIN_Y0 + 20);
-#ifdef HALO_SQUARE
+#ifdef RT_PILLS
   // The volume: two pills (−, + drawn as bars) and its line under the row
   for (int i = 0; i < 2; i++) {
     const float cx = i ? RT_VOLP_X : RT_VOLM_X, p = halo_clamp01(u.p_vol[i].s.x);
@@ -875,7 +1006,7 @@ static void rt_draw_window(RtUi &u, const HaloView &v) {  // the frame, the tick
     rt_mark(halo_view_x(v, CX), halo_view_y(v, RT_WIN_Y0 + 4), halo_view_y(v, RT_WIN_Y0 + 18), 12 * v.s, halo_dim(RD_ORANGE, (int)(v.a * 256)));
 }
 static void rt_draw_knobs(RtUi &u, const HaloView &v) {  // the knobs; previous, Stop / Play, next
-#ifdef HALO_SQUARE  // (the square: the volume's pills and line instead of the knobs)
+#ifdef RT_PILLS  // (the square: the volume's pills and line instead of the knobs)
   for (const auto &it : u.vbtn) halo_item_draw(it);
   for (const auto &it : u.vsign) halo_item_draw(it);
   for (const auto &it : u.vline) halo_item_draw(it);
@@ -903,10 +1034,169 @@ static void rt_draw_knobs(RtUi &u, const HaloView &v) {  // the knobs; previous,
   halo_item_draw(u.play), halo_item_draw(u.play_ic);
 }
 
+#ifdef HALO_WATCH
+// ---------- The watch's poster (variant 3A of watch206-media.html; the round board's main screen, made straight) ----------
+// The time on top; the station big — one line of 52 px, two, else two of 32 (a long one cut); its song as a marquee;
+// STATIONS (the tuner above) and VOLUME (the volume screen) — an icon over a spaced word, a thin line between; the
+// equalizer as rays from the left and the right edges (the low bands at the bottom); Stop / Play — a big orange pill.
+// A swipe left / right — the next / previous station of the dial, as on the round board
+static void rt_poster_update(float dt) {
+  RtUi &u = *rt_u;
+  HaloFinger &f = halo_finger;
+  if (vol_update(dt)) return void(rt_armed = RT_NONE);  // the volume screen: "+", "−"; elsewhere or 3 s — closed
+  if (f.drag_start && f.horiz && rd_list_n > 1 && halo_finger_claim(&rp_owner)) rp_drag = true, rt_armed = RT_NONE;
+  if (rp_drag) {
+    if (f.down && f.owner == &rp_owner) {
+      rp_drag_x = (f.x - f.x0) * 0.4f;
+    } else {
+      rp_drag = false;
+      const float dx = f.x - f.x0;
+      if (fabsf(dx) > 40 || fabsf(f.vx) > 500) {
+        const int dir = (dx != 0 ? dx : -f.vx) < 0 ? 1 : -1, at = rd_at >= 0 ? rd_at : 0;
+        rd_tune(rd_mod(at + dir, rd_list_n), dir);
+        rp_slide_s.x = dir * fminf(1, fabsf(rp_drag_x) / 60 + 0.6f);
+      } else {
+        rp_slide_s = {rp_drag_x / 60, 0, 0};
+      }
+      rp_drag_x = 0;
+    }
+  }
+  if (f.pressed && !f.owner) {
+    rt_armed = RT_NONE;
+    if (fabsf(f.y0 - PT_BTN_Y) < PT_BTN_H / 2 + 10 && fabsf(f.x0 - CX) < PT_BTN_W / 2 + 10) rt_armed = RT_PLAY_B;
+    else if (fabsf(f.y0 - (PT_IC_Y + PT_WORD_Y) / 2) < 44 && fabsf(f.x0 - (CX - PT_WORD_DX)) < 62) rt_armed = RT_STATIONS;
+    else if (fabsf(f.y0 - (PT_IC_Y + PT_WORD_Y) / 2) < 44 && fabsf(f.x0 - (CX + PT_WORD_DX)) < 62) rt_armed = RT_VOLUME;
+  }
+  if (f.dragging) rt_armed = RT_NONE;
+  if (f.tap) {
+    if (rt_armed == RT_PLAY_B) rd_toggle();
+    else if (rt_armed == RT_STATIONS) rt_mode(false);
+    else if (rt_armed == RT_VOLUME) vol_open();
+  }
+  press_update(u.p_pb, rt_armed == RT_PLAY_B && f.down, dt);
+  press_update(u.p_st, rt_armed == RT_STATIONS && f.down, dt);
+  press_update(u.p_vo, rt_armed == RT_VOLUME && f.down, dt);
+  if (!f.down) rt_armed = RT_NONE;
+}
+
+// The name in one or two lines of the big font, else two of the small one (the second cut to fit)
+static void rt_poster_wrap(RtUi &u) {
+  const char *s = rp_name_s;
+  for (const HaloFont *f : {&gl_ra_n52, &gl_ra_n32}) {
+    if (halo_text_width(*f, s) <= PT_NAME_W) {
+      u.pt_f = f, u.pt_lines = 1, rd_copy(u.pt_line[0], s, sizeof(u.pt_line[0])), u.pt_line[1][0] = 0;
+      return;
+    }
+    const int n = strlen(s);
+    int best = -1;
+    for (int i = 1; i < n; i++) {  // the space nearest the middle with both halves fitting
+      if (s[i] != ' ') continue;
+      char a[RD_NAME + 8];
+      rd_copy(a, s, min(i + 1, (int)sizeof(a)));
+      if (halo_text_width(*f, a) <= PT_NAME_W && halo_text_width(*f, s + i + 1) <= PT_NAME_W && (best < 0 || abs(i - n / 2) < abs(best - n / 2))) best = i;
+    }
+    if (best > 0) {
+      u.pt_f = f, u.pt_lines = 2;
+      rd_copy(u.pt_line[0], s, min(best + 1, (int)sizeof(u.pt_line[0]))), rd_copy(u.pt_line[1], s + best + 1, sizeof(u.pt_line[1]));
+      return;
+    }
+  }
+  u.pt_f = &gl_ra_n32, u.pt_lines = 2;  // (longer: the first word or words, the rest cut)
+  const char *sp = strchr(s, ' ');
+  const int i = sp ? (int)(sp - s) : (int)strlen(s);
+  char a[RD_NAME + 8];
+  rd_copy(a, s, min(i + 1, (int)sizeof(a)));
+  rd_fit(gl_ra_n32, a, PT_NAME_W, u.pt_line[0], sizeof(u.pt_line[0]));
+  rd_fit(gl_ra_n32, sp ? sp + 1 : "", PT_NAME_W, u.pt_line[1], sizeof(u.pt_line[1]));
+}
+
+static void rt_poster_layout(const HaloView &v) {
+  RtUi &u = *rt_u;
+  gl_text_mid(u.pt_time, gl_ra_t24, rp_time, rd_mid_t24, CX, PT_TIME_Y, 1, 0xC9CACF, 1, &halo_black);
+  halo_view_commit(u.pt_time, v);
+  if (u.pt_gen != rp_name_gen || !u.pt_f) u.pt_gen = rp_name_gen, rt_poster_wrap(u);
+  const float slide = rp_slide * 60 + rp_drag_x, na = 1 - fminf(1, fabsf(rp_slide) * 0.9f);
+  const float mid = u.pt_f == &gl_ra_n52 ? rd_mid_n52 : rd_mid_n32, lh = u.pt_f == &gl_ra_n52 ? 56 : 38;
+  for (int k = 0; k < 2; k++) {
+    const float y = PT_NAME_Y + (u.pt_lines == 2 ? (k ? lh / 2 : -lh / 2) : 0);
+    gl_text_mid(u.pt_name[k], *u.pt_f, u.pt_line[k], mid, CX + slide, y, 1, RD_TEXT, k < u.pt_lines ? na : 0, &halo_black);
+    halo_view_commit(u.pt_name[k], v);
+  }
+  // The song: drawn by radio_draw (a marquee) — its place redraws when it changes
+  if (u.pt_song_gen != rp_song_gen) u.pt_song_gen = rp_song_gen, u.pt_song_w = halo_text_width(gl_ra_t20, rp_song);
+  const float mq = v.a > 0.004f ? rt_marquee(u.pt_song_w, PT_SONG_W) : 0, hh = gl_ra_t20.line / 2.0f;
+  rt_damage(u.pt_song_dmg, rd_hash(rp_song) ^ (uint32_t)(int32_t)(mq * 16) ^ (rt_song_err() ? 0x5bd1e995u : 0),
+            CX - PT_SONG_W / 2, PT_SONG_Y - hh, CX + PT_SONG_W / 2, PT_SONG_Y + hh);
+  // STATIONS and VOLUME: an icon over a spaced word (pressed — dimmer), the line between
+  static const char *const WORD[2] = {"STATIONS", "VOLUME"};
+  for (int k = 0; k < 2; k++) {
+    const float x = CX + (k ? PT_WORD_DX : -PT_WORD_DX), pr = halo_clamp01((k ? u.p_vo : u.p_st).s.x), a = 1 - 0.4f * pr;
+    gl_text_mid(u.pt_ic[k], gl_ra_ic24, k ? RD_VOL : RD_BARS, rd_mid_ic24, x, PT_IC_Y, 1, RD_ORANGE, a, &halo_black);
+    gl_text_mid(u.pt_word[k], gl_ra_t14, WORD[k], rd_mid_t14, x, PT_WORD_Y, 1, RD_ORANGE, a, &halo_black);
+    u.pt_word[k].spacing = 2;
+    halo_view_commit(u.pt_ic[k], v), halo_view_commit(u.pt_word[k], v);
+  }
+  rt_rrect(u.pt_div, CX, (PT_IC_Y + PT_WORD_Y) / 2, 2, 30, 1, 0x5A3A20, 1, v);
+  // Stop / Play
+  const bool playing = rd_on && rd_has_cur;
+  const float pb = halo_clamp01(u.p_pb.s.x), k = 1 - 0.05f * pb;
+  rt_rrect(u.pt_btn, CX, PT_BTN_Y, PT_BTN_W * k, PT_BTN_H * k, PT_BTN_H / 2 * k, RD_ORANGE, 1, v);
+  const char *word = playing ? "Stop" : "Play";
+  const float tw = halo_text_width(gl_ra_t24, word), x0 = CX - (tw + 34) / 2;
+  rt_icon(u.pt_btn_ic, playing ? RD_STOP : RD_PLAY, x0 + 10, PT_BTN_Y, 0.5f, RD_ON_ORANGE, 1, &u.pt_btn, v);
+  gl_text_mid(u.pt_btn_t, gl_ra_t24, word, rd_mid_t24, x0 + 34 + tw / 2, PT_BTN_Y, 1, RD_ON_ORANGE, 1, &u.pt_btn);
+  halo_view_commit(u.pt_btn_t, v);
+  // The rays (drawn by radio_draw): both sides redraw when the levels move
+  uint32_t h = 2166136261u;
+  for (int i = 0; i < RD_BANDS; i++) h = (h ^ (uint32_t)(int32_t)(ru->lv[i] * 64)) * 16777619u;
+  rt_damage(u.pt_ray_dmg[0], h, 0, PT_RAY_Y0 - 6, PT_RAY_X + PT_RAY_L0 + PT_RAY_L1 + 6, PT_RAY_Y1 + 6);
+  rt_damage(u.pt_ray_dmg[1], h ^ 0x9e3779b9u, W - PT_RAY_X - PT_RAY_L0 - PT_RAY_L1 - 6, PT_RAY_Y0 - 6, W, PT_RAY_Y1 + 6);
+}
+
+static void rt_poster_draw() {
+  RtUi &u = *rt_u;
+  const HaloView &v = rt_v;
+  halo_item_draw(u.pt_time);
+  for (const auto &it : u.pt_name) halo_item_draw(it);
+  for (int k = 0; k < 2; k++) halo_item_draw(u.pt_ic[k]), halo_item_draw(u.pt_word[k]);
+  halo_item_draw(u.pt_div), halo_item_draw(u.pt_btn), halo_item_draw(u.pt_btn_ic), halo_item_draw(u.pt_btn_t);
+  if (v.a < 0.004f) return;
+  // The song: a marquee cut to its width (two copies 120 px apart, the ends fading)
+  const uint32_t c = halo_dim(rt_song_err() ? RD_ERR : 0xC9CACF, (int)(v.a * 256));
+  const float top = halo_view_y(v, PT_SONG_Y) - rd_mid_t20 * v.s;
+  if (rt_here(0, PT_SONG_Y - 20, W, PT_SONG_Y + 20)) {
+    if (u.pt_song_w > PT_SONG_W) {
+      const float xa = halo_view_x(v, CX - PT_SONG_W / 2), xb = halo_view_x(v, CX + PT_SONG_W / 2);
+      const float x0 = halo_view_x(v, CX - PT_SONG_W / 2 - rt_marquee(u.pt_song_w, PT_SONG_W));
+      rt_text_clip(gl_ra_t20, rp_song, x0, top, v.s, c, xa, xb);
+      rt_text_clip(gl_ra_t20, rp_song, x0 + (u.pt_song_w + 120) * v.s, top, v.s, c, xa, xb);
+      const int y0 = (int)top, y1 = (int)(top + gl_ra_t20.line * v.s);
+      for (int e = 0; e < 24; e++) rt_fade_col((int)xa + e, e / 24.0f, y0, y1), rt_fade_col((int)xb - 1 - e, e / 24.0f, y0, y1);
+    } else {
+      halo_text(gl_ra_t20, rp_song, halo_view_x(v, CX), top, c, 1, 1, v.s, 0, 0);
+    }
+  }
+  // The rays: a capsule a band each side, from the edge inward — the radio's orange, lighter when loud
+  if (!rt_here(0, PT_RAY_Y0 - 4, W, PT_RAY_Y1 + 4)) return;
+  for (int i = 0; i < RD_BANDS; i++) {
+    const float y = PT_RAY_Y1 - (PT_RAY_Y1 - PT_RAY_Y0) * i / (RD_BANDS - 1.0f), l = ru->lv[i];
+    const float len = PT_RAY_L0 + PT_RAY_L1 * l;
+    const uint32_t col = halo_dim(l > 0.05f ? rt_ray_col(l) : RD_RAY_OFF, (int)(v.a * 256));
+    for (int side = 0; side < 2; side++) {
+      const float x0 = side ? W - PT_RAY_X : PT_RAY_X, x1 = side ? x0 - len : x0 + len;
+      rt_capsule(halo_view_x(v, x0), halo_view_y(v, y), halo_view_x(v, x1), halo_view_y(v, y), 2.5f * v.s, col);
+    }
+  }
+}
+#endif
+
 static void radio_draw() {
   if (!ru || !rt_u) return;
   RtUi &u = *rt_u;
   const HaloView &v = rt_v;
+#ifdef HALO_WATCH
+  if (u.poster) return rt_poster_draw(), vol_draw();
+#endif
   if (rt_here(0, 0, W, RT_KEYS_Y1 + 10)) rt_draw_keys(u, v);
   if (rt_here(0, RT_MID_Y0, W, RT_MID_Y1)) {
     halo_item_draw(u.name);
@@ -915,6 +1205,9 @@ static void radio_draw() {
   }
   if (rt_here(RT_WIN_X0 - 6, RT_WIN_Y0 - 6, RT_WIN_X1 + 6, RT_WIN_Y1 + 6)) rt_draw_window(u, v);
   if (rt_here(0, RT_WIN_Y1 + 4, W, HALO_H)) rt_draw_knobs(u, v);
+#ifdef HALO_WATCH
+  vol_draw();
+#endif
 }
 
 // The round board's main screen is made of parts (face.h FL_RTIME … FL_RPLAY); a rectangle has none

@@ -18,6 +18,7 @@ import re
 import socket
 import struct
 import subprocess
+import sys
 import threading
 import time
 
@@ -28,7 +29,7 @@ SNDBUF = 12 * 1024
 
 def lan_address():
     """This computer's address in the local network (the board connects to it)."""
-    for dev in ("en0", "en1"):
+    for dev in (("en0", "en1") if sys.platform == "darwin" else ()):  # (macOS only: Windows has an ipconfig of its own)
         try:
             r = subprocess.run(["ipconfig", "getifaddr", dev], capture_output=True, text=True, timeout=2)
             if r.stdout.strip():

@@ -181,7 +181,7 @@ export function openUpdates(i = info) {
     if (s.state === 'error') {
       err.append(Object.assign(document.createElement('span'), { textContent: s.error || 'The update stopped' }));
       if (s.command) {
-        const c = Object.assign(document.createElement('button'), { className: 'upd-cmd', title: 'Copy — then paste it into Terminal' });
+        const c = Object.assign(document.createElement('button'), { className: 'upd-cmd', title: `Copy — then paste it into ${/Win/.test(navigator.platform) ? 'PowerShell' : 'Terminal'}` });
         c.innerHTML = `<code></code>${COPY}`;
         c.querySelector('code').textContent = s.command;
         c.onclick = () => navigator.clipboard?.writeText(s.command).then(() => c.classList.add('copied'));

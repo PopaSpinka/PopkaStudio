@@ -113,14 +113,23 @@ static float vol_layout(const HaloView &v) {
   halo_view_commit(vol_ic, v);
   return f_own;
 }
-#elif defined(HALO_SQUARE)
+#elif defined(HALO_SQUARE) || defined(HALO_WATCH)
 // The square (variant 3B of web/mockups/square-media.html), as on the watch: "+" over the speaker, "−" under it, the
-// level as a bar along the left edge, filled from the bottom
+// level as a bar along the left edge, filled from the bottom. The rectangular watch (variant 4A of watch206-media.html)
+// — the same, by its height
+#ifdef HALO_WATCH
+#define VQ_PLUS_Y 115.0f
+#define VQ_MINUS_Y 387.0f
+#define VQ_BAR_X 23.0f
+#define VQ_BAR_Y0 70.0f
+#define VQ_BAR_H 362.0f
+#else
 #define VQ_PLUS_Y 108.0f
 #define VQ_MINUS_Y 372.0f
 #define VQ_BAR_X 31.0f
 #define VQ_BAR_Y0 90.0f
 #define VQ_BAR_H 300.0f
+#endif
 static bool vol_update(float dt) {
   HaloFinger &f = halo_finger;
   vol_active = true;

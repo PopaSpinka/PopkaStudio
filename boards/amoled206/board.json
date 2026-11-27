@@ -1,0 +1,363 @@
+{
+  "id": "amoled206",
+  "order": 6,
+  "name": "Waveshare ESP32-S3-Touch-AMOLED-2.06",
+  "short": "AMOLED 2.06",
+  "maker": "Waveshare",
+  "title": "ESP32-S3 AMOLED 2.06",
+  "screen": "410 × 502",
+  "spec": "2.06″ · 410 × 502",
+  "about": "A rectangular AMOLED watch with a strap, a clock chip, a microSD slot and a vibration motor.",
+  "has": [
+    "Battery",
+    "Speaker",
+    "Microphones",
+    "Motion sensor",
+    "Clock chip",
+    "microSD",
+    "Vibration"
+  ],
+  "usb": [
+    "303A:1001"
+  ],
+  "chip": "ESP32-S3",
+  "psram": 8,
+  "flash": 32,
+  "w": 410,
+  "h": 502,
+  "shape": "rect",
+  "drawn": "rect",
+  "compact": true,
+  "watch": true,
+  "engine": "build/amoled206",
+  "defines": [
+    "HALO_BOARD_AMOLED206"
+  ],
+  "fqbn": "esp32:esp32:esp32s3:FlashSize=32M,PSRAM=opi,FlashMode=qio,PartitionScheme=app5M_fat24M_32MB,USBMode=hwcdc,CDCOnBoot=cdc,UploadSpeed=921600",
+  "home": "Home",
+  "faces_name": "Home",
+  "layers": [
+    "date",
+    "clock",
+    "weather",
+    "curve",
+    "title",
+    "card",
+    "scroll",
+    "arc",
+    "city",
+    "wxicon",
+    "wxtemp",
+    "wxhilo",
+    "hourly",
+    "dots",
+    "wxscreen",
+    "display",
+    "pomodoro",
+    "agent",
+    "about",
+    "device",
+    "charge",
+    "steps",
+    "stchart",
+    "stfoot",
+    "stcap",
+    "stnum",
+    "stepscreen",
+    "battery",
+    "recorder",
+    "radio",
+    "music",
+    "snkdots",
+    "snkspace",
+    "snkiso",
+    "shade",
+    "weekarc",
+    "infoline",
+    "forecast",
+    "dateframe",
+    "dotclock",
+    "sclock",
+    "stars",
+    "parrot",
+    "feels",
+    "batring",
+    "stepring",
+    "wxdigits",
+    "wxcurve",
+    "wxbaro",
+    "wxwear",
+    "wxbuddy",
+    "wxpixel",
+    "wxweek"
+  ],
+  "screens": [
+    "face",
+    "blankface",
+    "empty",
+    "gallery",
+    "foursides"
+  ],
+  "functions": [
+    "aod",
+    "buttons",
+    "wifi",
+    "bt"
+  ],
+  "shades": [
+    "full"
+  ],
+  "without": [
+    "video"
+  ],
+  "looks": {
+    "date": {
+      "size": 18,
+      "weight": 620,
+      "width": 104,
+      "spacing": 1,
+      "color": "#C9CACF"
+    },
+    "clock": {
+      "size": 132,
+      "color": "#FFF8EE"
+    },
+    "weather": {
+      "scale": 0.38,
+      "pill": false,
+      "color2": "#C9CACF"
+    },
+    "stars": {
+      "count": 90,
+      "scale": 0.8
+    },
+    "dateframe": {
+      "size": 16,
+      "weight": 620,
+      "width": 104,
+      "spacing": 4,
+      "gap": 124,
+      "color": "#C9CACF"
+    },
+    "sclock": {
+      "scale": 0.25,
+      "color2": "#FFF8EE"
+    },
+    "parrot": {
+      "scale": 0.28
+    },
+    "dotclock": {
+      "scale": 1.15
+    },
+    "curve": {
+      "size": 17,
+      "weight": 620,
+      "width": 104,
+      "spacing": 1,
+      "angle": 180
+    },
+    "arc": {
+      "size": 22,
+      "weight": 620,
+      "width": 104,
+      "spacing": 0,
+      "color": "#C9CACF"
+    },
+    "city": {
+      "size": 32
+    },
+    "wxicon": {
+      "scale": 1.15
+    },
+    "wxtemp": {
+      "size": 110,
+      "color": "#FFF8EE"
+    },
+    "wxhilo": {
+      "size": 20,
+      "weight": 620,
+      "width": 104,
+      "color": "#C9CACF",
+      "color2": "#C9CACF"
+    },
+    "hourly": {
+      "scale": 0.75,
+      "color": "#26292D",
+      "color2": "#9A9A9F"
+    },
+    "feels": {
+      "size": 20,
+      "weight": 620,
+      "width": 104,
+      "color": "#9A9A9F"
+    },
+    "weekarc": {
+      "size": 13,
+      "weight": 620,
+      "width": 104,
+      "spacing": 0
+    },
+    "infoline": {
+      "size": 17,
+      "weight": 620,
+      "width": 104,
+      "spacing": 0
+    },
+    "forecast": {
+      "size": 17,
+      "weight": 660,
+      "width": 100,
+      "spacing": 0,
+      "scale": 0.45,
+      "color2": "#9A9A9F",
+      "color3": "#FFBE3D"
+    },
+    "card": {
+      "color2": "#26292D"
+    },
+    "stnum": {
+      "size": 76,
+      "color": "#FFF8EE"
+    },
+    "stcap": {
+      "size": 18,
+      "color": "#9A9A9F"
+    },
+    "stfoot": {
+      "size": 26,
+      "color": "#FF8A80"
+    },
+    "stchart": {
+      "color": "#FF8A80",
+      "color2": "#4A4C52",
+      "color3": "#7A7A7A"
+    },
+    "steps": {
+      "scale": 0.72
+    },
+    "stepring": {
+      "radius": 215
+    },
+    "wxdigits": {
+      "size": 150,
+      "spacing": -4,
+      "size2": 14
+    },
+    "wxcurve": {
+      "size": 19,
+      "size2": 12,
+      "scale": 0.52
+    },
+    "wxbaro": {
+      "size": 11,
+      "size2": 19
+    },
+    "wxwear": {
+      "size": 21,
+      "size2": 15,
+      "scale": 0.643
+    },
+    "wxbuddy": {
+      "size": 26,
+      "size2": 20
+    },
+    "wxpixel": {
+      "size": 13,
+      "spacing": 2
+    },
+    "wxweek": {
+      "size": 18,
+      "size2": 15,
+      "scale": 0.53
+    }
+  },
+  "places": {
+    "parrot": {
+      "dx": 110,
+      "dy": 140
+    },
+    "steps": {
+      "dy": 308
+    }
+  },
+  "curves": [
+    "weekday",
+    "shortdate",
+    "daymonth",
+    "weather",
+    "steps",
+    "datesteps",
+    "battery",
+    "city"
+  ],
+  "moves": {
+    "dotclock": {
+      "hidden": true
+    },
+    "wxdigits": {
+      "dy": -98,
+      "size": 112
+    },
+    "wxcurve": {
+      "dy": -98,
+      "size": 112
+    },
+    "wxbaro": {
+      "dy": -86,
+      "size": 120
+    },
+    "wxwear": {
+      "dy": -98,
+      "size": 112
+    },
+    "wxbuddy": {
+      "dy": -98,
+      "size": 112
+    },
+    "wxpixel": {
+      "hidden": true
+    },
+    "wxweek": {
+      "dy": -102,
+      "size": 106
+    }
+  },
+  "wxlooks": {
+    "wxdigits": {
+      "side": {
+        "name": "Under the clock"
+      }
+    },
+    "wxcurve": {
+      "band": {}
+    },
+    "wxbaro": {
+      "side": {
+        "name": "Ruler"
+      }
+    },
+    "wxwear": {
+      "side": {
+        "name": "Under the clock"
+      }
+    },
+    "wxbuddy": {
+      "side": {
+        "name": "Under the clock"
+      }
+    },
+    "wxpixel": {
+      "whole": {}
+    },
+    "wxweek": {
+      "band": {
+        "name": "Five days"
+      }
+    }
+  },
+  "art": "img/board-amoled206.webp",
+  "art_size": [
+    410,
+    502
+  ]
+}

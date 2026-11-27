@@ -23,3 +23,6 @@ PopkaStudio/backups/
 PopkaStudio/videos/
 PopkaStudio/app/
 .DS_Store
+# The Windows installer: its build, and install.ps1 -Setup's log
+installer/Output/
+install.log

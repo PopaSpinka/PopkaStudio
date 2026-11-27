@@ -51,6 +51,10 @@ static portMUX_TYPE dmg_mux = portMUX_INITIALIZER_UNLOCKED;
 static int16_t chord_x0[HALO_BANDS], chord_x1[HALO_BANDS];  // круг экрана в пачке (чётный — нечётный)
 
 static void chords() {
+#ifndef HALO_ROUND  // the 2.06: a rectangle — every band is the whole width (its rounded corners are the panel's own)
+  for (int b = 0; b < HALO_BANDS; b++) chord_x0[b] = 0, chord_x1[b] = (HALO_W - 1) | 1, dmg[b].n = 0;
+  return;
+#endif
   const float c = (HALO_W - 1) / 2.0f, R = HALO_W / 2.0f;
   for (int b = 0; b < HALO_BANDS; b++) {
     const int y = b * HALO_ROWS, rows = min(HALO_ROWS, HALO_H - y);
@@ -682,7 +686,7 @@ bool halo_begin(HaloUpdate update, HaloDraw draw, const HaloConfig &c) {
   if (!hd_begin(cfg.bus_hz, cfg.buffers, cfg.brightness)) return hc_boot_done(), false;
   hc_stage(4);
   if (cfg.touch) ht_begin();
-#ifdef HALO_BOARD_AMOLED175G
+#ifdef HALO_RTC_PCF85063
   hr_begin();  // (the 1.75's clock chip: on the touch's I2C bus — after ht_begin)
 #endif
   pinMode(0, INPUT_PULLUP);  // кнопка BOOT
@@ -720,7 +724,7 @@ bool halo_begin(HaloUpdate update, HaloDraw draw, const HaloConfig &c) {
 
 void halo_loop() {
   hc_loop();
-#ifdef HALO_BOARD_AMOLED175G
+#ifdef HALO_RTC_PCF85063
   hr_tick();
 #endif
   if (report_ready) {

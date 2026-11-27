@@ -19,6 +19,9 @@ async function start() {
   // The start window first, over the editor being built behind it; a project picked there — open, the view fitted
   let built;
   const ready = new Promise((r) => { built = r; });
+  if (!/Mac|iPhone|iPad/.test(navigator.platform)) {  // (Windows, Linux: Ctrl, not ⌘, in the buttons' hints)
+    for (const id of ['undo', 'redo']) $(id).title = $(id).title.replace('⇧⌘', 'Ctrl+Shift+').replace('⌘', 'Ctrl+');
+  }
   initAbout();
   initUpdate();  // (a newer PopkaStudio: the number on the heart)
   initStart((fresh) => {

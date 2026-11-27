@@ -12,7 +12,41 @@ extern const HaloFont gl_r_title, gl_r_t28, gl_r_t32, gl_r_ic28, gl_r_n64;  // a
 static void games_mini_layout(uint8_t kind, const HaloView &page, float x, float y, float w, float h, float a);
 static void games_mini_draw(uint8_t kind);
 
-#if defined(HALO_SQUARE)  // the square, 480 × 480 (variant 2D of web/mockups/square-screens.html): a launcher — three
+#if defined(HALO_WATCH)  // a rectangular watch, 410 × 502 (direction B of web/mockups/watch206-look.html): one column of
+                        // pills the whole width, as the round watch's list — the icon in its circle, the title, its line;
+                        // the live weather is a pill too (its sky, the degrees and the sky in words). The games — one a row
+#define RG_PAD 14.0f
+#define RG_GAP_X 0.0f
+#define RG_TOP 120.0f
+#define RG_ITEM_H 94.0f
+#define RG_BIG_H RG_ITEM_H
+#define RG_STACK_GAP 10.0f
+#define RG_ROW_GAP 10.0f
+#define RG_END 30.0f
+#define RG_RADIUS 47.0f       // (half the pill)
+#define RG_RADIUS_DOWN 30.0f
+#define RG_TITLE_X 26.0f
+#define RG_TITLE_Y 84.0f      // (under the time, which is in the top middle)
+#define RG_FONT_TITLE gl_title
+#define RG_ICON_R 30.0f
+#define RG_ICON_X 48.0f       // a pill: the icon's middle from its left end
+#define RG_TEXT_X 94.0f       // its title's and line's left end
+#define RG_NAME_BASE 44.0f    // their baselines from its top
+#define RG_SUB_BASE 72.0f
+#define RG_GAME_COLS 1       // the games (variant 2B of web/mockups/watch206-screens.html): pills too, the game alive
+#define RG_GAME_GAP 10.0f    // in a round window at the left
+#define RG_GAME_W (HALO_W - 2 * RG_PAD)
+#define RG_GAME_H 110.0f
+#define RG_GAME_STEP (RG_GAME_W + RG_GAME_GAP)
+#define RG_WIN 90.0f         // the window: its width, its left from the pill's
+#define RG_WIN_X 12.0f
+#define RG_SCENE_H RG_WIN
+#define RG_FONT_SUB gl_t20
+#define RG_SC_X (W - 9.0f)    // the scroll indicator: clear of the glass's round corners
+#define RG_SC_TOP 128.0f
+#define RG_SC_END 96.0f
+extern const HaloFont gl_w_t28, gl_w_ic30;  // (studio.py: WATCH_FONTS)
+#elif defined(HALO_SQUARE)  // the square, 480 × 480 (variant 2D of web/mockups/square-screens.html): a launcher — three
                           // tiles in a row, a big icon in its circle over the name, no second line; the live weather is
                           // the first tile (its sky and temperature). The games keep the small rectangle's three cards
 #define RG_PAD 16.0f
@@ -108,6 +142,13 @@ extern const HaloFont gl_c_t14;
 #define RG_GAME_COLS 3
 #define RG_FONT_SUB gl_t20       // the line under a card's title
 #endif
+#ifndef RG_TITLE_X
+#define RG_TITLE_X RG_PAD
+#define RG_FONT_TITLE gl_r_title
+#define RG_SC_X (W - RK(11.0f))
+#define RG_SC_TOP RG_TOP
+#define RG_SC_END RG_END
+#endif
 #ifndef RG_GAME_NAME_UP
 #define RG_GAME_NAME_UP RK(68)
 #define RG_GAME_SUB_UP RK(32)
@@ -128,9 +169,14 @@ static inline bool rg_live(const FaceLayer &L) {
 static void rg_layer_build(const FaceScreen &S, int i) {
   const FaceLayer &L = S.layers[i];
   FaceRun &R = S.run[i];
-  if (L.kind == FL_TITLE) R.mid = halo_text_mid(gl_r_title, gl_str(L.text));
+  if (L.kind == FL_TITLE) R.mid = halo_text_mid(RG_FONT_TITLE, gl_str(L.text));
   if (L.kind != FL_CARD) return;
-#if defined(HALO_SQUARE)  // (a tile: the icon's middle, the name's; the live one — the sky's, its temperature by its middle)
+#if defined(HALO_WATCH)  // (a pill: the icon's middle; the live one's line is made each frame, its roll stays hidden)
+  R.top = halo_text_mid(gl_w_ic30, "\uf0f3");
+  if (!rg_live(L)) return;
+  R.txt = (char *)calloc(48, 1);
+  halo_roll_init(R.roll, gl_w_t28, "0123456789", 0, 0);
+#elif defined(HALO_SQUARE)  // (a tile: the icon's middle, the name's; the live one — the sky's, its temperature by its middle)
   R.top = rg_live(L) ? halo_text_mid(gl_q_ic48, "\uf185") : halo_text_mid(gl_q_ic30, "\uf0f3");
   R.mid = halo_text_mid(gl_r_t28, gl_str(L.text));
   if (!rg_live(L)) return;
@@ -145,6 +191,9 @@ static void rg_layer_build(const FaceScreen &S, int i) {
   halo_roll_set(R.roll, fc_temp, false);
 }
 
+#if defined(HALO_WATCH)
+static uint32_t rg_tick;  // frames of a gallery on top (gal_update)
+#endif
 // (the cards are not items of the list here: the page is one item)
 static int gal_item_of(const GalRun &, int) {
   return -1;
@@ -165,7 +214,13 @@ static void rg_place(int c, bool big, bool games, RgCell &o) {
     o.x = RG_PAD + (c % RG_GAME_COLS) * RG_GAME_STEP, o.y = RG_TOP + (c / RG_GAME_COLS) * (RG_GAME_H + RG_ROW_GAP), o.w = RG_GAME_W, o.h = RG_GAME_H;
     return;
   }
-#if defined(HALO_SQUARE)
+#if defined(HALO_WATCH)
+  {  // one column: every card a pill the whole width, the live one too
+    (void)big;
+    o.x = RG_PAD, o.y = RG_TOP + c * (RG_ITEM_H + RG_STACK_GAP), o.w = W - 2 * RG_PAD, o.h = RG_ITEM_H;
+    return;
+  }
+#elif defined(HALO_SQUARE)
   {  // three tiles in a row, the live one as the first of them
     const float wn = (W - 2 * RG_PAD - 2 * RG_GAP_X) / 3;
     (void)big;
@@ -253,6 +308,9 @@ static void gal_rebuild(FaceScreen &S) {
 static void gal_update(FaceScreen &S, float dt, int depth) {
   GalRun *g = S.gal;
   if (!g) return;
+#if defined(HALO_WATCH)
+  rg_tick++;  // (the games' windows: every other frame, in turn — rg_card)
+#endif
   HaloFinger &f = halo_finger;
   HaloList &page = g->list;
   halo_list_update(page, dt);
@@ -299,6 +357,26 @@ static void rg_card(const FaceScreen &S, int i, const GalRun &g, int c, float a,
   HaloItem &dc = it[1];
   dc.kind = HI_CIRCLE, dc.x = ix, dc.y = iy, dc.r = RG_ICON_R, dc.scale = 1, dc.color = L.color, dc.alpha = ac;
   dc.on_black = true;
+#if defined(HALO_WATCH)
+  if (q.game) {  // a pill: the game alive in a round window at the left (rg_game_draw), its name and line beside it
+    const float cx = x0 + RG_WIN_X + RG_WIN / 2, cy = y0 + h / 2, tx = x0 + RG_WIN_X + RG_WIN + 18;
+    bg.r = h / 2 - (h / 2 - 30) * p;
+    dc.kind = HI_RING, dc.x = cx, dc.y = cy, dc.r = RG_WIN / 2 - 1.5f, dc.w = 3, dc.v = 1, dc.color = L.color, dc.color2 = 0;
+    dc.on_black = false;
+    it[2].kind = HI_TEXT, it[2].alpha = 0;
+    gl_text_base(it[3], gl_w_t28, gl_str(L.text), tx, cy - 4, 1, GL_TEXT, ac, &bg);
+    gl_text_base(it[4], RG_FONT_SUB, gl_str(L.sub), tx, cy + 26, 1, GL_DIM, ac, &bg);
+    for (int j = 0; j < 5; j++) halo_view_commit(it[j], v);
+    R.ax = bg.x, R.ay = bg.y;
+    // The games alive only while the screen is still, each window every other frame, the three in turn: alone a game costs
+    // 6–9 ms a frame here (the dots most), together they went past the frame's 16.7 ms — 8–17 frames missed in 5 s; in
+    // the transition in, 3 more (measured, 25 Nov 2026). Moving (a transition, the page scrolling) — the windows empty
+    const bool still = ac >= 0.999f && v.a >= 0.999f && v.s == 1 && fabsf(v.x) < 0.01f && fabsf(v.y) < 0.01f && !g.list.moving;
+    if (!still) games_mini_layout((uint8_t)q.game, v, cx - RG_WIN / 2, cy - RG_WIN / 2, RG_WIN, RG_WIN, 0);
+    else if ((rg_tick + (uint32_t)q.game) & 1) games_mini_layout((uint8_t)q.game, v, cx - RG_WIN / 2, cy - RG_WIN / 2, RG_WIN, RG_WIN, ac);
+    return;
+  }
+#endif
   if (q.game) {  // the game alive at the top, its name under it
     dc.alpha = 0, it[2].kind = HI_TEXT, it[2].alpha = 0;
     gl_text_base(it[3], gl_r_t32, gl_str(L.text), x0 + RK(24), y0 + h - RG_GAME_NAME_UP, 1, GL_TEXT, ac, &bg);
@@ -309,7 +387,27 @@ static void rg_card(const FaceScreen &S, int i, const GalRun &g, int c, float a,
     return;
   }
   const WxDay d = wx_day(0);
-#if defined(HALO_SQUARE)
+#if defined(HALO_WATCH)
+  {  // a pill: the icon in its circle at the left, the title and its line beside it; the live one — the sky in the circle,
+     // its line "8°, sunny" (its temperature's roll is not shown here)
+    dc.x = x0 + RG_ICON_X, dc.y = y0 + h / 2;
+    const float tx = x0 + RG_TEXT_X;
+    const char *sub = gl_str(L.sub);
+    if (live) {
+      snprintf(R.txt, 48, "%s, %s", fc_temp, RW_WORD[d.kind & 3]);
+      char *w = strchr(R.txt, ',');
+      if (w && w[1] && w[2]) w[2] = tolower((unsigned char)w[2]);
+      sub = R.txt;
+      halo_roll_layout(R.roll, tx, y0 + h / 2, GL_TEXT, 0, &bg, v);
+    }
+    gl_text_mid(it[2], gl_w_ic30, live ? RG_WX_GLYPH[d.kind & 3] : gl_str(L.icon), R.top, dc.x, dc.y, 1, 0x1B1B1F, ac, &dc);
+    gl_text_base(it[3], gl_w_t28, gl_str(L.text), tx, y0 + RG_NAME_BASE, 1, GL_TEXT, ac, &bg);
+    gl_text_base(it[4], RG_FONT_SUB, sub, tx, y0 + RG_SUB_BASE, 1, GL_DIM, ac, &bg);
+    for (int j = 0; j < 5; j++) halo_view_commit(it[j], v);
+    R.ax = bg.x, R.ay = bg.y;
+    return;
+  }
+#elif defined(HALO_SQUARE)
   {  // a launcher's tile: the icon in its circle over the name; the live one — the sky (no circle) over the temperature
     const float cx = x0 + q.w / 2;
     dc.x = cx, dc.y = y0 + RG_ICON_Y;
@@ -362,26 +460,26 @@ static void gal_layout(const FaceScreen &S, int i, float a, const HaloView &v) {
   }
   switch (L.kind) {
     case FL_TITLE:
-      rg_text(it[0], gl_r_title, gl_str(L.text), R.mid, 0, RG_PAD, g->list.scroll + RG_TITLE_Y, L.color, a, &halo_black);
+      rg_text(it[0], RG_FONT_TITLE, gl_str(L.text), R.mid, 0, RG_TITLE_X, g->list.scroll + RG_TITLE_Y, L.color, a, &halo_black);
       it[0].on_black = true;
       halo_view_commit(it[0], v);
-      R.ax = RG_PAD, R.ay = g->list.scroll + RG_TITLE_Y;
+      R.ax = RG_TITLE_X, R.ay = g->list.scroll + RG_TITLE_Y;
       break;
     case FL_CARD:
       rg_card(S, i, *g, c, a, v);
       break;
     case FL_SCROLL: {  // at the right edge, while the page moves; nothing to scroll — none
-      const float track = HALO_H - RG_TOP - RG_END, size = track * constrain(halo_list_visible(g->list), 0.2f, 1.0f);
-      const float y0 = RG_TOP + (track - size) * halo_clamp01(g->sc_pos.x), x = W - RK(11.0f);
+      const float track = HALO_H - RG_SC_TOP - RG_SC_END, size = track * constrain(halo_list_visible(g->list), 0.2f, 1.0f);
+      const float y0 = RG_SC_TOP + (track - size) * halo_clamp01(g->sc_pos.x), x = RG_SC_X;
       const float al = g->list.total > HALO_H && g->sc_vis.x > 0.01f ? g->sc_vis.x * a : 0;
       for (int j = 0; j < 2; j++) {
         HaloItem &s = it[j];
-        s.kind = HI_RRECT, s.x = x, s.y = j ? y0 + size / 2 : RG_TOP + track / 2, s.w = RK(6), s.h = j ? size : track, s.r = RK(3);
+        s.kind = HI_RRECT, s.x = x, s.y = j ? y0 + size / 2 : RG_SC_TOP + track / 2, s.w = RK(6), s.h = j ? size : track, s.r = RK(3);
         s.scale = 1, s.color = j ? L.color : L.color2, s.alpha = al, s.on_black = !j;
         halo_view_commit(s, v);
       }
       it[2].alpha = 0, halo_view_commit(it[2], v);
-      R.ax = x, R.ay = RG_TOP + track / 2;
+      R.ax = x, R.ay = RG_SC_TOP + track / 2;
       break;
     }
   }
@@ -397,6 +495,27 @@ static void rg_game_draw(const FaceScreen &S, int i) {
     games_mini_draw((uint8_t)g->cell[c].game);
     const HaloItem &bg = S.run[i].g[0];
     if (bg.alpha <= 0.004f) return;
+#if defined(HALO_WATCH)
+    {  // the window round: the pill itself drawn again outside the circle, row by row (black stays beyond the pill's
+       // end), then the ring over the game's edge
+      const HaloItem &ring = S.run[i].g[1];
+      const float cx = ring.x, cy = ring.y, r = (ring.r + ring.w / 2) * ring.scale, sx0 = cx - r - 1, sx1 = cx + r + 1;
+      const HaloBand band = hb;
+      for (int y = max(band.y, halo_floor(cy - r)); y <= min(band.y + band.rows - 1, halo_floor(cy + r)); y++) {
+        const float dy = y + 0.5f - cy, half = halo_sqrt(fmaxf(0, r * r - dy * dy));
+        for (int k = 0; k < 2; k++) {  // left of the circle, right of it
+          const int x0 = max(band.x0, halo_floor(k ? cx + half : sx0)), x1 = min(band.x1, halo_floor(k ? sx1 : cx - half));
+          if (x0 > x1) continue;
+          hb.buf = band.buf + (y - band.y) * band.w, hb.y = y, hb.rows = 1, hb.x0 = x0, hb.x1 = x1;
+          halo_span(halo_row(y), x0, x1, 0);  // (the game's black and stars gone: beyond the pill's end — the screen's black)
+          halo_item_draw(bg);
+        }
+      }
+      hb = band;
+      halo_item_draw(ring);
+      return;
+    }
+#endif
     const float x0 = bg.x - bg.w / 2 * bg.scale, x1 = bg.x + bg.w / 2 * bg.scale, y0 = bg.y - bg.h / 2 * bg.scale, r = RG_RADIUS * bg.scale;
     for (int y = max(hb.y, halo_floor(y0)); y <= min(hb.y + hb.rows - 1, halo_floor(y0 + r)); y++) {
       const float d = y0 + r - (y + 0.5f);

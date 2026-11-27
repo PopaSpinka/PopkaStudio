@@ -6,7 +6,172 @@
 // number and a small live picture: the processor (both cores' average), the memory and the temperature as charts, the
 // sound as its spectrum (the microphones are on while the screen is), the battery as a bar. Nothing to tap.
 
-#if defined(HALO_SQUARE)
+#if defined(HALO_WATCH)
+// A rectangular watch, 410 × 502 (variant 1C of web/mockups/watch206-screens.html): six tiles two by two — the
+// processor, the memory, the temperature, the battery, the sound, the motion: each its icon in a circle, its number, its
+// name; all on one screen. A tap on a tile — that thing large: its number, two lines and its chart (the sound — its
+// spectrum, the battery — its bar, the motion — a bubble level); another tap — the tiles again. The numbers: device.h
+extern const HaloFont gl_r_n110, gl_w_n30, gl_w_ic30;
+#define DZ_X 26.0f
+#define DZ_PAD 14.0f
+#define DZ_TILE_W ((HALO_W - 2 * DZ_PAD - 10) / 2)
+#define DZ_TILE_H 118.0f
+#define DZ_Y0 108.0f
+#define DZ_STEP_Y (DZ_TILE_H + 8)
+#define DZ_TILE_R 30.0f
+#define DZ_CARD 0x26292D
+#define DZ_CH_W 340
+#define DZ_CH_H 150
+static const uint8_t DZ_WHAT[6] = {DV_CPU, DV_MEM, DV_TEMP, DV_BAT, DV_SND, DV_MOT};
+static const uint32_t DZ_COL[6] = {0x8AD6F0, 0xC9A7E8, 0xFFAB91, 0x6DD58C, 0xF6B5EA, 0xFFC979};
+static const char *const DZ_NAME[6] = {"Processor", "Memory", "Temperature", "Battery", "Sound", "Motion"};
+static const char *const DZ_ICON[6] = {"\xEF\x8B\x9B", "\xEF\x94\xB8", "\xEF\x8B\x89", "\xEF\x89\x80", "\xEF\x84\xB0", "\xEF\x88\x9E"};
+static int dz_sel = -1, dz_armed = -1;  // the tile shown large (-1 — the tiles); the finger came down on (6 — the large one)
+static Press dz_press[6];
+static bool dz_ready;
+static float dz_mid_title, dz_mid_val, dz_mid_name, dz_mid_ic, dz_mid_big;
+
+static void dz_tile(int i, float &x, float &y) {
+  x = DZ_PAD + (i % 2) * (DZ_TILE_W + 10), y = DZ_Y0 + (i / 2) * DZ_STEP_Y;
+}
+
+// Every frame while the screen is on top (face.h): a tap on a tile opens it large, a tap on the large one — the tiles
+static void dv_rect_update(const FaceScreen &S, float dt) {
+  HaloFinger &f = halo_finger;
+  bool has = false;
+  for (int i = 0; i < S.n; i++) has |= S.layers[i].kind == FL_DEVICE && !S.layers[i].hidden;
+  if (!has) return;
+  if (f.pressed) {
+    dz_armed = -1;
+    if (!f.owner && dz_sel >= 0) dz_armed = 6;
+    for (int i = 0; i < 6 && !f.owner && dz_sel < 0; i++) {
+      float x, y;
+      dz_tile(i, x, y);
+      if (f.x0 >= x && f.x0 <= x + DZ_TILE_W && f.y0 >= y && f.y0 <= y + DZ_TILE_H) dz_armed = i;
+    }
+  }
+  if (f.dragging) dz_armed = -1;
+  if (f.tap && dz_armed >= 0) dz_sel = dz_armed == 6 ? -1 : dz_armed;
+  for (int i = 0; i < 6; i++) press_update(dz_press[i], dz_armed == i && f.down, dt);
+  if (!f.down) dz_armed = -1;
+}
+
+static void dv_detail_layout(const FaceLayer &, DvRun &d, const HaloView &v) {
+  if (!dz_ready) {
+    dz_ready = true;
+    dz_mid_title = halo_text_mid(gl_title, "About"), dz_mid_val = halo_text_mid(gl_w_n30, "0123456789");
+    dz_mid_name = halo_text_mid(gl_t20, "Processor"), dz_mid_ic = halo_text_mid(gl_w_ic30, DZ_ICON[0]);
+    dz_mid_big = halo_text_mid(gl_r_n110, "0123456789");
+  }
+  if (v.a > 0.01f) dv_seen(DV_SND), dv_seen(DV_MOT);  // (live: the microphones and the motion sensor while this is open)
+#ifdef __EMSCRIPTEN__
+  const HaloBattery hb = {true, true, true, true, 89, 4118, 5050, 4970, 384};
+#else
+  const HaloBattery hb = halo_battery();
+#endif
+  if (!d.text_at || (!fc_calm && halo_ms() - d.text_at >= 500)) {
+    d.text_at = halo_ms() | 1;
+    for (int i = 0; i < 6; i++) dc_value(DZ_WHAT[i], d.row[i], sizeof d.row[i]);
+    if (dz_sel >= 0) {  // the large one: its number and its two lines
+      const int what = DZ_WHAT[dz_sel];
+      if (what == DV_BAT) {
+        hb.ok && hb.present && hb.percent >= 0 ? snprintf(d.big, sizeof d.big, "%d%%", hb.percent) : snprintf(d.big, sizeof d.big, "--");
+        snprintf(d.lab_s[0], 32, "%.2f V", hb.mv / 1000.0f);
+        snprintf(d.lab_s[1], 32, "%s", !hb.present ? "no battery" : hb.charging ? "charging" : hb.usb ? "on USB" : "on battery");
+      } else if (what == DV_MOT) {
+        snprintf(d.big, sizeof d.big, "%.2f", sqrtf(dv_ax * dv_ax + dv_ay * dv_ay + dv_az * dv_az));
+        snprintf(d.lab_s[0], 32, "g  ·  x %.2f  y %.2f", dv_ax, dv_ay), snprintf(d.lab_s[1], 32, "z %.2f", dv_az);
+      } else {
+        char l0[32], l1[32];
+        const float t = dv_last(dv_temp);
+        switch (what) {
+          case DV_CPU: {
+            const float a = dv_last(dv_load0), b = dv_last(dv_load1);
+            snprintf(d.big, sizeof d.big, "%d%%", (int)lroundf((a + b) / 2));
+            snprintf(l0, 32, "Core 0  %d%%", (int)lroundf(a)), snprintf(l1, 32, "Core 1  %d%%", (int)lroundf(b));
+            break;
+          }
+          case DV_MEM:
+            snprintf(d.big, sizeof d.big, "%d", (int)lroundf(dv_last(dv_free)));
+            snprintf(l0, 32, "KB free"), snprintf(l1, 32, "PSRAM %d MB free", (int)lroundf(dv_ps_free / 1024));
+            break;
+          case DV_TEMP:
+            snprintf(d.big, sizeof d.big, "%.1f\xC2\xB0", t);
+            snprintf(l0, 32, "ESP32-S3 chip"), snprintf(l1, 32, "%d MHz", dv_mhz);
+            break;
+          default:
+            snprintf(d.big, sizeof d.big, "\xE2\x88\x92%d", (int)lroundf(fminf(90, -dv_db)));
+            snprintf(l0, 32, "dB"), snprintf(l1, 32, "2 microphones");
+        }
+        memcpy(d.lab_s[0], l0, 32), memcpy(d.lab_s[1], l1, 32);
+      }
+    }
+  }
+  HaloItem *it = d.it;
+  int n = 0;
+  auto text = [&](const HaloFont &f, const char *s, float mid, int align, float x, float y, uint32_t c, const HaloItem *on) {
+    HaloItem &t = it[n++];
+    rg_text(t, f, s, mid, align, x, y, c, 1, on);
+    t.on_black = on == &halo_black;
+  };
+  auto shape = [&](int kind, float cx, float cy, float w, float h, float r, uint32_t c, bool black) -> HaloItem & {
+    HaloItem &q = it[n++];
+    q.kind = kind, q.x = cx, q.y = cy, q.w = w, q.h = h, q.r = r, q.scale = 1, q.color = c, q.alpha = 1, q.on_black = black, q.on = nullptr;
+    return q;
+  };
+  if (dz_sel < 0) {  // the tiles
+    text(gl_title, "About", dz_mid_title, 0, DZ_X, RG_TITLE_Y, DV_TEXT, &halo_black);
+    for (int i = 0; i < 6; i++) {
+      float x, y;
+      dz_tile(i, x, y);
+      const float p = halo_clamp01(dz_press[i].s.x);
+      HaloItem &b = shape(HI_RRECT, x + DZ_TILE_W / 2, y + DZ_TILE_H / 2, DZ_TILE_W, DZ_TILE_H, DZ_TILE_R - 12 * p, DZ_CARD, true);
+      HaloItem &c = shape(HI_CIRCLE, x + 38, y + 38, 0, 0, 24, DZ_COL[i], false);
+      text(gl_w_ic30, DZ_ICON[i], dz_mid_ic, 1, x + 38, y + 38, 0x1B1B1F, &c);
+      text(gl_w_n30, d.row[i], dz_mid_val, 0, x + 18, y + 78, DV_TEXT, &b);
+      text(gl_t20, DZ_NAME[i], dz_mid_name, 0, x + 18, y + 104, DV_DIM, &b);
+    }
+    return dv_commit(d, n, v, nullptr);
+  }
+  // One of them large
+  const int what = DZ_WHAT[dz_sel];
+  const uint32_t acc = DZ_COL[dz_sel];
+  text(gl_title, DZ_NAME[dz_sel], dz_mid_title, 0, DZ_X, RG_TITLE_Y, acc, &halo_black);
+  HaloItem &card = shape(HI_RRECT, HALO_W / 2.0f, 300, HALO_W - 2 * DZ_PAD, 376, 40, DZ_CARD, true);
+  text(gl_r_n110, d.big, dz_mid_big, 0, DZ_X + 8, 172, DV_TEXT, &card);
+  text(gl_t20, d.lab_s[0], dz_mid_name, 0, DZ_X + 10, 230, DV_DIM, &card);
+  text(gl_t20, d.lab_s[1], dz_mid_name, 0, DZ_X + 10, 258, DV_DIM, &card);
+  const float cx0 = (HALO_W - DZ_CH_W) / 2.0f, cy0 = 300, cw = DZ_CH_W, ch = DZ_CH_H;
+  if (what == DV_SND) {  // the spectrum: a bar a band
+    const float pitch = cw / DV_NB;
+    for (int j = 0; j < DV_NB; j++) {
+      const float bh = 8 + (ch - 16) * dv_band[j];
+      shape(HI_RRECT, cx0 + pitch * (j + 0.5f), cy0 + ch - bh / 2, 12, bh, 6, dv_mix(0x4A3A48, acc, dv_band[j]), false);
+    }
+  } else if (what == DV_BAT) {  // the charge: a bar
+    const float f = hb.ok && hb.present && hb.percent >= 0 ? hb.percent / 100.0f : 0, w = fmaxf(28, cw * f);
+    shape(HI_RRECT, cx0 + cw / 2, cy0 + ch / 2, cw, 28, 14, 0x3A3F44, false);
+    shape(HI_RRECT, cx0 + w / 2, cy0 + ch / 2, w, 28, 14, acc, false).alpha = f > 0 ? 1 : 0;
+  } else if (what == DV_MOT) {  // a bubble level: the bubble goes where the watch tilts
+    const float R0 = 64, mx = HALO_W / 2.0f, my = cy0 + ch / 2;
+    shape(HI_CIRCLE, mx, my, 0, 0, R0, 0x1E2024, false);
+    float bx = -dv_ay * 160, by = -dv_ax * 160;
+    const float m = sqrtf(bx * bx + by * by);
+    if (m > R0 - 14) bx *= (R0 - 14) / m, by *= (R0 - 14) / m;
+    shape(HI_CIRCLE, mx + bx, my + by, 0, 0, 12, acc, false);
+  } else {  // a chart and the dot at its newest end
+    if (!fc_calm || d.chart.cur < 0) dv_chart(d, what, DZ_CH_W, DZ_CH_H, true);
+    HaloItem &m = it[n++];
+    m.kind = HI_MASK, m.mask = d.chart.cur >= 0 ? &d.chart.m[d.chart.cur] : nullptr, m.color = acc, m.x = cx0 + cw / 2, m.y = cy0 + ch / 2;
+    m.scale = 1, m.alpha = m.mask ? 1 : 0, m.on = &card, m.on_black = false;
+    for (int j = 0; j < (what == DV_CPU ? 2 : 1); j++) {
+      HaloItem &e = shape(HI_CIRCLE, cx0 + cw, cy0 + (j ? d.chart.last_y2 : d.chart.last_y), 0, 0, j ? 4.5f : 6, acc, false);
+      e.alpha = m.mask ? (j ? 0.6f : 1) : 0;
+    }
+  }
+  dv_commit(d, n, v, nullptr);
+}
+#elif defined(HALO_SQUARE)
 extern const HaloFont gl_r_title, gl_r_n36, gl_c_t14, gl_q_ic22;
 #define DQ_X 16.0f
 #define DQ_W 448.0f

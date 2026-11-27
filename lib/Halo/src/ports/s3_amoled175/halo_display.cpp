@@ -25,7 +25,7 @@
 #include <hal/spi_ll.h>
 #include <soc/gdma_channel.h>
 
-#define X_OFFSET 6          // смещение столбцов панели
+#define X_OFFSET HALO_PANEL_X  // смещение столбцов панели (1.75 — 6, 2.06 — 22)
 #define MAX_PX (HALO_ROWS * HALO_W)
 #define MAX_BUFS 4
 

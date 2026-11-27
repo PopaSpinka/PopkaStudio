@@ -5,7 +5,7 @@
 #
 #   studio/engine/build.sh                           → studio/web/build/PopkaWatch.js + .wasm (the round watch)
 #   studio/engine/build.sh ID ENGINE FONTS [DEFINE…]  → studio/web/ENGINE/ (studio.py runs it so, from the passport:
-#       its "engine" folder, the fonts its page has beyond the template's — round | rect | compact | square, and what names the board
+#       its "engine" folder, the fonts its page has beyond the template's — round | rect | compact | square | watch, and what names the board
 #       to the compiler)
 #
 # Needs Emscripten (em++): brew install emscripten. The Wi-Fi password never gets in: shim/HaloClock.h stands in for
@@ -22,7 +22,7 @@ FONTS="${3:-round}"
 EXTRA=()
 for d in "${@:4}"; do EXTRA+=("-D$d"); done
 case "$BOARD$ENGINE_DIR" in *[!A-Za-z0-9_/-]*|*..*) echo "build.sh: a board's id and folder are letters, digits, - and /" >&2; exit 1 ;; esac
-case "$FONTS" in round|rect|compact|square) ;; *) echo "build.sh: fonts are round, rect, compact or square, not '$FONTS'" >&2; exit 1 ;; esac
+case "$FONTS" in round|rect|compact|square|watch) ;; *) echo "build.sh: fonts are round, rect, compact, square or watch, not '$FONTS'" >&2; exit 1 ;; esac
 OUT="$ROOT/studio/web/$ENGINE_DIR"
 TMP="$ROOT/build/PopkaStudio/engine"
 [ "$ENGINE_DIR" = build ] || TMP="$TMP-$(basename "$ENGINE_DIR")"

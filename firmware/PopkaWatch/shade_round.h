@@ -26,10 +26,37 @@
 // NAME | off — the project's Wi-Fi (the page sends it).
 // Included from face.h on the round board in a firmware with the layer (FN_SHADE), and in that board's page.
 
+#ifdef HALO_WATCH
+// The rectangular watch (410 × 502): the panel is the screen's own shape — a black rounded rectangle sliding down; the
+// slider the whole width at the top, the six buttons 3 × 2 under it, the chip at the bottom
+#define SH_TRAVEL ((float)HALO_H)
+#define SH_PANEL_R 64.0f  // the panel's lower corners (the glass's)
+#define SH_BW 122.0f
+#define SH_BH 108.0f
+#define SH_SL_X 14.0f     // the slider
+#define SH_SL_Y 58.0f
+#define SH_SL_W (HALO_W - 28.0f)
+#define SH_SL_H 90.0f
+#define SH_GRID_X 14.0f   // the buttons: the first one's corner, the steps
+#define SH_GRID_Y 168.0f
+#define SH_GRID_DX 130.0f
+#define SH_GRID_DY 120.0f
+#define SH_CHIP_Y 448.0f
+#else
 #define SH_TRAVEL 466.0f  // the finger's way = the disc's: the whole screen
-#define SH_MAX 40         // items in the pool
 #define SH_BW 122.0f      // a button: Google's grid — 3 × 122 + 2 × 8, rows of 102
 #define SH_BH 102.0f
+#define SH_SL_X 73.0f
+#define SH_SL_Y 52.0f
+#define SH_SL_W 320.0f
+#define SH_SL_H 78.0f
+#define SH_GRID_X 42.0f
+#define SH_GRID_Y 140.0f
+#define SH_GRID_DX 130.0f
+#define SH_GRID_DY 110.0f
+#define SH_CHIP_Y 387.0f
+#endif
+#define SH_MAX 40         // items in the pool
 #define SH_SEGS 8         // the slider's segments (Display's steps)
 // What a button is (also a hit's "what"); "−", "+" and the slider itself
 enum : uint8_t { SI_WIFI, SI_MUTE, SI_AOD, SI_OFF, SI_LOCK, SI_VOL, SI_N, SI_BMINUS = 50, SI_BPLUS, SL_BRIGHT = 100 };
@@ -200,7 +227,7 @@ static void sh_button(uint8_t what, float x, float y, uint32_t acc, uint32_t on,
 }
 // Wear OS 6's slider: a pill, "−" and "+" at its ends, the segments between them (lit — the steps up to the value)
 static void sh_slider_put(uint32_t acc, uint32_t box, uint32_t ink, bool live) {
-  const float x = 73, y = 52, w = 320, h = 78, cy = y + h / 2;
+  const float x = SH_SL_X, y = SH_SL_Y, w = SH_SL_W, h = SH_SL_H, cy = y + h / 2;
   sh_rrect(x, y, w, h, h / 2, box);
   sh_text(gl_shr_ic30, sh_mid_ic[SI_N], SH_IC_MINUS, x + 36, cy, ink);
   sh_text(gl_shr_ic30, sh_mid_ic[SI_N + 1], SH_IC_PLUS, x + w - 36, cy, ink);
@@ -216,10 +243,10 @@ static void sh_slider_put(uint32_t acc, uint32_t box, uint32_t ink, bool live) {
 static void sh_chip(uint32_t box, uint32_t ink) {
   const bool bat = sh_bat >= 0;
   if (bat) snprintf(sh_pct, sizeof(sh_pct), "%d%%", (int)sh_bat);
-  const float cy = 387, bw = bat ? halo_text_width(gl_shr_ic20, SH_IC_BAT) : 0, tw = bat ? halo_text_width(gl_shr_n18, sh_pct) : 0;
+  const float cy = SH_CHIP_Y, bw = bat ? halo_text_width(gl_shr_ic20, SH_IC_BAT) : 0, tw = bat ? halo_text_width(gl_shr_n18, sh_pct) : 0;
   const float ww = sh_wifi ? halo_text_width(gl_shr_ic20, SH_IC_WIFI) : 0;
   const float all = (bat ? bw + 7 + tw : 0) + (bat && sh_wifi ? 10 : 0) + ww;
-  sh_rrect(158, cy - 23, 150, 46, 23, box, all > 0 ? 1 : 0);
+  sh_rrect(CX - 75, cy - 23, 150, 46, 23, box, all > 0 ? 1 : 0);
   float x = CX - all / 2;
   if (bat) {
     sh_text(gl_shr_ic20, sh_mid_chip[0], SH_IC_BAT, x, cy, ink, 0), x += bw + 7;
@@ -265,6 +292,10 @@ static void shade_layout(int s, const FaceScreen &S, int i, const HaloView &v) {
 #endif
     const uint32_t acc = L.color, on = sh_on_accent(acc), box = sh_mix(0x0D0D0D, acc, 0.21f), ink = sh_mix(0xFFFFFF, acc, 0.08f);
     sh_ty = -(1 - p) * SH_TRAVEL;
+#ifdef HALO_WATCH
+    sh_rrect(-1, -SH_PANEL_R, W + 2, HALO_H + SH_PANEL_R + 1, SH_PANEL_R, 0x000000);  // the panel: its lower corners round
+    if (v.a >= 0.999f && fabsf(v.x) < 0.01f) sh_cover_y = fmaxf(0, halo_view_y(v, HALO_H + sh_ty) - SH_PANEL_R);
+#else
     sh_circle(CX, CY, CX + 1, 0x000000);  // the disc: its lower edge is an arc while it comes
     // Where it covers the round screen whole: a row is under it while its chord of the disc holds the screen's chord —
     // with both circles on the same middle line that is every row above (screen + disc)/2 + (rd² − r²) / 2a, a — how
@@ -275,6 +306,7 @@ static void shade_layout(int s, const FaceScreen &S, int i, const HaloView &v) {
       if (a > 0.5f) sh_cover_y = (CY + dy) / 2 + (rd * rd - CX * CX) / (2 * a);
       else if (a > -0.5f && rd >= CX + 0.5f) sh_cover_y = HALO_H;
     }
+#endif
     // HaloWatch's volume screen over the panel: the panel's own parts fade through as it grows (volume.h)
     if (live) {
       HaloView vv = v;
@@ -283,7 +315,8 @@ static void shade_layout(int s, const FaceScreen &S, int i, const HaloView &v) {
     }
     sh_slider_put(acc, box, ink, live);
     static const uint8_t GRID[6] = {SI_WIFI, SI_MUTE, SI_AOD, SI_OFF, SI_LOCK, SI_VOL};
-    for (int k = 0; k < 6; k++) sh_button(GRID[k], 42 + (k % 3) * 130, 140 + (k / 3) * 110, acc, on, box, ink, live);
+    for (int k = 0; k < 6; k++)
+      sh_button(GRID[k], SH_GRID_X + (k % 3) * SH_GRID_DX, SH_GRID_Y + (k / 3) * SH_GRID_DY, acc, on, box, ink, live);
     sh_chip(box, ink);
   } else if (live && sh_vol_was) {  // closed: the volume screen's items away once (their place repainted)
     HaloView hidden = v;

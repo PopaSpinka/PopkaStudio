@@ -137,6 +137,9 @@ static void wg_curve_bake(const FaceLayer &L, FaceRun &R, const char *s) {
 static int wgr_items(uint8_t kind);
 static bool wgr_fc_tick(const FaceLayer &L, FaceRun &R);
 #endif
+#if defined(HALO_SQUARE) || defined(HALO_WATCH)
+#define WG_EDGE 1  // the rings go along the screen's own edge (widgets_rect.h wq_edge): the square's, the watch's glass
+#endif
 
 // ---------- Built once a change (face_layer_build) ----------
 static void wg_layer_build(const FaceScreen &S, int i) {
@@ -164,8 +167,9 @@ static void wg_layer_build(const FaceScreen &S, int i) {
     case FL_FORECAST:
     case FL_DATEFRAME:
     case FL_DOTCLOCK: R.g = new HaloItem[wgr_items(L.kind)](); break;
-#ifdef HALO_SQUARE
-    case FL_BATRING: R.g = new HaloItem[wgr_items(L.kind)](); break;  // (the square: the charge along its edges)
+#ifdef WG_EDGE
+    case FL_STEPRING:
+    case FL_BATRING: R.g = new HaloItem[wgr_items(L.kind)](); break;  // (the square, the watch: along the edges)
 #endif
 #endif
   }
@@ -418,8 +422,8 @@ static void wg_layout(const FaceScreen &S, int i, float a, const HaloView &v0) {
 static void wg_draw(const FaceScreen &S, int i) {
   const FaceLayer &L = S.layers[i];
   const FaceRun &R = S.run[i];
-#ifdef HALO_SQUARE
-  if (L.kind == FL_BATRING && wgr_draw(L, R)) return;  // (the square's: along the edges, not a ring)
+#ifdef WG_EDGE
+  if ((L.kind == FL_BATRING || L.kind == FL_STEPRING) && wgr_draw(L, R)) return;  // (along the edges, not a ring)
 #endif
   if (L.kind == FL_CURVE || L.kind == FL_STEPRING || L.kind == FL_BATRING) return halo_item_draw(R.pill);
 #ifndef HALO_ROUND

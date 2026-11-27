@@ -36,6 +36,12 @@
 #define PL_TITLE_W 311.0f
 #define PL_F_TITLE gl_title
 #define PL_F_ARTIST gl_t24
+#elif defined(HALO_WATCH)  // (player_rect.h: the rectangular watch's header — the round watch's title and artist, centred)
+#define PL_TITLE_W 362.0f
+#define PL_F_TITLE gl_title
+#define PL_F_ARTIST gl_t24
+extern const HaloFont gl_r_t56, gl_r_t32, gl_r_n24, gl_r_ic36;
+static void pr_build();
 #elif defined(HALO_SQUARE)  // (player_rect.h: the square's small header — the title and the artist beside a small cover)
 #define PL_TITLE_W 360.0f
 #define PL_F_TITLE gl_r_title

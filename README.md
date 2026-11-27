@@ -8,7 +8,7 @@
 ![PopkaStudio](docs/screenshots/editor.png)
 
 PopkaStudio is a visual editor for screen interfaces on ESP32 boards — a round 1.75″ watch, a 7″ ESP32-P4 display,
-a square 4″ panel and, from the community, the 3.5″ WT32-SC01 Plus. You put together a watch face, apps and screens from ready parts, link them like frames in Figma, and
+a square 4″ panel, a rectangular 2.06″ watch and, from the community, the 3.5″ WT32-SC01 Plus. You put together a watch face, apps and screens from ready parts, link them like frames in Figma, and
 press **Load** — the board gets firmware built from exactly what you made, running smoothly at 60 frames per second.
 
 The preview is not a mock-up: it is **the board's own code**, compiled to WebAssembly. What you see in the editor is
@@ -56,6 +56,8 @@ what the watch shows, pixel for pixel — the same fonts, the same animations, t
   wrist or a button, Wi-Fi (exact time and fresh weather), Bluetooth: one tile, a menu with how each is set, the
   switches and settings in the right card.
 - **Only what you add gets in.** A layer you don't use isn't in the firmware at all — no code, no fonts, sensors off.
+- **macOS, Linux and Windows** (Windows new in 2.8, by [wufwufmakc](https://github.com/wufwufmakc)) — the editor
+  is a page in your browser; a small helper on your computer builds the firmware and writes it over USB.
 
 ![The Agent's dot face, twelve moods](docs/screenshots/agent-faces.png)
 
@@ -90,6 +92,15 @@ what the watch shows, pixel for pixel — the same fonts, the same animations, t
   [YKatrechko](https://github.com/YKatrechko). The card must be FAT32: exFAT isn't read, and most cards over 32 GB come
   in exFAT, so format those to FAT32 first. **Early support:** a real battery, waking up by motion and the clock
   keeping the time while the board is off haven't been tried yet, and GPS isn't used yet. No Video.
+- [Waveshare ESP32-S3-Touch-AMOLED-2.06](https://www.waveshare.com/esp32-s3-touch-amoled-2.06.htm) (new in 2.8): a
+  rectangular 2.06″ AMOLED watch with a strap, 410 × 502, touch, the round 1.75C's chips (a motion sensor, a speaker
+  and microphones), a clock chip and a microSD slot. Every screen is laid out for a rectangular watch: the home screen
+  with the date and the weather along the top, the gallery of pills, Weather, Settings, About in tiles, Power, Battery,
+  Steps, Music, Recorder, the radio's poster, the games, Pomodoro along the glass, the Agent and the weather widgets;
+  Always On, the buttons, raising your wrist and Bluetooth too. **Early support:** upright only for now; a real
+  battery, waking up by touch, Bluetooth from a phone and Live haven't been tried on the board yet, the vibration motor
+  isn't used yet, and the glass's round corners are a guess — something at the very edge may hide a little under them.
+  No Video.
 
 Choose the board when you create a project; each project is for one board.
 
@@ -101,6 +112,8 @@ don't have that board ([CONTRIBUTING.md](CONTRIBUTING.md)).
 ![The 7″ board in PopkaStudio](docs/screenshots/p4.png)
 
 ![The 4″ square board in PopkaStudio](docs/screenshots/lcd4b.png)
+
+![The six boards in PopkaStudio's start window, the 2.06 watch picked](docs/screenshots/amoled206.png)
 
 ## Install — macOS and Linux
 
@@ -131,7 +144,33 @@ since yours. Click it to see what's new in each one, then **Update**: PopkaStudi
 **Load** your project again. The heart's window shows your version too, and its **Check** button checks right away.
 (Running `install.sh` again updates too.)
 
-Windows is not supported.
+## Install — Windows 10 and 11
+
+New in 2.8, ported by **[wufwufmakc](https://github.com/wufwufmakc)**. In PowerShell (no administrator needed):
+
+```powershell
+powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/PopaSpinka/PopkaStudio/main/install.ps1 | iex"
+```
+
+It needs [git](https://git-scm.com/download/win): if you don't have it, `winget install --id Git.Git -e`, then open a
+new PowerShell window. Prefer to look first? `git clone https://github.com/PopaSpinka/PopkaStudio.git`, read
+`install.ps1`, run `powershell -ExecutionPolicy Bypass -File .\install.ps1`.
+
+It puts the same things as `install.sh` into `%USERPROFILE%\PopkaStudio` (the ESP32 tools: 1.5–3 GB, 5–20 minutes the
+first time), plus a **PopkaStudio** shortcut in the Start menu and the command `popkastudio`.
+
+Then: **PopkaStudio** in the Start menu, or in a new terminal window:
+
+```powershell
+popkastudio
+```
+
+It opens **http://localhost:8466**. The small PopkaStudio window in the taskbar is its helper: close it to stop
+PopkaStudio. The board needs no driver — it shows up as a COM port. Updates come as on a Mac: the number on the heart,
+then **Update**. Video's **+** needs ffmpeg: `winget install ffmpeg`.
+
+Windows support is new: if something doesn't work, open an [issue](https://github.com/PopaSpinka/PopkaStudio/issues)
+with the log from the PopkaStudio window.
 
 ## First steps
 
@@ -155,7 +194,8 @@ the factory demo.
 ## Trouble?
 
 - **No board in the list** — try another cable (some carry only power). Linux: did you log out and back in after
-  installing? Ubuntu's ModemManager can grab the port: `sudo systemctl stop ModemManager`.
+  installing? Ubuntu's ModemManager can grab the port: `sudo systemctl stop ModemManager`. Windows: a COM port opens in
+  one program at a time — close the Arduino IDE or a serial monitor that has it.
 - **Load can't reach the board** — PopkaStudio shows how: hold **BOOT**, plug the cable in again, then **Load
   again**.
 - **Load failed** — the log is under the Load button; open an [issue](https://github.com/PopaSpinka/PopkaStudio/issues)
@@ -244,6 +284,9 @@ side started from his pull request too. Thank you!
 The Music player's tracks from the microSD card on the AMOLED-1.75 are by **[YKatrechko](https://github.com/YKatrechko)**,
 whose pull request also tried the screen, touch, sound, Recorder and Bluetooth on a 1.75 without the “C”. The
 **Pomodoro** app is theirs too — its timer, its round screen and its settings. Thank you!
+
+PopkaStudio on Windows — the installer, the launcher, COM ports and the update — is by
+**[wufwufmakc](https://github.com/wufwufmakc)**. Thank you!
 
 The code is written from scratch. The motion follows published open-source numbers, no firmware or app was
 decompiled, and no code was taken from GPL projects:

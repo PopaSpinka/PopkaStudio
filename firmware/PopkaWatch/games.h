@@ -188,6 +188,12 @@ static uint32_t gm_full[FL_SNKISO - FL_SNKDOTS + 1];     // (the screen itself s
 #define GM_ISO_S (HALO_W >= HALO_H ? 0.78f : 0.68f)
 #define GM_ISO_Y (HALO_H * 0.52f)
 #define GM_ISO_MINI 0.36f
+#ifdef HALO_WATCH  // (a rectangular watch: in a pill's round window, 90 px)
+#undef GM_SPACE_MINI
+#undef GM_ISO_MINI
+#define GM_SPACE_MINI 0.2f
+#define GM_ISO_MINI 0.2f
+#endif
 #elif defined(HALO_P4_TALL)  // the 7″ board held tall (600 × 1024): the round fields across its width in the middle of its
                              // height, the stars to the top and bottom; in a card — a wide, short band (rect-tall.html 3A)
 #define GM_SPACE_CY CX      // Comet: the hole, at (CX, CX) as on the watch

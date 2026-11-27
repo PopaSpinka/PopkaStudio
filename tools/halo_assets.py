@@ -381,9 +381,9 @@ def main():
     src = os.path.join(sketch, "src")
     os.makedirs(src, exist_ok=True)
     head = "// Сгенерировано tools/halo_assets.py из assets/halo.conf — руками не править.\n"
-    with open(os.path.join(src, "halo_assets.h"), "w") as f:
+    with open(os.path.join(src, "halo_assets.h"), "w", encoding="utf-8") as f:
         f.write(head + "#pragma once\n#include <Halo.h>\n\n" + "\n".join(out.h) + "\n")
-    with open(os.path.join(src, "halo_assets.cpp"), "w") as f:
+    with open(os.path.join(src, "halo_assets.cpp"), "w", encoding="utf-8") as f:
         f.write(head + '#include "halo_assets.h"\n\n' + "\n\n".join(out.c) + "\n")
     print(f"in all {total / 1024:.0f} KB of flash → {os.path.relpath(src, ROOT)}/halo_assets.*, previews — "
           f"{os.path.relpath(preview, ROOT)}/")
